@@ -34,3 +34,8 @@ _code/WEB_TaoBao_Profile1.vbs
 
 # Public assets generated at runtime
 _public/01.IMAGES/
+
+# Python bytecode / cache
+# __pycache__/
+*.py[cod]
+*$py.class
