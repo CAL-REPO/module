@@ -50,7 +50,7 @@ class ImageLoaderPolicy(BaseModel):
     meta_dir: Optional[Path]
         Directory where the metadata JSON will be saved.  If ``None``, the
         value of ``dest_dir`` (or the source directory) is used.
-    copy: bool
+    save_copy: bool
         Whether to copy and optionally resize the image.  If ``False``,
         no image file will be written and the destination path in the
         metadata will match ``src_path``.
@@ -58,7 +58,7 @@ class ImageLoaderPolicy(BaseModel):
         Whether to write a metadata JSON file.  When ``False``, metadata
         will be returned in memory but no file will be created.
     resize_to: Optional[Tuple[int, int]]
-        If provided and ``copy`` is ``True``, the image will be resized to this
+        If provided and ``save_copy`` is ``True``, the image will be resized to this
         ``(width, height)`` using a high‑quality resampling filter.  Ratios are
         computed and stored in metadata.
     suffix: str
@@ -76,7 +76,7 @@ class ImageLoaderPolicy(BaseModel):
     src_path: Path
     dest_dir: Optional[Path] = None
     meta_dir: Optional[Path] = None
-    copy: bool = Field(True, description="Whether to copy/resize the image.")
+    save_copy: bool = Field(True, description="Whether to copy/resize the image.")
     write_meta: bool = Field(True, description="Whether to write metadata JSON to disk.")
     resize_to: Optional[Tuple[int, int]] = None
     suffix: str = Field("_copy", description="Suffix appended to the filename stem.")
@@ -101,13 +101,21 @@ class ImageLoader:
     :class:`~log_utils.manager.LogManager`.
     """
 
-    def __init__(self, policy: ImageLoaderPolicy):
-        self.policy = policy
+    def __init__(self, policy_or_path):
+        # policy_or_path: ImageLoaderPolicy | str | Path
+        if isinstance(policy_or_path, (str, Path)):
+            from modules.cfg_utils import ConfigLoader
+            cfg = ConfigLoader(policy_or_path).as_model(ImageLoaderPolicy)
+            self.policy = cfg
+        elif isinstance(policy_or_path, ImageLoaderPolicy):
+            self.policy = policy_or_path
+        else:
+            raise TypeError(f"ImageLoader: policy_or_path must be ImageLoaderPolicy or yaml path, got {type(policy_or_path)}")
         # Resolve default directories relative to the source path
-        self.dest_dir = (policy.dest_dir or policy.src_path.parent).resolve()
-        self.meta_dir = (policy.meta_dir or self.dest_dir).resolve()
+        self.dest_dir = (self.policy.dest_dir or self.policy.src_path.parent).resolve()
+        self.meta_dir = (self.policy.meta_dir or self.dest_dir).resolve()
         # Use provided log policy or a default one
-        self.log_policy = policy.log_policy or LogPolicy()
+        self.log_policy = self.policy.log_policy or LogPolicy()
 
     def _build_dest_path(self) -> Path:
         """Construct a destination path for the processed image using fso_utils."""
@@ -133,7 +141,7 @@ class ImageLoader:
         filename = image_path.stem + ".json"
         return self.meta_dir / filename
 
-    def run(self, image: Optional[Image.Image] = None) -> dict[str, Any]:
+    def _run_impl(self, image: Optional[Image.Image] = None) -> dict[str, Any]:
         """Execute the image load, optional copy/resize, and metadata persistence.
 
         Parameters
@@ -163,7 +171,7 @@ class ImageLoader:
             logger.info(f"[ImageLoader] 원본 크기: {orig_width}x{orig_height}")
 
             # Determine whether to copy and/or resize
-            if self.policy.copy:
+            if self.policy.save_copy:
                 # Optionally resize
                 new_width, new_height = orig_width, orig_height
                 processed_img = img
@@ -212,6 +220,60 @@ class ImageLoader:
             metadata["meta_path"] = str(meta_path) if self.policy.write_meta else None
             return metadata
         except Exception as e:
-            # Log the error and re‑raise
-            logger.error(f"[ImageLoader] 오류 발생: {e}")
-            raise
+            logger.error(f"[ImageLoader] 오류 발생: {e}", exc_info=True)
+            return {}
+
+    class _RunProxy:
+        """Callable proxy returned by the `run` property.
+
+        - Calling the proxy executes the real loader implementation.
+        - Use `.debug()` to enter pdb before execution.
+        - Plain access returns the proxy (no execution).
+        """
+        def __init__(self, loader: "ImageLoader"):
+            self._loader = loader
+
+        def __call__(self, image: Optional[Image.Image] = None) -> dict[str, Any]:
+            return self._loader._run_impl(image)
+
+        def debug(self, image: Optional[Image.Image] = None):
+            import pdb
+
+            pdb.set_trace()
+            return self.__call__(image)
+
+        def __repr__(self):
+            return f"<ImageLoader.run proxy; call with () to execute or .debug() to run under pdb>"
+
+    @property
+    def run(self) -> "ImageLoader._RunProxy":
+        """Return a callable proxy. Accessing this property does not execute processing.
+
+        If the environment variable `IMAGELOADER_DEBUG_ON_ATTR` is set to a
+        truthy value, the proxy will automatically enter the debugger on access
+        by calling `pdb.set_trace()` once (useful during interactive debugging).
+        """
+        proxy = ImageLoader._RunProxy(self)
+        # Emit a warning so plain attribute access is visible to the developer.
+        try:
+            manager = LogManager(name="ImageLoader", policy=self.log_policy)
+            logger = manager.setup()
+            logger.warning("[ImageLoader] `.run` 속성에 접근했습니다. 실행하려면 `.run()`을 호출하세요. 디버그하려면 `.run.debug()`를 사용하세요.")
+        except Exception:
+            pass
+        try:
+            # Also print to stdout so it's visible in simple script runs
+            print("[경고] ImageLoader.run 속성에 접근했습니다. 실행하려면 ImageLoader(...).run()을 호출하세요. 디버그하려면 .run.debug()를 사용하세요.")
+        except Exception:
+            pass
+        # Optional: auto-enter debugger on attribute access when env var set
+        try:
+            import os
+
+            if os.getenv("IMAGELOADER_DEBUG_ON_ATTR"):
+                import pdb
+
+                pdb.set_trace()
+        except Exception:
+            pass
+        return proxy

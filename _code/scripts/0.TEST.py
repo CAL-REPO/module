@@ -45,11 +45,13 @@
 
 # run_crawl(cfg_path)
 
-from firefox.driver import FirefoxDriver
-cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\firefox.yaml"
+# from firefox.driver import FirefoxDriver
+# cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\firefox.yaml"
 
-ff = FirefoxDriver(cfg_path).driver
-ff.quit()
+# ff = FirefoxDriver(cfg_path).driver
+# ff.quit()
+
+
 
 # from modules.xl_utils.test import test_xlwings_from_yaml
 
@@ -61,8 +63,8 @@ ff.quit()
 # print("Home Directory:", home())
 # print("Downloads Directory:", downloads())
 
-# from pillow_utils.image_loader import ImageLoader
-# cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\pillow.yaml"
+from pillow_utils.image_loader import ImageLoader
+cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\pillow.yaml"
 
-# ff = ImageLoader(cfg_path).run
+ImageLoader(cfg_path).run()
 

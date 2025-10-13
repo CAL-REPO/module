@@ -1,0 +1,9 @@
+2025-10-14 05:33:11.729 | INFO     | log_utils.context_manager:__enter__:69 - [firefox] Logging started.
+2025-10-14 05:33:11.730 | DEBUG    | firefox.driver:__init__:32 - FirefoxDriver initialized.
+2025-10-14 05:33:11.731 | DEBUG    | firefox.driver:driver:51 - Creating WebDriver instance...
+2025-10-14 05:33:11.731 | DEBUG    | firefox.driver:create:61 - Set binary path: C:\Program Files\Mozilla Firefox\firefox.exe
+2025-10-14 05:33:11.731 | DEBUG    | firefox.driver:create:66 - Using Firefox profile: M:\Firefox_Profile\THKIM
+2025-10-14 05:33:11.733 | DEBUG    | firefox.driver:create:79 - Restoring headers from session file
+2025-10-14 05:33:11.733 | INFO     | firefox.driver:create:95 - Launching Firefox WebDriver
+2025-10-14 05:33:19.593 | INFO     | firefox.driver:quit:104 - FirefoxDriver session terminated.
+2025-10-14 05:33:19.594 | INFO     | log_utils.context_manager:__exit__:98 - [firefox] Logging finished.

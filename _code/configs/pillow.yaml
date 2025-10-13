@@ -11,7 +11,7 @@ dest_dir: "M:/CALife/CAShop - 구매대행/_code/scripts"        # Directory to 
 meta_dir: "M:/CALife/CAShop - 구매대행/_code/scripts"             # Directory to save the metadata JSON.  If null, dest_dir is used.
 
 # Operation flags
-copy: true                      # Set to false to skip copying/resizing the image.
+save_copy: true                      # Set to false to skip copying/resizing the image.
 write_meta: true                # Set to false to return metadata in memory only (no JSON file written).
 
 # Resize settings

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Sequence, Type, TypeVar, Union, Optional
 from pydantic import BaseModel, ValidationError
 
-from yaml_utils.parser import YamlParser
+from modules.structured_io.formats.yaml_io import YamlParser
 from keypath_utils import KeyPathDict
 from .normalizer import ConfigNormalizer
 from .policy import ConfigPolicy

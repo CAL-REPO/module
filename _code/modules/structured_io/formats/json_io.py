@@ -4,8 +4,8 @@ import json
 from typing import Any
 from structured_io.base.base_parser import BaseParser
 from structured_io.base.base_dumper import BaseDumper
-from structured_io.utils.placeholder_resolver import PlaceholderResolver
-from structured_io.utils.reference_resolver import ReferenceResolver
+from unify_utils.normalizers.placeholder_resolver import PlaceholderResolver
+from unify_utils.normalizers.reference_resolver import ReferenceResolver
 
 class JsonParser(BaseParser):
     """

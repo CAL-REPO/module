@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 # Import the base parser policy from structured_io.  This replaces the
 # older YamlParserPolicy used in previous versions of cfg_utils.
-from structured_io.base.base_policy import BaseParserPolicy
+from modules.structured_io.base.base_policy import BaseParserPolicy
 
 
 class ConfigPolicy(BaseModel):
@@ -48,7 +48,7 @@ class ConfigPolicy(BaseModel):
     # YAML parsing options (delegated)
     # ------------------------------------------------------------------
     yaml_policy: BaseParserPolicy = Field(
-        default_factory=BaseParserPolicy,
+        default_factory=lambda: BaseParserPolicy(), # pyright: ignore[reportCallIssue]
         description=(
             "Policy governing YAML parsing behavior.  This includes encoding, "
             "environment variable expansion, include directives and other lower‑level rules."

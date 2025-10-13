@@ -2,8 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from typing import Any
-from fso_utils.ops import FSOOps
-from fso_utils.policy import FSOOpsPolicy
+from modules.fso_utils import FSOOps, FSOOpsPolicy
 
 class StructuredFileIO:
     """포맷 무관한 파일 단위 입출력 어댑터 (fso_utils 연동)"""
