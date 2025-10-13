@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from .core.policy import (
+
+from .policy import (
     FSOOpsPolicy,
     FSOExplorerPolicy,
     ExistencePolicy,
@@ -7,9 +8,9 @@ from .core.policy import (
     FSOIOPolicy,
     FSONamePolicy,
 )
-from .core.ops import FSOOps
-from .core.explorer import FSOExplorer
-from .core.path_builder import FSOPathBuilder
+from .ops import FSOOps
+from .path_builder import FSOPathBuilder
+from .io import JsonFileIO, BinaryFileIO, FileReader, FileWriter
 
 __all__ = [
     "FSOOpsPolicy",
@@ -19,6 +20,9 @@ __all__ = [
     "ExistencePolicy",
     "FileExtensionPolicy",
     "FSOOps",
-    "FSOExplorer",
     "FSOPathBuilder",
+    "JsonFileIO",
+    "BinaryFileIO",
+    "FileReader",
+    "FileWriter",
 ]

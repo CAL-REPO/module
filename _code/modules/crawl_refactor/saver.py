@@ -7,8 +7,8 @@ import asyncio
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-from fso_utils.path_builder import FSOPathBuilder
-from fso_utils.policy import FSONamePolicy, FSOOpsPolicy, ExistencePolicy
+from fso_utils.core.path_builder import FSOPathBuilder
+from fso_utils.core.policy import FSONamePolicy, FSOOpsPolicy, ExistencePolicy
 
 from .fetcher import HTTPFetcher
 from .interfaces import CrawlSaver, ResourceFetcher
