@@ -24,7 +24,7 @@ def _default_log_policy() -> LogPolicy:
         extension="log",
         ensure_unique=True,
     )
-    return LogPolicy(dir_name="Firefox", file_name_policy=file_policy)
+    return LogPolicy(dir_name="Firefox", file_name_policy=file_policy) # pyright: ignore[reportCallIssue]
 
 
 # -------------------------------------------------------------------------

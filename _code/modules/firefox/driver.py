@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import shutil
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
@@ -16,8 +17,8 @@ from log_utils import LogContextManager
 
 
 class FirefoxDriver:
-    def __init__(self, cfg_like: FirefoxConfig | dict | str, **overrides: Any):
-        self.config: FirefoxConfig = ConfigLoader(cfg_like).as_model(FirefoxConfig, **overrides)
+    def __init__(self, cfg_like: Union[FirefoxConfig, dict[str, Any], str, Path, None] = None, **overrides: Any):
+        self.config = self._load_config(cfg_like, **overrides)
         self._driver: Optional[webdriver.Firefox] = None
 
         self._log_context = LogContextManager("firefox", policy=self.config.log_policy)
@@ -25,6 +26,20 @@ class FirefoxDriver:
         self._logging_active = True
         self._context_managed = False
         self.logger.debug("FirefoxDriver initialized.")
+
+    @staticmethod
+    def _load_config(cfg_like: Union[FirefoxConfig, dict[str, Any], str, Path, None], **overrides: Any) -> FirefoxConfig:
+        if isinstance(cfg_like, FirefoxConfig):
+            return cfg_like.model_copy(update=overrides)
+        if isinstance(cfg_like, (str, Path)):
+            loader = ConfigLoader(str(cfg_like))
+            return loader.as_model(FirefoxConfig, **overrides)
+        if isinstance(cfg_like, dict):
+            merged = {**cfg_like, **overrides}
+            return FirefoxConfig(**merged)
+        if cfg_like is None:
+            return FirefoxConfig(**overrides)
+        raise TypeError(f"Unsupported Firefox config input: {type(cfg_like)!r}")
 
     @property
     def driver(self) -> webdriver.Firefox:
@@ -87,6 +102,8 @@ class FirefoxDriver:
                 self.logger.warning(f"Error during driver quit: {e}")
             finally:
                 self._driver = None
+        if not self._context_managed:
+            self._stop_logging()
 
     def _get_driver_path(self) -> str:
         if self.config.driver_path:
@@ -150,5 +167,8 @@ class FirefoxDriver:
             self._log_context.__exit__(exc_type, exc_val, exc_tb)
             self._logging_active = False
 
-        if not self._context_managed:
-            self._stop_logging()
+    def __del__(self):
+        try:
+            self.quit()
+        except Exception:
+            pass

@@ -102,6 +102,16 @@ class ConfigLoader:
     def as_model(self, model: Type[T], **overrides: Any) -> T:
         """최종 모델 변환"""
         data = self.as_dict(**overrides)
+        model_name = model.__name__.lower()
+        candidates = [model_name]
+        if model_name.endswith("config"):
+            candidates.append(model_name[:-6])
+        for key in candidates:
+            if key and isinstance(data.get(key), dict):
+                data = data[key]
+                break
+        # ensure dict keys are strings
+        data = {str(k): v for k, v in data.items()}
         try:
             return model(**data)
         except ValidationError as e:

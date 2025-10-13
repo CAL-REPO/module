@@ -1,0 +1,70 @@
+# -*- coding: utf-8 -*-
+
+crawl:
+  navigation:
+    base_url: "https://example.com/search"
+    url_template: "https://example.com/search?page={page}&q={query}"
+    params:
+      query: "sample"
+    page_param: "page"
+    start_page: 1
+    max_pages: 2
+
+  scroll:
+    strategy: "infinite"
+    max_scrolls: 3
+    scroll_pause_sec: 0.75
+
+  wait:
+    hook: "css"
+    selector: ".result-item"
+    timeout_sec: 10.0
+    condition: "visibility"
+
+  extractor:
+    type: "js"
+    js_snippet: |
+      const items = [];
+      document.querySelectorAll('.result-item img').forEach((img) => {
+        let url = img.getAttribute('data-src') || img.getAttribute('src') || '';
+        if (url.startsWith('//')) url = 'https:' + url;
+        if (/^https?:\/\//i.test(url)) {
+          items.push({ url, caption: img.getAttribute('alt') || '' });
+        }
+      });
+      return items;
+
+  normalization:
+    rules:
+      - kind: "image"
+        source: "payload.url"
+        static_section: "results"
+        name_template: "{section}_{record_index}_{item_index}"
+        extension: "jpg"
+      - kind: "text"
+        source: "payload.caption"
+        static_section: "results"
+        name_template: "{section}_{record_index}_{item_index}_caption"
+        allow_empty: false
+
+  storage:
+    image:
+      base_dir: "_output/crawl/images"
+      name_template: "{section}_{record_index}_{item_index}"
+      ensure_unique: true
+    text:
+      base_dir: "_output/crawl/text"
+      name_template: "{section}_{record_index}_{item_index}"
+      extension: "txt"
+      ensure_unique: false
+
+  http_session:
+    use_browser_headers: true
+    session_json_path: "data/db/fonts/session/firefox_HK.json"
+    headers:
+      Accept-Language: "ko-KR,ko;q=0.9"
+      User-Agent: "Mozilla/5.0 (compatible)"
+  concurrency: 2
+  retries: 2
+  retry_backoff_sec: 1.0
+

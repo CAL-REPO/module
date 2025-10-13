@@ -94,7 +94,6 @@ class FileWriter(BaseFileHandler):
 
 
 # 파일 형식별 IO 클래스들
-
 class JsonFileIO:
     def __init__(
         self,
