@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Optional
 
 from typing import Union
-PathLike = Union[str, Path]
+from data_utils.types import PathLike
 from .policy import FSOOpsPolicy
 
 class FSOOps:
     def __init__(self, base: PathLike, policy: Optional[FSOOpsPolicy] = None):
         self._raw = Path(base).expanduser()
-        self.policy = policy or FSOOpsPolicy()
+        self.policy = policy or FSOOpsPolicy() # pyright: ignore[reportCallIssue]
         self.path = self.policy.apply_to(self._raw)  # 정책 적용 (이제 policy.py로 이동됨)
 
     @property

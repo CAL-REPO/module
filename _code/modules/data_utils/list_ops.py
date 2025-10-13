@@ -6,9 +6,17 @@ from __future__ import annotations
 from typing import Any, List, Iterable
 
 class ListOps:
-    """리스트 관련 유틸리티 함수 모음"""
+    """Utility functions for list operations."""
     @staticmethod
     def dedupe_keep_order(seq: Iterable[Any]) -> List[Any]:
+        """Remove duplicates from a sequence while preserving the original order.
+
+        Args:
+            seq: An iterable possibly containing duplicate values.
+
+        Returns:
+            A list of unique values in the order they first appeared in ``seq``.
+        """
         seen: set[Any] = set()
         out: List[Any] = []
         for x in seq:

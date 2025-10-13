@@ -10,48 +10,51 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 # =======================================================
 
 PathLike = Union[str, Path]
-"""파일 경로로 사용 가능한 str 또는 pathlib.Path 객체"""
+"""A path-like type representing either a string or a :class:`pathlib.Path`."""
 
 KeyPath = Union[str, List[str]]
-"""딕셔너리 탐색에 사용되는 키 경로: "a.b.c" 또는 ["a", "b", "c"] 형태"""
+"""A key path used for dictionary navigation.
+
+May be provided as a dotted string (e.g. ``"a.b.c"``) or as a list of keys (e.g. ``["a", "b", "c"]``).
+"""
 
 JsonDict = Dict[str, Any]
-"""JSON 구조(dict) 표현용 기본 타입"""
+"""Base type for JSON-like dictionary structures."""
 
 SectionName = Optional[str]
-"""섹션 이름 (예: 그룹화된 데이터 블록의 키)"""
+"""Name of a section (e.g. the key of a grouped data block)."""
 
 FieldName = Optional[str]
-"""데이터 항목의 키 (예: 컬럼 이름, 라벨 등)"""
+"""Key for a data item (e.g. a column name or label)."""
 
 # =======================================================
 # ✅ 그룹 구조 관련 타입
 # =======================================================
 
 GroupedPairDict = Dict[SectionName, List[Tuple[FieldName, Any]]]
-"""
-section → (key, value) 목록
+"""Type alias for a dictionary mapping section names to lists of ``(key, value)`` tuples.
 
-예시:
-{
-    "user": [("name", "Alice"), ("age", 30)],
-    "meta": [("source", "API")],
-    None: [("note", "unlabeled")]
-}
+Example::
+
+    {
+        "user": [("name", "Alice"), ("age", 30)],
+        "meta": [("source", "API")],
+        None: [("note", "unlabeled")]
+    }
 """
 
 MultiValueGroupDict = Dict[SectionName, Dict[FieldName, List[Any]]]
-"""
-section → key → [value1, value2, ...]
+"""Type alias for a dictionary mapping section names to dictionaries of keys and lists of values.
 
-예시:
-{
-    "user": {
-        "name": ["Alice", "Alicia"],
-        "age": [30]
-    },
-    None: {
-        "note": ["unlabeled"]
+Example::
+
+    {
+        "user": {
+            "name": ["Alice", "Alicia"],
+            "age": [30]
+        },
+        None: {
+            "note": ["unlabeled"]
+        }
     }
-}
 """

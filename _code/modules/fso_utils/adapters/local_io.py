@@ -28,7 +28,7 @@ class FSOPathBuilderAdapter(IPathBuilderPort):
     ) -> Path:
         target_dir = base_dir / (sub_dir or kind)
         # name is already resolved by caller (e.g., name_template + indices)
-        name_policy = FSONamePolicy(as_type="file", name=name, extension=extension, ensure_unique=ensure_unique)
-        ops_policy = FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True))
+        name_policy = FSONamePolicy(as_type="file", name=name, extension=extension, ensure_unique=ensure_unique) # pyright: ignore[reportCallIssue]
+        ops_policy = FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True)) # pyright: ignore[reportCallIssue]
         builder = FSOPathBuilder(target_dir, name_policy, ops_policy)
         return builder()

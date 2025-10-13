@@ -6,7 +6,22 @@ from .df_ops import DataFramePolicy, DataFrameOps
 from .dict_ops import DictOps
 from .list_ops import ListOps
 from .string_ops import StringOps
-from .trans_ops import DataTransOps
+from .trans_ops import TransOps
 from .types import PathLike, KeyPath, JsonDict, SectionName, FieldName, GroupedPairDict, MultiValueGroupDict
 
-__all__ = ["Convert", "DataFramePolicy", "DataFrameOps", "DictOps", "ListOps", "StringOps", "DataTransOps", "PathLike", "KeyPath", "JsonDict", "SectionName", "FieldName", "GroupedPairDict", "MultiValueGroupDict"]
+__all__ = [
+    "Convert",
+    "DataFramePolicy",
+    "DataFrameOps",
+    "DictOps",
+    "ListOps",
+    "StringOps",
+    "TransOps",
+    "PathLike",
+    "KeyPath",
+    "JsonDict",
+    "SectionName",
+    "FieldName",
+    "GroupedPairDict",
+    "MultiValueGroupDict",
+]

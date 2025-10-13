@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from typing import Union
-PathLike = Union[str, Path]
+from data_utils.types import PathLike
 from .policy import FSOExplorerPolicy
 
 class FSOExplorer:
@@ -20,12 +20,13 @@ class FSOExplorer:
 
     def __init__(self, root: PathLike, policy: Optional[FSOExplorerPolicy] = None):
         self.root = Path(root).expanduser().resolve()
-        self.policy = policy or FSOExplorerPolicy()
+        self.policy = policy or FSOExplorerPolicy() # pyright: ignore[reportCallIssue]
 
+        # Validate that the root exists and is a directory. Use English messages for errors.
         if not self.root.exists():
-            raise FileNotFoundError(f"지정된 경로가 존재하지 않음: {self.root}")
+            raise FileNotFoundError(f"Specified path does not exist: {self.root}")
         if not self.root.is_dir():
-            raise NotADirectoryError(f"디렉터리 경로가 아님: {self.root}")
+            raise NotADirectoryError(f"Path is not a directory: {self.root}")
 
     def _filter(self, paths: List[Path]) -> List[Path]:
         result = []

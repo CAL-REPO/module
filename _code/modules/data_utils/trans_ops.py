@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Tuple
 from boltons.iterutils import remap
 
 
-class DataTransOps:
+class TransOps:
     """데이터 구조 변환용 정적 유틸리티.
 
     주요 기능:

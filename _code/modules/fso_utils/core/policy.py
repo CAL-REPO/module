@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Sequence
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 
 class FSONamePolicy(BaseModel):
@@ -46,8 +46,8 @@ class FileExtensionPolicy(BaseModel):
 
 class FSOOpsPolicy(BaseModel):
     as_type: str = Field("file", description="file or dir")
-    exist: ExistencePolicy = Field(default_factory=ExistencePolicy)
-    ext: FileExtensionPolicy = Field(default_factory=FileExtensionPolicy)
+    exist: ExistencePolicy = Field(default_factory=ExistencePolicy) # pyright: ignore[reportArgumentType]
+    ext: FileExtensionPolicy = Field(default_factory=FileExtensionPolicy) # pyright: ignore[reportArgumentType]
 
     def apply_to(self, raw: Path) -> Path:
         path = raw
@@ -81,10 +81,10 @@ class FSOIOPolicy(BaseModel):
     encoding: str = Field("utf-8", description="Default text encoding")
     atomic_writes: bool = Field(True, description="Write files atomically")
     reader: FSOOpsPolicy = Field(
-        default_factory=lambda: FSOOpsPolicy(as_type="file", exist=ExistencePolicy(must_exist=True))
+        default_factory=lambda: FSOOpsPolicy(as_type="file", exist=ExistencePolicy(must_exist=True)) # pyright: ignore[reportCallIssue]
     )
     writer: FSOOpsPolicy = Field(
-        default_factory=lambda: FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True))
+        default_factory=lambda: FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True)) # pyright: ignore[reportCallIssue]
     )
 
 

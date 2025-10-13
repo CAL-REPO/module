@@ -34,9 +34,11 @@ class FSOPathBuilder:
 
         if not self.base_dir.exists():
             if self.ops_policy.exist.create_if_missing:
+                # Create the base directory when missing, as allowed by the existence policy
                 self.base_dir.mkdir(parents=True, exist_ok=True)
             else:
-                raise FileNotFoundError(f"기본 디렉터리가 존재하지 않습니다: {self.base_dir}")
+                # Raise an English-language error when the base directory is missing
+                raise FileNotFoundError(f"Base directory does not exist: {self.base_dir}")
 
     def build(self, **override) -> Path:
         """

@@ -9,10 +9,10 @@ from boltons.iterutils import remap
 
 
 class DictOps:
-    """
-    boltons.iterutils.remap 기반 dict 조작 유틸리티.
-    - deep_update: 재귀 병합
-    - rekey: 키 리매핑
+    """Dictionary manipulation utilities based on :func:`boltons.iterutils.remap`.
+
+    Provides static methods for recursively merging dictionaries and remapping
+    keys according to a mapping or callable.
     """
 
     # ------------------------------------------------------------------
@@ -20,11 +20,20 @@ class DictOps:
     # ------------------------------------------------------------------
     @staticmethod
     def deep_update(base: Dict[str, Any], patch: Dict[str, Any], *, inplace: bool = True) -> Dict[str, Any]:
-        """
-        remap 기반 재귀 병합
-        base: 대상 dict
-        patch: 병합할 dict
-        inplace: 원본 수정 여부
+        """Recursively merge ``patch`` into ``base``.
+
+        Uses :func:`boltons.iterutils.remap` to traverse the patch dictionary
+        and merge nested dictionaries. Non-dictionary values will overwrite
+        existing values. Nested dictionaries are merged recursively.
+
+        Args:
+            base: The destination dictionary to merge into.
+            patch: The source dictionary whose values should be merged into ``base``.
+            inplace: If ``True``, modifies ``base`` in place. If ``False``, a deep
+                copy of ``base`` is merged and returned.
+
+        Returns:
+            The merged dictionary.
         """
         target = base if inplace else copy.deepcopy(base)
 
@@ -48,10 +57,17 @@ class DictOps:
         *,
         deep: bool = True,
     ) -> Dict[str, Any]:
-        """
-        remap 기반 키 리매핑
-        - mapping: {"old": "new"}
-        - func: lambda k: k.upper()
+        """Remap the keys of a dictionary using a mapping or callable.
+
+        Args:
+            data: The dictionary whose keys should be remapped.
+            mapping_or_func: Either a mapping of old key to new key names, or a
+                callable that takes a key and returns a new key.
+            deep: If ``True``, remap keys in nested dictionaries recursively.
+                If ``False``, only remap the top-level keys.
+
+        Returns:
+            A new dictionary with keys remapped according to ``mapping_or_func``.
         """
 
         def visit(path, key, value):
