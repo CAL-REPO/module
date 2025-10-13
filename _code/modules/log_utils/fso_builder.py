@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 from pathlib import Path
-from fso_utils.path_builder import FSOPathBuilder
+from fso_utils.core.path_builder import FSOPathBuilder
 
 from .policy import LogPolicy
 
