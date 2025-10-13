@@ -62,6 +62,6 @@ class ImageSaver:
         out_dir = FSOOps(self.policy.meta.directory or self.policy.file.path.parent, policy=dir_policy).path
         path = out_dir / self.policy.meta.filename
 
-        JsonFileIO(path, policy=FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True))).write(meta.__dict__)
+        JsonFileIO(path, ops_policy=FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True))).write(meta.__dict__)
         self.logger.info(f"메타데이터 저장 완료: {path}")
         return path

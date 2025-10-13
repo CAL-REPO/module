@@ -4,7 +4,6 @@
 from __future__ import annotations
 from typing import Any
 from unify_utils.normalizers.reference_resolver import ReferenceResolver
-from data_utils.dict_ops import DictOps
 
 class ConfigNormalizer:
     """Config 데이터 후처리기
@@ -19,7 +18,7 @@ class ConfigNormalizer:
 
         # 1️⃣ Reference 해석
         if self.policy.resolve_reference:
-            result = ReferenceResolver(result, strict=False).apply(result)
+            result = ReferenceResolver(result, recursive=True, strict=False).apply(result)
 
         # 2️⃣ Blank 필터링
         if self.policy.drop_blanks:

@@ -52,14 +52,16 @@ class ConfigLoader:
 
         # ② YAML 파일 or 리스트
         elif isinstance(self.cfg_like, (str, Path)):
-            text = Path(self.cfg_like).read_text(encoding="utf-8")
-            yaml_data = self.parser.parse(text)
+            path = Path(self.cfg_like)
+            text = path.read_text(encoding=self.parser.policy.encoding)
+            yaml_data = self.parser.parse(text, base_path=path)
             self._data.merge(yaml_data, deep=deep)
 
         elif isinstance(self.cfg_like, Sequence):
             for p in self.cfg_like:
-                text = Path(p).read_text(encoding="utf-8")
-                yaml_data = self.parser.parse(text)
+                path = Path(p)
+                text = path.read_text(encoding=self.parser.policy.encoding)
+                yaml_data = self.parser.parse(text, base_path=path)
                 self._data.merge(yaml_data, deep=deep)
 
         # ③ dict 직접 입력

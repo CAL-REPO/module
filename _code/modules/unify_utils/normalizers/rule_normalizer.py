@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from ..core.base import NormalizerBase
-from ..core.policy import RuleType, RegexFlag, LetterCase, RuleNormalizePolicy
+from ..core.normalizer_base import NormalizerBase
+from ..core.base import RuleType, RegexFlag, LetterCase, RuleNormalizePolicy
 
 
 class RuleBasedNormalizer(NormalizerBase):

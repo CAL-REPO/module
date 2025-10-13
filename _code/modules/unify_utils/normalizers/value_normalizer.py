@@ -6,8 +6,8 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from typing import Any, Optional
-from ..core.base import NormalizerBase
-from ..core.policy import ValueNormalizePolicy
+from ..core.normalizer_base import NormalizerBase
+from ..core.base import ValueNormalizePolicy
 
 
 class ValueNormalizer(NormalizerBase):

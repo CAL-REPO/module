@@ -106,6 +106,20 @@ class FSOOpsPolicy(BaseModel):
         return path
 
 
+class FSOIOPolicy(BaseModel):
+    encoding: str = Field("utf-8", description="텍스트 파일 입출력 기본 인코딩")
+    atomic_writes: bool = Field(True, description="파일 쓰기 시 원자적 교체 수행 여부")
+    reader: FSOOpsPolicy = Field(
+        default_factory=lambda: FSOOpsPolicy(as_type="file", exist=ExistencePolicy(must_exist=True))
+    )
+    writer: FSOOpsPolicy = Field(
+        default_factory=lambda: FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True))
+    )
+
+    def copy_with(self, **updates) -> "FSOIOPolicy":
+        return self.model_copy(update=updates)
+
+
 class FSOExplorerPolicy(BaseModel):
     recursive: bool = False
     allowed_exts: Optional[List[str]] = None

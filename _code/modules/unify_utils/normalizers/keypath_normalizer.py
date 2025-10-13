@@ -2,12 +2,12 @@
 # unify_utils/normalizers/keypath_normalizer.py
 
 from __future__ import annotations
-
 from typing import List
 from data_utils.types import KeyPath
 from data_utils.string_ops import StringOps
-from unify_utils.core.base import NormalizerBase
-from unify_utils.core.policy import KeyPathNormalizePolicy
+from unify_utils.core.normalizer_base import NormalizerBase
+from unify_utils.core.base import KeyPathNormalizePolicy
+
 
 class KeyPathNormalizer(NormalizerBase):
     """KeyPath 문자열 또는 리스트를 정규화하여 List[str] 형태로 변환합니다.
@@ -23,9 +23,9 @@ class KeyPathNormalizer(NormalizerBase):
 
     def _apply_single(self, value: KeyPath) -> List[str]:
         if isinstance(value, str):
-            return split_str_path(value, sep=self.policy.sep)
+            return StringOps.split_str_path(value, sep=self.policy.sep)
         elif isinstance(value, list):
-            return value
+            return [str(v) for v in value if v]
         if self.strict:
-            raise TypeError(f"Invalid KeyPath type: {type(value)}")
+            raise TypeError(f"[KeyPathNormalizer] Invalid KeyPath type: {type(value).__name__}")
         return []

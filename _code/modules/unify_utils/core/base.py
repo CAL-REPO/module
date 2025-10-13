@@ -1,115 +1,79 @@
 # -*- coding: utf-8 -*-
-# unify_utils/core/base.py
-
-# description: unify_utils.core — 공통 NormalizerBase 추상 클래스 (재귀 처리/스트릭트 모드/체이닝 지원)
+# filename: unify_utils/core/policy.py
+# description: unify_utils.core — Normalizer용 Pydantic Policy 모델 정의
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import Any, Callable, Mapping, MutableMapping, cast
+from typing import Any, Callable, Optional, Sequence
+from pydantic import BaseModel, Field
+
+# ✅ 규칙/프리셋 관련 타입은 presets.rules에서 단일 소스로 관리합니다.
+from ..presets.rules import (
+    NormalizeRule,
+    RuleType,
+    LetterCase,
+    RegexFlag,
+)
 
 
-class NormalizerBase(ABC):
-    """정규화기들의 공통 기반 클래스.
+class NormalizePolicyBase(BaseModel):
+    """모든 Normalizer 정책 클래스의 기반.
 
-    특징
-    -------
-    - **recursive**: dict/list/tuple 내부 구조를 재귀적으로 순회하며 정규화 수행
-    - **strict**: 하위 클래스에서 오류 발생 시 예외 전파를 선택적으로 허용
-    - **compose()**: 여러 Normalizer를 순서대로 결합한 합성 정규화기 반환
-    - **__call__** 별칭 제공 (함수 형태로도 사용 가능)
-
-    하위 클래스 구현 지침
-    ---------------------
-    - `_apply_single(value)` 를 구현해 한 번의 단일 값 정규화를 정의합니다.
-      Base는 이 함수를 이용해 재귀 순회와 체이닝을 제공합니다.
-    - `_apply_single` 는 **비-컨테이너 타입**(str, int, float, None 등)에만 집중하고,
-      컨테이너 타입(dict/list/tuple) 처리는 Base에 맡깁니다.
+    Base Normalizer에서 공통으로 사용하는 설정 항목을 정의하며,
+    - recursive: 내부 구조 재귀 적용 여부
+    - strict: 예외 발생 시 예외 전파 여부
     """
 
-    def __init__(self, *, recursive: bool = False, strict: bool = False):
-        self.recursive = bool(recursive)
-        self.strict = bool(strict)
+    recursive: bool = Field(False, description="dict/list 등 내부 구조 재귀 처리 여부")
+    strict: bool = Field(False, description="오류 발생 시 예외 전파 여부")
 
-    # -----------------------------
-    # Public API
-    # -----------------------------
-    def apply(self, value: Any) -> Any:
-        """값을 정규화하여 반환합니다.
 
-        하위 클래스에서 `_apply_single`만 구현하면 되며,
-        Base가 컨테이너 순회 및 예외 처리, 재귀 적용을 담당합니다.
-        """
-        try:
-            if self.recursive:
-                return self._recursive_apply(value, self._apply_single)
-            return self._apply_single(value)
-        except Exception:
-            if self.strict:
-                raise
-            return value
+# ---------------------------------------------------------------------------
+# Rule Policy
+# ---------------------------------------------------------------------------
 
-    # 함수처럼 호출 가능하도록 별칭 제공
-    __call__ = apply
+class RuleNormalizePolicy(NormalizePolicyBase):
+    """정규식 기반 정규화 정책.
+    - rules: NormalizeRule 목록
+    """
 
-    def compose(self, *others: "NormalizerBase") -> "NormalizerBase":
-        """여러 Normalizer를 순서대로 적용하는 합성 정규화기 생성.
+    rules: Sequence[NormalizeRule] = Field(default_factory=list)
 
-        예시
-        ----
-        >>> normalizer = n1.compose(n2, n3)
-        >>> out = normalizer.apply(value)  # n1 -> n2 -> n3 순서로 적용
-        """
-        parent = self
 
-        class _Composed(NormalizerBase):
-            def __init__(self):
-                # 합성기 자체의 설정은 가장 앞선 parent를 따른다.
-                super().__init__(recursive=parent.recursive, strict=parent.strict)
+# ---------------------------------------------------------------------------
+# Value Policy
+# ---------------------------------------------------------------------------
 
-            def _apply_single(self, v: Any) -> Any:
-                # parent → others 순차 적용. parent/others 각각이 재귀 설정을 갖고 있으므로
-                # 개별 정규화기의 apply를 호출하여 일관된 동작을 유지한다.
-                result = parent.apply(v)
-                for n in others:
-                    result = n.apply(result)
-                return result
+class ValueNormalizePolicy(NormalizePolicyBase):
+    """단일 값 정규화 정책.
+    - date_fmt: 날짜 포맷 지정
+    - bool_strict: 불리언 인식 범위 제한 여부
+    """
 
-        return _Composed()
+    date_fmt: str = Field("%Y-%m-%d", description="날짜 문자열 변환 포맷")
+    bool_strict: bool = Field(False, description="불리언 처리 시 제한적 모드")
 
-    # -----------------------------
-    # Hooks for subclasses
-    # -----------------------------
-    @abstractmethod
-    def _apply_single(self, value: Any) -> Any:
-        """비-컨테이너 단일 값에 대한 정규화 로직을 구현합니다.
 
-        컨테이너(dict/list/tuple) 에 대한 처리는 Base가 담당합니다.
-        구현체는 예외를 던져도 되며(strict=True에서 상위에서 전파),
-        strict=False인 경우 Base가 원본 값을 반환합니다.
-        """
-        raise NotImplementedError
+# ---------------------------------------------------------------------------
+# List Policy
+# ---------------------------------------------------------------------------
 
-    # -----------------------------
-    # Internal helpers
-    # -----------------------------
-    def _recursive_apply(self, value: Any, fn: Callable[[Any], Any]) -> Any:
-        """컨테이너 타입에 대해 재귀적으로 정규화를 적용합니다.
+class ListNormalizePolicy(NormalizePolicyBase):
+    """리스트 및 시퀀스 정규화 정책.
+    - sep: 구분자
+    - item_cast: 항목 타입 캐스팅 함수
+    - keep_empty: 빈 항목 유지 여부
+    - min_len / max_len: 결과 길이 제약
+    """
 
-        - dict: values에만 적용(키는 유지). 키 정규화가 필요하면 별도 Normalizer에서 처리 권장.
-        - list/tuple: 동일 타입을 유지하여 반환(list는 list, tuple은 tuple)
-        - 그 외: 단일 값 처리
-        """
-        # dict
-        if isinstance(value, Mapping):
-            out = cast(MutableMapping[Any, Any], type(value)())  # 원래의 dict subclass 유지 시도
-            for k, v in value.items():
-                out[k] = self._recursive_apply(v, fn)
-            return out
+    sep: Optional[str] = Field(None, description="문자열 분리 구분자")
+    item_cast: Optional[Callable[[Any], Any]] = Field(None, description="항목 캐스팅 함수")
+    keep_empty: bool = Field(False, description="빈 항목 유지 여부")
+    min_len: Optional[int] = Field(None, description="최소 길이")
+    max_len: Optional[int] = Field(None, description="최대 길이")
 
-        # list / tuple
-        if isinstance(value, (list, tuple)):
-            seq = [self._recursive_apply(v, fn) for v in value]
-            return type(value)(seq) if isinstance(value, tuple) else seq
+class KeyPathNormalizePolicy(NormalizePolicyBase):
+    """KeyPathNormalizer 전용 정책
 
-        # leaf
-        return fn(value)
+    - sep: 문자열 분리자 (기본: ".")
+    """
+    sep: str = "."

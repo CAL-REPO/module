@@ -12,15 +12,16 @@ file_utils 패키지
 이 모듈은 파일 및 디렉터리 관련 모든 I/O, 탐색, 정책 설정 기능을 객체 기반으로 제공합니다.
 """
 
-from .policy import FSOOpsPolicy, FSOExplorerPolicy,  ExistencePolicy, FileExtensionPolicy
+from .policy import FSOOpsPolicy, FSOExplorerPolicy,  ExistencePolicy, FileExtensionPolicy, FSOIOPolicy
 from .ops import FSOOps
 from .explorer import FSOExplorer
-from .io import FileReader, FileWriter, JsonFileIO, YamlFileIO, BinaryFileIO
+from .io import FileReader, FileWriter, JsonFileIO, BinaryFileIO
 
 __all__ = [
      # 정책 관련
     "FSOOpsPolicy",
     "FSOExplorerPolicy",
+    "FSOIOPolicy",
     "ExistencePolicy",
     "FileExtensionPolicy",
 
@@ -32,6 +33,5 @@ __all__ = [
     "FileReader",
     "FileWriter",
     "JsonFileIO",
-    "YamlFileIO",
     "BinaryFileIO"
 ]

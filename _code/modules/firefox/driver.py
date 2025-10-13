@@ -112,7 +112,7 @@ class FirefoxDriver:
 
         policy = FSOOpsPolicy(exist=ExistencePolicy(must_exist=True))
         try:
-            headers = JsonFileIO(path, policy=policy).read().get("headers", {})
+            headers = JsonFileIO(path, ops_policy=policy).read().get("headers", {})
             return headers
         except Exception as e:
             self.logger.warning(f"Failed to load session headers: {e}")
@@ -129,7 +129,7 @@ class FirefoxDriver:
                 "Accept-Language": ",".join(langs) if langs else None,
             }
             policy = FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True))
-            io = JsonFileIO(self.config.session_path, policy=policy)
+            io = JsonFileIO(self.config.session_path, ops_policy=policy)
             data = io.read() if self.config.session_path.is_file() else {}
             data["headers"] = {**data.get("headers", {}), **headers}
             io.write(data)

@@ -53,6 +53,7 @@ class DictOps:
         - mapping: {"old": "new"}
         - func: lambda k: k.upper()
         """
+
         def visit(path, key, value):
             if isinstance(mapping_or_func, Mapping):
                 new_key = mapping_or_func.get(key, key)
@@ -60,6 +61,15 @@ class DictOps:
                 new_key = mapping_or_func(key)
             return new_key, value
 
-        return remap(data, visit=visit if deep else lambda p, k, v: (mapping_or_func.get(k, k), v))
+        # ✅ deep=False일 때도 함수/매핑 모두 지원
+        if not deep:
+            def shallow_visit(p, k, v):
+                if isinstance(mapping_or_func, Mapping):
+                    return mapping_or_func.get(k, k), v
+                return mapping_or_func(k), v
+            return remap(data, visit=shallow_visit)
+
+        return remap(data, visit=visit)
+
 
 

@@ -10,22 +10,45 @@ from typing import Optional, Any
 
 from data_utils.types import PathLike
 from .ops import FSOOps
-from .policy import FSOOpsPolicy, ExistencePolicy
-from yaml_utils import YamlParser, YamlDumper, YamlParserPolicy  # 구조적 분리 반영
-
+from .policy import FSOOpsPolicy, FSOIOPolicy
 
 class BaseFileHandler:
-    def __init__(self, path: PathLike, policy: FSOOpsPolicy, encoding: str = "utf-8"):
+    def __init__(
+        self,
+        path: PathLike,
+        policy: FSOOpsPolicy,
+        encoding: str = "utf-8",
+        *,
+        require_exists: bool = True,
+    ):
         self.file = FSOOps(path, policy)
         self.encoding = encoding
+        self._require_exists = require_exists
         self._validate()
 
     def _validate(self):
+        if not self._require_exists:
+            return
+        if not self.file.path.exists():
+            raise FileNotFoundError(f"파일이 존재하지 않습니다: {self.file.path}")
         if not self.file.path.is_file():
-            raise FileNotFoundError(f"파일이 존재하지 않거나 파일이 아닙니다: {self.file.path}")
+            raise FileNotFoundError(f"파일이 아니거나 접근할 수 없습니다: {self.file.path}")
 
 
 class FileReader(BaseFileHandler):
+    def __init__(
+        self,
+        path: PathLike,
+        ops_policy: Optional[FSOOpsPolicy] = None,
+        *,
+        encoding: Optional[str] = None,
+        io_policy: Optional[FSOIOPolicy] = None,
+    ):
+        self.io_policy = io_policy or FSOIOPolicy() # pyright: ignore[reportCallIssue]
+        effective_policy = ops_policy or self.io_policy.reader
+        text_encoding = encoding or self.io_policy.encoding
+        super().__init__(path, effective_policy, text_encoding, require_exists=True)
+
     def read_text(self) -> str:
         return self.file.path.read_text(encoding=self.encoding)
 
@@ -38,12 +61,16 @@ class FileWriter(BaseFileHandler):
         self,
         path: PathLike,
         *,
-        encoding: str = "utf-8",
-        atomic: bool = True,
-        policy: FSOOpsPolicy = FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True))
+        encoding: Optional[str] = None,
+        atomic: Optional[bool] = None,
+        ops_policy: Optional[FSOOpsPolicy] = None,
+        io_policy: Optional[FSOIOPolicy] = None,
     ):
-        self.atomic = atomic
-        super().__init__(path, policy, encoding)
+        self.io_policy = io_policy or FSOIOPolicy() # pyright: ignore[reportCallIssue]
+        effective_policy = ops_policy or self.io_policy.writer
+        text_encoding = encoding or self.io_policy.encoding
+        super().__init__(path, effective_policy, text_encoding, require_exists=False)
+        self.atomic = self.io_policy.atomic_writes if atomic is None else atomic
 
     def write_text(self, text: str) -> Path:
         p = self.file.path
@@ -69,9 +96,20 @@ class FileWriter(BaseFileHandler):
 # 파일 형식별 IO 클래스들
 
 class JsonFileIO:
-    def __init__(self, path: PathLike, *, encoding: str = "utf-8", policy: Optional[FSOOpsPolicy] = None):
-        self._reader = FileReader(path, policy=policy or FSOOpsPolicy(exist=ExistencePolicy(must_exist=True)), encoding=encoding)
-        self._writer = FileWriter(path, policy=policy or FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True)), encoding=encoding)
+    def __init__(
+        self,
+        path: PathLike,
+        *,
+        encoding: Optional[str] = None,
+        ops_policy: Optional[FSOOpsPolicy] = None,
+        io_policy: Optional[FSOIOPolicy] = None,
+    ):
+        self.io_policy = io_policy or FSOIOPolicy() # pyright: ignore[reportCallIssue]
+        effective_encoding = encoding or self.io_policy.encoding
+        reader_policy = ops_policy or self.io_policy.reader
+        writer_policy = ops_policy or self.io_policy.writer
+        self._reader = FileReader(path, encoding=effective_encoding, ops_policy=reader_policy, io_policy=self.io_policy)
+        self._writer = FileWriter(path, encoding=effective_encoding, ops_policy=writer_policy, io_policy=self.io_policy)
 
     def read(self) -> Any:
         return json.loads(self._reader.read_text())
@@ -79,34 +117,19 @@ class JsonFileIO:
     def write(self, data: Any) -> Path:
         return self._writer.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
-
-class YamlFileIO:
+class BinaryFileIO:
     def __init__(
         self,
         path: PathLike,
         *,
-        encoding: str = "utf-8",
-        policy: Optional[FSOOpsPolicy] = None,
-        yaml_policy: Optional[YamlParserPolicy] = None
+        ops_policy: Optional[FSOOpsPolicy] = None,
+        io_policy: Optional[FSOIOPolicy] = None,
     ):
-        self._reader = FileReader(path, policy=policy or FSOOpsPolicy(exist=ExistencePolicy(must_exist=True)), encoding=encoding)
-        self._writer = FileWriter(path, policy=policy or FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True)), encoding=encoding)
-        self.policy = yaml_policy or YamlParserPolicy.default()  # type: ignore
-        self.parser = YamlParser(policy=self.policy)
-        self.dumper = YamlDumper(policy=self.policy)
-
-    def read(self) -> Any:
-        return self.parser.parse(self._reader.read_text(), base_path=self._reader.file.path)
-
-    def write(self, data: Any) -> Path:
-        text = self.dumper.dump(data)
-        return self._writer.write_text(text)
-
-
-class BinaryFileIO:
-    def __init__(self, path: PathLike, *, policy: Optional[FSOOpsPolicy] = None):
-        self._reader = FileReader(path, policy=policy or FSOOpsPolicy(exist=ExistencePolicy(must_exist=True)))
-        self._writer = FileWriter(path, policy=policy or FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True)))
+        self.io_policy = io_policy or FSOIOPolicy() # pyright: ignore[reportCallIssue]
+        reader_policy = ops_policy or self.io_policy.reader
+        writer_policy = ops_policy or self.io_policy.writer
+        self._reader = FileReader(path, ops_policy=reader_policy, io_policy=self.io_policy)
+        self._writer = FileWriter(path, ops_policy=writer_policy, io_policy=self.io_policy)
 
     def read(self) -> bytes:
         return self._reader.read_bytes()

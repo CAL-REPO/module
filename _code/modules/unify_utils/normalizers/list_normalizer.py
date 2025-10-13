@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import re
 from typing import Any, List
-from ..core.base import NormalizerBase
-from ..core.policy import ListNormalizePolicy
+from ..core.normalizer_base import NormalizerBase
+from ..core.base import ListNormalizePolicy
 
 
 class ListNormalizer(NormalizerBase):
@@ -30,9 +30,13 @@ class ListNormalizer(NormalizerBase):
         # 이미 리스트/튜플인 경우
         if isinstance(value, (list, tuple)):
             out = list(value)
+
         elif isinstance(value, str):
-            parts = re.split(self.policy.sep or r"[,\\s]+", value.strip())
+            # ✅ sep 지정 없으면 쉼표·공백 구분
+            sep_pattern = self.policy.sep if self.policy.sep else r"[,\s]+"
+            parts = re.split(sep_pattern, value.strip())
             out = parts if self.policy.keep_empty else [p for p in parts if p]
+
         else:
             out = [value]
 
