@@ -12,7 +12,9 @@ from selenium.webdriver.firefox.service import Service
 
 from firefox.config import FirefoxConfig
 from cfg_utils import ConfigLoader
-from fso_utils import JsonFileIO, FSOOpsPolicy, ExistencePolicy
+# JsonFileIO is not exported at the top level of fso_utils.  Import it from the
+# core subpackage along with the policies.
+from fso_utils.core import JsonFileIO, FSOOpsPolicy, ExistencePolicy
 from log_utils import LogContextManager
 
 

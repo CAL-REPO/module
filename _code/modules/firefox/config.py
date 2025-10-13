@@ -7,7 +7,9 @@ from pathlib import Path
 from pydantic import Field, BaseModel, field_validator, model_validator
 
 from log_utils import LogPolicy, LogManager
-from fso_utils.policy import FSONamePolicy
+# FSONamePolicy is provided by fso_utils.core.policy and re‑exported at the
+# top level.  Use the top‑level import to avoid missing module errors.
+from fso_utils import FSONamePolicy
 
 
 # -------------------------------------------------------------------------
