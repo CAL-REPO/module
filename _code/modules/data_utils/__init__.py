@@ -1,24 +1,40 @@
 # -*- coding: utf-8 -*-
 # data_utils/__init__.py
 
-# Primary exports
+"""Top‑level package for data utilities.
+
+This package aggregates a variety of helpers for working with common data
+structures such as pandas DataFrames, Python dictionaries and lists, and
+key‑path representations.  It also provides utilities for converting
+between common data formats (e.g. JSON, YAML, images) and for flattening
+or expanding nested data structures.
+
+The following primary classes are available:
+
+* :class:`FormatOps` – static methods for converting between different
+  serialized data formats (bytes, images, JSON, YAML).
+* :class:`StructureOps` – static methods for transforming nested data
+  structures and key‑path representations.
+* :class:`DataFramePolicy` – a dataclass defining configuration options
+  for DataFrame operations.
+* :class:`DataFrameOps` – a composite class composed of several mixins
+  providing DataFrame creation, normalization, filtering, updating and
+  cleaning functionality.
+
+Legacy aliases :class:`Convert` and :class:`DataTransOps` are retained
+for backward compatibility.  They derive from :class:`FormatOps` and
+``StructureOps`` respectively.  New code should prefer the newer
+class names.
+"""
+
 from .format_ops import FormatOps
 from .structure_ops import StructureOps
-
-# DataFrame operations
-from .df_ops import DataFrameOps  # unified mixin-based entry point
-from .df_ops.base import DataFramePolicy  # unified policy class
-
-# Core utilities
+from .convert import Convert  # deprecated alias of FormatOps
+from .trans_ops import DataTransOps, TransOps  # deprecated aliases of StructureOps
+from .df_ops import DataFramePolicy, DataFrameOps
 from .dict_ops import DictOps
 from .list_ops import ListOps
 from .string_ops import StringOps
-
-# Deprecated aliases for backward compatibility
-from .format_ops import FormatOps as Convert  # alias to maintain import compatibility
-from .structure_ops import StructureOps as TransOps  # alias to maintain import compatibility
-
-# Type aliases
 from .types import (
     PathLike,
     KeyPath,
@@ -32,12 +48,14 @@ from .types import (
 __all__ = [
     "FormatOps",
     "StructureOps",
+    "Convert",
+    "DataTransOps",
+    "TransOps",
     "DataFramePolicy",
     "DataFrameOps",
     "DictOps",
     "ListOps",
     "StringOps",
-    # types
     "PathLike",
     "KeyPath",
     "JsonDict",
