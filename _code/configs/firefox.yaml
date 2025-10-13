@@ -24,7 +24,7 @@ firefox:
     diagnose: true
     backtrace: true
     enqueue: true
-    base_dir: "C:/Users/USER/Downloads"                      # 로그 기본 디렉터리
+    base_dir: ""                      # 로그 기본 디렉터리
     dir_name: "Firefox"                                      # 하위 디렉터리 이름
     file_name_policy:
       as_type: file
