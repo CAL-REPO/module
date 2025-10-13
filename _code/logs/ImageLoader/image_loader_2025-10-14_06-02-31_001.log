@@ -1,0 +1,6 @@
+2025-10-14 06:02:31.587 | INFO     | pillow_utils.image_loader:_run_impl:166 - [ImageLoader] 시작: M:\CALife\CAShop - 구매대행\_code\scripts\01.jpg
+2025-10-14 06:02:31.605 | INFO     | pillow_utils.image_loader:_run_impl:171 - [ImageLoader] 원본 크기: 1500x2322
+2025-10-14 06:02:31.672 | INFO     | pillow_utils.image_loader:_run_impl:184 - [ImageLoader] 리사이즈: 1500x2322 → 800x600 (ratio 0.5333, 0.2584)
+2025-10-14 06:02:31.679 | INFO     | pillow_utils.image_loader:_run_impl:191 - [ImageLoader] 이미지 저장: M:\CALife\CAShop - 구매대행\_code\scripts\01_proceed_003.jpg
+2025-10-14 06:02:31.680 | INFO     | pillow_utils.image_loader:_run_impl:214 - [ImageLoader] 메타데이터 저장: M:\CALife\CAShop - 구매대행\_code\scripts\01_proceed_003.json
+2025-10-14 06:02:31.682 | INFO     | pillow_utils.image_loader:_run_impl:218 - [ImageLoader] 완료

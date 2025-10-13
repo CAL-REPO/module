@@ -20,7 +20,7 @@ class OverlayRenderer:
 
     def render(self) -> Path:
         reader = ImageReader(self.policy.image)
-        writer = ImageWriter(self.policy.output, ImageMetaPolicy(enabled=False))
+        writer = ImageWriter(self.policy.output, ImageMetaPolicy(enabled=False)) # pyright: ignore[reportCallIssue]
         image, _meta = reader.load()
         if image.mode != "RGBA":
             image = image.convert("RGBA")
@@ -71,16 +71,16 @@ class OverlayRenderer:
     def _load_font(self, cfg: OverlayTextPolicy, size: int) -> ImageFont.ImageFont:
         font_path = cfg.font.family
         if font_path and Path(font_path).exists():
-            return ImageFont.truetype(str(font_path), size=size)
+            return ImageFont.truetype(str(font_path), size=size) # pyright: ignore[reportReturnType]
         if font_path:
             try:
-                return ImageFont.truetype(font_path, size=size)
+                return ImageFont.truetype(font_path, size=size) # pyright: ignore[reportReturnType]
             except Exception:
                 pass
         try:
-            return ImageFont.truetype("arial.ttf", size=size)
+            return ImageFont.truetype("arial.ttf", size=size) # pyright: ignore[reportReturnType]
         except Exception:
-            return ImageFont.load_default()
+            return ImageFont.load_default() # pyright: ignore[reportReturnType]
 
     @staticmethod
     def _auto_size(text: str, bbox: Tuple[float, float, float, float], ratio: float) -> int:

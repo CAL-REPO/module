@@ -9,11 +9,6 @@ modules.ocr — OCR runner (dataclass defaults + provider selector)
 3) IO & Save Helpers: 이미지 로드, OCR 메타 저장
 4) Providers: 각 OCR 엔진별 실행 (paddle)
 5) Runner & Public API: run_ocr / CLI
-
-주의
-- 내부 로직은 리팩토링하지 않고 오타/키 이름만 정리
-- meta 저장 키: ocr_meta_dir / ocr_meta_name
-- meta 파일에는 텍스트 및 위치(poly/bbox/angle) 정보 포함
 """
 
 from __future__ import annotations
@@ -27,46 +22,17 @@ import os
 import json
 import math
 import time
-import numpy as np
+import re
+import yaml
+"""Backwards-compatible shim: expose `run_ocr` from the refactored pipeline.
 
-# local modules
-from modules.datautil import as_list, is_number_or_symbol_only, strip_specials_keep_alnum_space
-from modules.yamlutil import section_or_root, load_yaml
-from modules.fileio import ensure_dir, parent_dir_of
-from pillow.pillow import load_image, save_image  # 이미지 입출력 재사용
+This module intentionally keeps a small surface so older imports like
+`from modules.ocr import run_ocr` can be updated incrementally.
+"""
 
-# ---------------------------------------------------------------------------
-# 1) Dataclasses & Types
-# ---------------------------------------------------------------------------
-@dataclass
-class OcrFileDefaults:
-    # 입력 이미지
-    file_path: str = ""                     # 이미지 파일 경로
-    # 저장(사본)
-    save_img: bool = False
-    save_dir: str = ""                      # 비었으면 file_path 디렉터리
-    save_suffix: str = "_copy"
-    # 메타 저장
-    save_ocr_meta: bool = False             # OCR 메타 JSON 저장 여부
-    ocr_meta_dir: str = ""                 # 비었으면 file_path 디렉터리
-    ocr_meta_name: str = "meta_ocr.json"   # 메타 파일명
+from .pipeline import run_ocr
 
-
-@dataclass
-class OcrProviderDefaults:
-    provider: str = "paddle"               # 추후 확장: easyocr, tesseract 등
-    langs: List[str] = field(default_factory=lambda: ["ch_sim", "en"])
-    min_conf: float = 0.5                  # 최소 신뢰도 필터
-    paddle_device: Optional[str] = "gpu"     # "cpu" | "gpu" | "gpu:0" (3.5 기준 device 사용)
-    paddle_use_angle_cls: bool = True
-    paddle_instance: Dict[str, Any] = field(default_factory=dict)  # lang→PaddleOCR 인스턴스
-    # provider 별로 필요한 값이 생기면 여기에 필드 추가 (예: use_angle_cls 등)
-
-@dataclass
-class OcrPreprocessDefaults:
-    resized: bool = False                  # 향후 리사이즈/전처리 플래그 등 확장
-    max_width: Optional[int] = None
-
+__all__ = ["run_ocr"]
 @dataclass
 class OcrDefaults:
     file: OcrFileDefaults = field(default_factory=OcrFileDefaults)

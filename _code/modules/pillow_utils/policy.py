@@ -50,9 +50,9 @@ class ImageProcessingPolicy(BaseModel):
 
 class ImagePipelinePolicy(BaseModel):
     source: ImageSourcePolicy
-    target: ImageTargetPolicy = Field(default_factory=ImageTargetPolicy)
-    processing: ImageProcessingPolicy = Field(default_factory=ImageProcessingPolicy)
-    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)
+    target: ImageTargetPolicy = Field(default_factory=ImageTargetPolicy) # pyright: ignore[reportArgumentType]
+    processing: ImageProcessingPolicy = Field(default_factory=ImageProcessingPolicy) # pyright: ignore[reportArgumentType]
+    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy) # pyright: ignore[reportArgumentType]
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class OverlayTextPolicy(BaseModel):
         ...,
         description="Polygon coordinates defining the placement area.",
     )
-    font: OverlayFontPolicy = Field(default_factory=OverlayFontPolicy)
+    font: OverlayFontPolicy = Field(default_factory=OverlayFontPolicy) # pyright: ignore[reportArgumentType]
     anchor: str = Field(
         "mm", description="Pillow anchor for text drawing (e.g. 'mm', 'lt')."
     )
@@ -91,7 +91,7 @@ class OverlayTextPolicy(BaseModel):
 
 class OverlayPolicy(BaseModel):
     image: ImageSourcePolicy
-    output: ImageTargetPolicy = Field(default_factory=ImageTargetPolicy)
+    output: ImageTargetPolicy = Field(default_factory=ImageTargetPolicy) # pyright: ignore[reportArgumentType]
     texts: List[OverlayTextPolicy] = Field(default_factory=list)
     background_opacity: float = Field(
         0.0, ge=0.0, le=1.0, description="Overlay background opacity."

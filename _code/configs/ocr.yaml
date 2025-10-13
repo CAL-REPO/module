@@ -1,0 +1,63 @@
+# OCR pipeline configuration
+#
+# Top-level `ocr` section or the file itself may be used as the `ocr` section
+# when passed to the pipeline. Fields mirror the pydantic models in
+# `modules.ocr_utils.models.OcrConfig` and additional logging/save options.
+ocr:
+
+  file:
+    # Path to the image file to run OCR on. Required when running the pipeline.
+    file_path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+
+    # If save_img = true, the processed image copy will be written here.
+    # Default: same folder as source image
+    save_img: false
+    save_dir: ""
+    save_suffix: "_ocr"
+
+    # Meta save options
+    save_ocr_meta: true
+    ocr_meta_dir: ""
+    ocr_meta_name: "meta_ocr.json"
+
+  provider:
+    # OCR engine/provider: currently only "paddle" is supported by default.
+    provider: "paddle"
+
+    # Languages to request from the provider. Can be model codes or aliases
+    # (e.g., ch_sim, en). The recognizer maps these to provider-specific codes.
+    langs:
+      - "ch_sim"
+      - "en"
+
+    # Confidence threshold for results (0.0 - 1.0)
+    min_conf: 0.5
+
+    # Paddle-specific options
+    paddle_device: "gpu"   # "cpu" | "gpu" | "gpu:0"
+    paddle_use_angle_cls: true
+
+    # Internal runtime cache for provider instances. Leave empty for default
+    # behaviour. This is intended for programmatic reuse, not for editing by hand.
+    paddle_instance: {}
+
+  preprocess:
+    # Whether to apply resize preprocessing before OCR. If max_width is
+    # provided and the image is wider, it will be scaled proportionally.
+    resized: false
+    max_width: 1200
+
+  debug: false
+
+  # Optional logging and runtime options (not strictly part of OcrConfig but
+  # useful for scripts and developers). These control where artifacts and logs
+  # are stored and how verbose the run is.
+  logging:
+    enabled: true
+    level: "INFO"
+    base_dir: "M:/CALife/CAShop - 구매대행/_code/logs"
+    dir_name: "OCR"
+    file_name: "ocr_run.log"
+
+  # Example: override this file with a single image path by using the
+  # top-level `ocr.file.file_path` when calling the pipeline from scripts.

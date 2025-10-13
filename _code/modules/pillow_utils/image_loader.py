@@ -115,7 +115,7 @@ class ImageLoader:
         self.dest_dir = (self.policy.dest_dir or self.policy.src_path.parent).resolve()
         self.meta_dir = (self.policy.meta_dir or self.dest_dir).resolve()
         # Use provided log policy or a default one
-        self.log_policy = self.policy.log_policy or LogPolicy()
+        self.log_policy = self.policy.log_policy or LogPolicy() # pyright: ignore[reportCallIssue]
 
     def _build_dest_path(self) -> Path:
         """Construct a destination path for the processed image using fso_utils."""
@@ -128,10 +128,10 @@ class ImageLoader:
             extension=ext,
             tail_mode="counter" if self.policy.ensure_unique else None,
             ensure_unique=self.policy.ensure_unique,
-        )
+        ) # pyright: ignore[reportCallIssue]
         ops_policy = FSOOpsPolicy(
             as_type="file",
-            exist=ExistencePolicy(create_if_missing=True),
+            exist=ExistencePolicy(create_if_missing=True), # pyright: ignore[reportCallIssue]
         )
         builder = FSOPathBuilder(base_dir=self.dest_dir, name_policy=name_policy, ops_policy=ops_policy)
         return builder()

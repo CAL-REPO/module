@@ -74,8 +74,8 @@ def yaml_fileio(
     parser_policy: BaseParserPolicy | None = None,
     dumper_policy: BaseDumperPolicy | None = None,
 ):
-    parser = YamlParser(parser_policy or BaseParserPolicy())
-    dumper = YamlDumper(dumper_policy or BaseDumperPolicy())
+    parser = YamlParser(parser_policy or BaseParserPolicy()) # pyright: ignore[reportCallIssue]
+    dumper = YamlDumper(dumper_policy or BaseDumperPolicy()) # pyright: ignore[reportCallIssue]
     return StructuredFileIO(path, parser, dumper)
 
 # --------------------------
@@ -98,7 +98,7 @@ def json_parser(
         safe_mode=safe_mode,
         encoding=encoding,
         on_error=on_error,
-    )
+    ) # pyright: ignore[reportCallIssue]
     return JsonParser(policy)
 
 def json_dumper(
@@ -124,6 +124,6 @@ def json_fileio(
     parser_policy: BaseParserPolicy | None = None,
     dumper_policy: BaseDumperPolicy | None = None,
 ):
-    parser = JsonParser(parser_policy or BaseParserPolicy(enable_include=False))
-    dumper = JsonDumper(dumper_policy or BaseDumperPolicy())
+    parser = JsonParser(parser_policy or BaseParserPolicy(enable_include=False)) # pyright: ignore[reportCallIssue]
+    dumper = JsonDumper(dumper_policy or BaseDumperPolicy()) # pyright: ignore[reportCallIssue]
     return StructuredFileIO(path, parser, dumper)

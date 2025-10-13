@@ -32,7 +32,7 @@ class ImageReader:
             policy.path,
             policy=FSOOpsPolicy(
                 as_type="file",
-                exist=ExistencePolicy(must_exist=policy.must_exist),
+                exist=ExistencePolicy(must_exist=policy.must_exist), # pyright: ignore[reportCallIssue]
             ),
         )
 
@@ -116,11 +116,11 @@ class ImageWriter:
                 extension=ext_part,
                 tail_mode="counter" if self.target_policy.ensure_unique else None,
                 ensure_unique=self.target_policy.ensure_unique,
-            ),
+            ), # pyright: ignore[reportCallIssue]
             ops_policy=FSOOpsPolicy(
                 as_type="file",
-                exist=ExistencePolicy(create_if_missing=True),
-                ext=FileExtensionPolicy(default_ext=ext_part or None),
+                exist=ExistencePolicy(create_if_missing=True), # pyright: ignore[reportCallIssue]
+                ext=FileExtensionPolicy(default_ext=ext_part or None), # pyright: ignore[reportCallIssue]
             ),
         )
         return builder()
