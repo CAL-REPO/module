@@ -1,11 +1,18 @@
-# data_utils/convert.py (또는 trans_ops.py 안에 포함 가능)
+"""Data format conversion utilities.
+
+This module provides a set of static methods for converting between
+different data formats, such as raw bytes and images or Python
+dictionaries and JSON/YAML strings.
+"""
+
 from io import BytesIO
 from typing import Any
 from PIL import Image
 import json
 import yaml
 
-class Convert:
+
+class FormatOps:
     """Utility class for converting between different data formats and types."""
 
     @staticmethod

@@ -3,36 +3,56 @@
 # pandas 중심 DataFrame 정책 및 조작 클래스 구조화
 
 from __future__ import annotations
-from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Optional, List, Set
 import pandas as pd
 
 
 # ---------------------------------------------------------
-# 1️⃣ 정책 정의 (Pydantic 아님: 내부 전용용 간단 dataclass)
 # ---------------------------------------------------------
-@dataclass
-class DataFramePolicy:
-    normalize_columns: bool = True
-    drop_empty_rows: bool = True
-    drop_empty_cols: bool = True
-    warn_on_duplicate_cols: bool = True
-    default_aliases: Dict[str, Set[str]] = field(default_factory=dict)
+# Unified policy is now defined in :mod:`data_utils.df_ops.base`.  Import it here
+# for convenience.
+from .df_ops.base import DataFramePolicy  # type: ignore
+
 
 
 # ---------------------------------------------------------
 # 2️⃣ 컬럼 정규화기
 # ---------------------------------------------------------
 class DataFrameNormalizer:
+    """Normalizes DataFrame column names based on an alias mapping.
+
+    This class lowercases, strips and deduplicates whitespace in column names and then
+    maps known aliases back to their canonical names. If duplicate columns are
+    detected after normalization, a warning will be printed.
+
+    Args:
+        alias_map: A mapping of canonical column names to a set of aliases that
+            should be mapped back to the canonical name. The keys in this mapping
+            are case-insensitive.
+    """
+
     def __init__(self, alias_map: Optional[Dict[str, Set[str]]] = None):
         self.alias_map = alias_map or {}
 
     @staticmethod
     def _norm_col(name: Any) -> str:
+        """Normalize a single column name by stripping whitespace and lowercasing."""
         s = str(name or "").strip().lower()
         return " ".join(s.split())
 
     def normalize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Return a new DataFrame with normalized column names.
+
+        Column names are normalized and then, if found in the alias map, remapped to
+        their canonical name. If duplicate columns exist after normalization and
+        ``warn_on_duplicate_cols`` is enabled in the current policy, a warning is printed.
+
+        Args:
+            df: The DataFrame whose columns should be normalized.
+
+        Returns:
+            A new ``pandas.DataFrame`` with normalized column names.
+        """
         reverse_map = {
             alias.lower().strip(): key
             for key, aliases in self.alias_map.items()
@@ -40,9 +60,10 @@ class DataFrameNormalizer:
         }
         mapper = {col: reverse_map.get(self._norm_col(col), col) for col in df.columns}
         df2 = df.rename(columns=mapper)
+        # If duplicates appear after normalization, optionally emit a warning.
         if df2.columns.duplicated().any():
             dupes = df2.columns[df2.columns.duplicated()].tolist()
-            print(f"[경고] 정규화 후 중복 컬럼 발견: {dupes}")
+            print(f"[Warning] Duplicate columns found after normalization: {dupes}")
         return df2
 
 
@@ -50,10 +71,24 @@ class DataFrameNormalizer:
 # 3️⃣ 조건/필터링 로직
 # ---------------------------------------------------------
 class DataFrameSelector:
+    """Helper for building boolean masks to select rows in a DataFrame.
+
+    Given an include/exclude specification, this class constructs a mask that can
+    be used to filter a ``pandas.DataFrame``. Each condition is a mapping with
+    keys ``"col"`` (column name), ``"op"`` (operation) and an optional value.
+    Supported operations are:
+
+    * ``eq``: case-insensitive equality comparison
+    * ``in``: membership in a list of values (case-insensitive)
+    * ``regex``: substring search using a regular expression (case-insensitive)
+
+    Any other operation results in a ``ValueError`` being raised.
+    """
     def __init__(self, df: pd.DataFrame):
         self.df = df
 
     def eligible_rows(self, spec: Dict[str, Any]) -> pd.DataFrame:
+        """Return the subset of rows matching the given include/exclude spec."""
         mask = self._build_mask(spec)
         return self.df[mask]
 
@@ -82,69 +117,35 @@ class DataFrameSelector:
             import re
             return s.astype(str).str.contains(val, case=False, na=False)
 
-        raise ValueError(f"지원하지 않는 연산자: {op}")
+        raise ValueError(f"Unsupported operator: {op}")
 
 
 # ---------------------------------------------------------
-# 4️⃣ DataFrameOps — 통합 진입점
+# 4️⃣ DataFrameOps — unified entry point
 # ---------------------------------------------------------
-class DataFrameOps:
-    def __init__(self, policy: Optional[DataFramePolicy] = None):
-        self.policy = policy or DataFramePolicy()
+# Import the mixin-based implementation from the package and alias it here.
+from .df_ops.dataframe_ops import DataFrameOps as _MixinDataFrameOps
 
-    # --- 생성 ---
-    def to_dataframe(self, records: Iterable[dict] | None, columns: Optional[List[str]] = None) -> pd.DataFrame:
-        if not records:
-            return pd.DataFrame(columns=columns or [])
-        df = pd.DataFrame.from_records(list(records))
-        if columns:
-            for c in columns:
-                if c not in df.columns:
-                    df[c] = None
-            df = df[columns]
-        return df
-
-    # --- 정규화 ---
-    def normalize(self, df: pd.DataFrame, aliases: Optional[Dict[str, Set[str]]] = None) -> pd.DataFrame:
-        if not self.policy.normalize_columns:
-            return df
-        norm = DataFrameNormalizer(aliases or self.policy.default_aliases)
-        return norm.normalize_columns(df)
-
-    # --- 필터 ---
-    def select(self, df: pd.DataFrame, spec: Dict[str, Any]) -> pd.DataFrame:
-        return DataFrameSelector(df).eligible_rows(spec)
-
-    # --- 업데이트 ---
-    def update(self, df: pd.DataFrame, where: Dict[str, Any], set: Dict[str, Any]) -> pd.DataFrame:
-        if not set:
-            raise ValueError("update() requires non-empty set dict.")
-        mask = DataFrameSelector(df)._build_mask(where)
-        out = df.copy()
-        for col, val in set.items():
-            if col not in out.columns:
-                out[col] = None
-            out.loc[mask, col] = val
-        return out
-
-    # --- Drop 처리 ---
-    def drop_empty(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.policy.drop_empty_rows:
-            df = df.dropna(how="all")
-        if self.policy.drop_empty_cols:
-            df = df.dropna(axis=1, how="all")
-        return df
+# Alias the imported class to provide a single entry point when using this module.
+DataFrameOps = _MixinDataFrameOps
 
 
 # ---------------------------------------------------------
-# ✅ 사용 예시 (예: 테스트용)
+# ✅ Example usage (for manual testing)
 # ---------------------------------------------------------
 if __name__ == "__main__":
+    # Example usage of the unified DataFrameOps.
     ops = DataFrameOps()
-    df = ops.to_dataframe([{"Name": "홍길동", "Age": 20}, {"Name": "이몽룡", "Age": 21}])
-    alias = {"name": {"이름", "Name"}}
+    # Create a DataFrame from a list of records
+    df = ops.to_dataframe([
+        {"Name": "Alice", "Age": 20},
+        {"Name": "Bob", "Age": 21},
+    ])
+    # Normalize the column names using an alias mapping
+    alias = {"name": {"Name"}}
     df = ops.normalize(df, alias)
     print(df)
 
-    spec = {"include": [{"col": "name", "op": "eq", "value": "홍길동"}]}
+    # Select rows where the name equals "Alice"
+    spec = {"include": [{"col": "name", "op": "eq", "value": "Alice"}]}
     print(ops.select(df, spec))

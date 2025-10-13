@@ -13,6 +13,12 @@ class DataFrameOps(
     DataFrameUpdateMixin,
     DataFrameCleanMixin,
 ):
-    """DataFrame 고수준 조작 인터페이스"""
+    """High-level composite for DataFrame operations.
+
+    Inherits functionality from the various DataFrame mixins to provide a unified
+    interface for creation, normalization, filtering, updating, and cleaning
+    operations on pandas DataFrames.
+    """
     def __init__(self, policy: Optional[DataFramePolicy] = None):
+        """Initialize the composite with an optional policy."""
         super().__init__(policy)
