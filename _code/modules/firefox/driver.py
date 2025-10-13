@@ -14,7 +14,9 @@ from firefox.config import FirefoxConfig
 from cfg_utils import ConfigLoader
 # JsonFileIO is not exported at the top level of fso_utils.  Import it from the
 # core subpackage along with the policies.
-from fso_utils.core import JsonFileIO, FSOOpsPolicy, ExistencePolicy
+# Use structured_io for JSON file read/write.  JsonFileIO has been superseded by
+# structured_io's json_fileio factory.  fso_utils no longer exports JsonFileIO.
+from structured_io import json_fileio
 from log_utils import LogContextManager
 
 
@@ -120,12 +122,12 @@ class FirefoxDriver:
         path = self.config.session_path
         if not path:
             return {}
-
-        policy = FSOOpsPolicy(exist=ExistencePolicy(must_exist=True))
+        # Use structured_io's json_fileio.  If the file does not exist, return an empty dict.
         try:
-            headers = JsonFileIO(path, ops_policy=policy).read().get("headers", {})
-            return headers
+            io = json_fileio(str(path))
+            return io.read().get("headers", {})
         except Exception as e:
+            # File does not exist or failed to parse.  Log and return empty headers.
             self.logger.warning(f"Failed to load session headers: {e}")
             return {}
 
@@ -139,9 +141,18 @@ class FirefoxDriver:
                 "User-Agent": ua,
                 "Accept-Language": ",".join(langs) if langs else None,
             }
-            policy = FSOOpsPolicy(exist=ExistencePolicy(create_if_missing=True))
-            io = JsonFileIO(self.config.session_path, ops_policy=policy)
-            data = io.read() if self.config.session_path.is_file() else {}
+            # Ensure the parent directory exists before writing.
+            path: Path = self.config.session_path
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            io = json_fileio(str(path))
+            # Load existing data if any; otherwise use empty dict.
+            try:
+                data = io.read()
+            except Exception:
+                data = {}
             data["headers"] = {**data.get("headers", {}), **headers}
             io.write(data)
         except Exception as e:

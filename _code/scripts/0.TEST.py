@@ -49,7 +49,7 @@ from firefox.driver import FirefoxDriver
 cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\firefox.yaml"
 
 ff = FirefoxDriver(cfg_path).driver
-# ff.quit()
+ff.quit()
 
 # from modules.xl_utils.test import test_xlwings_from_yaml
 
@@ -60,3 +60,9 @@ ff = FirefoxDriver(cfg_path).driver
 # from path_utils import home, downloads
 # print("Home Directory:", home())
 # print("Downloads Directory:", downloads())
+
+# from pillow_utils.image_loader import ImageLoader
+# cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\pillow.yaml"
+
+# ff = ImageLoader(cfg_path).run
+
