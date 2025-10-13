@@ -45,15 +45,11 @@
 
 # run_crawl(cfg_path)
 
-# from firefox.driver import FirefoxDriver
-# from time import sleep
-# cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\crawl.yaml"
+from firefox.driver import FirefoxDriver
+cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\firefox.yaml"
 
-# ff = FirefoxDriver(cfg_path, profile_path=None).driver
-# sleep(1)
-# ff.get("https://www.google.com")
-# sleep(1)
-# ff.quit()
+ff = FirefoxDriver(cfg_path).driver
+ff.quit()
 
 # from modules.xl_utils.test import test_xlwings_from_yaml
 

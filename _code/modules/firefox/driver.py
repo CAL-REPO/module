@@ -5,8 +5,6 @@ from __future__ import annotations
 
 import shutil
 from typing import Any, Optional
-from pathlib import Path
-from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
@@ -14,7 +12,7 @@ from selenium.webdriver.firefox.service import Service
 from firefox.config import FirefoxConfig
 from cfg_utils import ConfigLoader
 from fso_utils import JsonFileIO, FSOOpsPolicy, ExistencePolicy
-from log_utils import LogManager
+from log_utils import LogContextManager
 
 
 class FirefoxDriver:
@@ -22,8 +20,10 @@ class FirefoxDriver:
         self.config: FirefoxConfig = ConfigLoader(cfg_like).as_model(FirefoxConfig, **overrides)
         self._driver: Optional[webdriver.Firefox] = None
 
-        log_file = self._get_log_file()
-        self.logger = LogManager("firefox", log_file=log_file, policy=self.config.logger).setup()
+        self._log_context = LogContextManager("firefox", policy=self.config.log_policy)
+        self.logger = self._log_context.__enter__()
+        self._logging_active = True
+        self._context_managed = False
         self.logger.debug("FirefoxDriver initialized.")
 
     @property
@@ -97,14 +97,6 @@ class FirefoxDriver:
             from webdriver_manager.firefox import GeckoDriverManager
             return GeckoDriverManager().install()
 
-    def _get_log_file(self) -> Optional[Path]:
-        if self.config.log_dir:
-            self.config.log_dir.mkdir(parents=True, exist_ok=True)
-            log_name = datetime.now().strftime("%Y-%m-%d.log")
-            log_path = self.config.log_dir / log_name
-            return log_path
-        return None
-
     def _load_session_headers(self) -> dict:
         path = self.config.session_path
         if not path:
@@ -135,3 +127,28 @@ class FirefoxDriver:
             io.write(data)
         except Exception as e:
             self.logger.warning(f"Failed to save session headers: {e}")
+
+    # ------------------------------------------------------------------
+    # Context management & cleanup
+    # ------------------------------------------------------------------
+    def __enter__(self) -> "FirefoxDriver":
+        if not self._logging_active:
+            self.logger = self._log_context.__enter__()
+            self._logging_active = True
+        self._context_managed = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            self.quit()
+        finally:
+            self._stop_logging(exc_type, exc_val, exc_tb)
+            self._context_managed = False
+
+    def _stop_logging(self, exc_type=None, exc_val=None, exc_tb=None):
+        if self._logging_active:
+            self._log_context.__exit__(exc_type, exc_val, exc_tb)
+            self._logging_active = False
+
+        if not self._context_managed:
+            self._stop_logging()

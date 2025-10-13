@@ -4,15 +4,50 @@
 # Firefox.yaml
 # ------------------------------------------------------------
 firefox:
-  driver_path: "M:/WebDriver/geckodriver_win32.exe"
-  binary_path: "C:/Program Files/Mozilla Firefox/firefox.exe"               
-  profile_path: "M:/Firefox_Profile/THKIM"                  # 원본 프로필 직접 사용 # 기본값 : firefox 기본 정책 
-  headless: false                                           # 기본값 : false
-  window_size: [1200, 1800]                                 # (선택) [가로, 세로]
+  driver_path: "M:/WebDriver/geckodriver_win32.exe"          # 실행 드라이버 경로 (Optional)
+  binary_path: "C:/Program Files/Mozilla Firefox/firefox.exe" # Firefox 실행 파일 경로
+  profile_path: "M:/Firefox_Profile/THKIM"                   # 사용자 프로필 디렉터리
+  headless: false                                            # true면 UI 없이 실행
+  window_size: [1200, 1800]                                  # [width, height]
+  accept_languages: null                                     # 예: "ko-KR,en-US"
+  user_agent: null                                           # 예: "Mozilla/5.0 ..."
+  dom_enabled: false
+  resist_fingerprint_enabled: true
   session_path: "M:\\CALife\\CAShop - 구매대행\\_code\\data\\session\\firefox_HK.json"
-  log_dir: ""                                              # 기본값 : Windows / User / Download / Logs / Firefox
-  logger:
+  log_policy:
+    enabled: true
     level: DEBUG
+    encoding: utf-8
     rotation: "10 MB"
+    retention: null
+    compression: null
     diagnose: true
     backtrace: true
+    enqueue: true
+    base_dir: "C:/Users/USER/Downloads"                      # 로그 기본 디렉터리
+    dir_name: "Firefox"                                      # 하위 디렉터리 이름
+    file_name_policy:
+      as_type: file
+      prefix: null
+      name: firefox
+      suffix: driver
+      tail: null
+      tail_mode: datetime_counter
+      tail_suffix: run
+      extension: log
+      delimiter: "_"
+      date_format: "%Y-%m-%d"
+      counter_width: 3
+      auto_expand: true
+      sanitize: true
+      case: keep                                             # lower | upper | keep
+      ensure_unique: true
+    use_notifier: false
+    notifier_policy:
+      enabled: false
+      email_host: null
+      email_port: 587
+      email_sender: null
+      email_password: null
+      email_recipient: null
+      slack_webhook_url: null
