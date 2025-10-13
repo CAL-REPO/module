@@ -36,6 +36,6 @@ _code/WEB_TaoBao_Profile1.vbs
 _public/01.IMAGES/
 
 # Python bytecode / cache
-# __pycache__/
+__pycache__/
 *.py[cod]
 *$py.class
