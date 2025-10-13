@@ -1,0 +1,21 @@
+CAShop - 구매대행.approj
+.ap
+.github
+01.SALES
+10.기타 자료
+.849C9593-D756-4E56-8D6E-42412F2A707B
+_code/.backup
+_code/.pyenv
+_code/.settings
+_code/modules/__pycache__
+_code/output/images/*
+_code/output/logs/*
+_code/TEST
+_code/CASHOP_XLCSF.bat
+_code/CASHOP_XLOTO.bat
+_code/WEB_CoupangWing_Profile1.vbs
+_code/WEB_TaoBao_Profile1.vbs
+_public/01.IMAGES/*
+.vscode
+.vscode.ps1
+01.All product List.xlsx

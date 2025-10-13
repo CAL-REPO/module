@@ -1,0 +1,31 @@
+# -*- coding: utf-8 -*-
+# configs/paths.local.yaml
+
+root: "M:/CALife/CAShop - 구매대행"
+
+code_dir: "${root}/_code"
+scripts_dir: "${code_dir}/scripts"
+modules_dir: "{code_dir}/modules"
+db_dir: "{code_dir}/data/db"
+fonts_dir: "{code_dir}/data/fonts"
+configs_dir: "{code_dir}/configs"
+configs_excel: "{configs_dir}/excel.yaml"
+configs_crawl: "{configs_dir}/crawl.yaml"
+configs_oto: "{configs_dir}/oto.yaml"
+
+output_data_dir: "${root}/_data"
+output_data_images_dir: "${output_data_dir}/images"
+output_data_logs_dir: "${output_data_dir}/logs"
+output_xlcfs_logs_dir: "${output_data_logs_dir}/xlcfs"
+output_xloto_logs_dir: "${output_data_logs_dir}/xloto"
+
+public_dir: "${root}/_public"
+public_img_dir: "${public_dir}/01.IMAGES"
+public_img_origin_dirname: "original"
+public_img_tr_dirname: "translated"
+public_img_rm_dirname: "removed"
+public_img_final_dirname: "final"
+
+all_product_xl_file_dir: "${root}"
+all_product_xl_file_path: "${root}/01.All Product List.xlsx"
+all_product_xl_file_sheet: "Purchase"

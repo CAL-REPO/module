@@ -1,0 +1,85 @@
+# configs/oto.yaml
+# pillow.py
+image:
+  file_path: "" # 이미지 파일 경로
+  save_img: True # 기본값 : True
+  save_dir: "" # 기본값 : diretory path of image.file_path
+  save_suffix: "" # 기본값 : _copy
+  save_img_meta: false # 기본값 : False
+  img_meta_dir: "" # 기본값 : diretory path of image.file_path
+  img_meta_name: "" # 기본값 : meta_image.json
+
+# ocr.py
+ocr:
+  file_path: ""
+  provider: "paddle"
+  langs: ["ch_sim", "en"]
+  min_conf: 0.35
+  max_width: 2480
+  save_img: false       # 기본값 : True
+  save_dir: ""          # 기본값 : diretory path of ocr.file_path
+  save_suffix: ""       # 기본값 : _copy
+  save_ocr_meta: false  # 기본값 False
+  ocr_meta_dir: ""      # 기본값 : diretory path of ocr.file_path
+  ocr_meta_name: ""     # 기본값 : meta_ocr.json
+
+# translate.py
+translate:
+  text: []            # 기본값 : None -> "text" or "file_path" is required
+  file_path: ""         # 기본값 : None -> "text" or "file_path" is required
+  provider: deepL
+  model_type: "prefer_quality_optimized" # latency_optimized | quality_optimized | prefer_quality_optimized
+  source_lang: AUTO
+  target_lang: KO
+  zh_chunking:
+    mode: clause        # off|clause
+    min_len: 60         # 00자 미만은 분할 금지
+    max_len: 40
+  zh_phrase_map:
+  save_db : true        # 기본값 True
+  db_dir: "M:\\CALife\\CAShop - 구매대행\\_code\\data\\db"            # 기본값 : diretory path of file_path -> text Input일 경우 "db_dir is required"
+  db_name: ""           # 기본값 : translate_cache.sqlite3 -> text Input일 경우 "db_name is required"
+  save_tr : false       # 기본값 False
+  tr_dir: ""            # 기본값 : diretory path of file_path  -> text Input일 경우 "translated_dir is required"
+  tr_name: ""           # 기본값 : translated_text.json  -> text Input일 경우 "translated is required"
+
+# overlay.py
+overlay:
+  file_path: ""
+  ol_save_dir: ""       # 기본값 diretory path of overlay.file_path
+  ol_save_suffix: ""    # 기본값 None
+
+  # 언어별 폰트/색/사이즈 매핑 — 사이즈 비우면(auto) 렌더러가 박스 높이에 맞춰 자동 조절
+  fonts:
+    dir: "M:\\CALife\\CAShop - 구매대행\\_code\\data\\fonts" # 기본값 Windows default font directory
+    lang:
+      ch:
+        family: "Noto Sans CJK SC"
+        color:  "#000000"
+        weight: 800
+      en:
+        family: "Arial"
+        color:  "#000000"
+        weight: 800
+      ko:
+        family: "HMKMMAG.TTF"
+        color:  "#000000"
+        weight: 800
+
+    common:
+      font_min_size: 3
+      font_ratio_box: 0.5
+      align: center
+      coord_space: px_orig # norm|px_orig
+      place: { anchor: c, offset: {dx: 0, dy: 0}, padding_px: 2 }
+
+  ol: 
+    - text: ""
+      poly: [] # [120,180],[360,170],[365,220],[125,230]
+
+    - text: ""
+      poly: [] # [120,180],[360,170],[365,220],[125,230]
+
+oto:
+  file_path: "" # 이미지 파일 경로
+  log_dir: "" # 기본값 diretory path of oto.file_path

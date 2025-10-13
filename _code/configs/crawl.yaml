@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+
+# ------------------------------------------------------------
+# crawl.yaml
+# ------------------------------------------------------------
+crawl:
+  url: "https://www.istockphoto.com/kr/%EC%9D%B4%EB%AF%B8%EC%A7%80/%EC%82%AC%EA%B3%BC"
+  search_path: "" # Option 여러 Url Page 검색시 사용 예정 - 현재 프로젝트 미 구현 - search_path 있을 경우 url = base_url 역할
+  log_dir: "" # 기본값 None -> log 저장 안함
+
+  session:
+    Accept_context: ""
+    Accept_encoding: ""
+    retries: Optional[int] = None
+    backoff: Optional[float] = None
+
+  wait:              # lazy load 대응
+    selector: "img[src], img[data-src]"
+    timeout: 30
+
+  scroll:
+    min_steps: 3
+    max_steps: 10
+    min_pause: 0.5
+    max_pause: 2
+
+  extractor:
+    js_script: | 
+      const result = { detailed: [], option: [] };
+      document.querySelectorAll("img").forEach(im => {
+        let url = im.getAttribute("data-src") || im.getAttribute("src") || "";
+        if (url.startsWith("//")) url = "https:" + url;
+        const title = im.getAttribute("alt") || im.getAttribute("title") || (im.textContent||"").trim();
+        if (/^https?:\/\//i.test(url) && !/s\.gif$/i.test(url)) {
+          result.detailed.push([title, url]);
+        }
+      });
+      return result;
+
+  normalizers:
+    rule_type:
+    pattern: '(\.(?:jpe?g|png|webp|gif))\?(?:[^#]*)'
+    replace: '\1'
+    flags: 'i'
+
+  file:
+    save_dir: "" # 기본값 Windows User Download 폴더
+    name: "" # 기본값 None 함수 내 기본 저장 이름은 "01,02....."
+    name_prefix: "" # 기본값 None # name_prefix + "_" + name + "_01" + "_" + name_suffix
+    name_suffix: "" # 기본값 None 
+    min_size: 512
+    max_width: 2048 # only at image
+    max_height: 4096 # only at image
+    quality: 85 # only at image
+    exif: false # only at image

@@ -1,0 +1,18 @@
+# -*- coding: utf-8 -*-
+
+# ------------------------------------------------------------
+# Firefox.yaml
+# ------------------------------------------------------------
+firefox:
+  driver_path: "M:/WebDriver/geckodriver_win32.exe"
+  binary_path: "C:/Program Files/Mozilla Firefox/firefox.exe"               
+  profile_path: "M:/Firefox_Profile/THKIM"                  # 원본 프로필 직접 사용 # 기본값 : firefox 기본 정책 
+  headless: false                                           # 기본값 : false
+  window_size: [1200, 1800]                                 # (선택) [가로, 세로]
+  session_path: "M:\\CALife\\CAShop - 구매대행\\_code\\data\\session\\firefox_HK.json"
+  log_dir: ""                                              # 기본값 : Windows / User / Download / Logs / Firefox
+  logger:
+    level: DEBUG
+    rotation: "10 MB"
+    diagnose: true
+    backtrace: true
