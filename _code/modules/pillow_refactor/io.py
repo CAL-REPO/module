@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
@@ -85,11 +87,9 @@ class ImageWriter:
             suffix=self.target_policy.suffix,
         )
         path = directory / filename
-        from fso_utils.core.io import JsonFileIO
-        JsonFileIO(
-            path,
-            ops_policy=FSOOpsPolicy(as_type="file", exist=ExistencePolicy(create_if_missing=True)),
-        ).write(meta.__dict__)
+        payload = asdict(meta)
+        payload["src_path"] = str(meta.src_path)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return path
 
     def _build_target_path(self, base_path: Path) -> Path:
