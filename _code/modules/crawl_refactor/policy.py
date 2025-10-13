@@ -125,12 +125,12 @@ class StoragePolicy(BaseModel):
 
 class CrawlPolicy(BaseModel):
     navigation: NavigationPolicy
-    scroll: ScrollPolicy = Field(default_factory=ScrollPolicy)
-    extractor: ExtractorPolicy = Field(default_factory=ExtractorPolicy)
-    wait: WaitPolicy = Field(default_factory=WaitPolicy)
+    scroll: ScrollPolicy = Field(default_factory=ScrollPolicy) # pyright: ignore[reportArgumentType]
+    extractor: ExtractorPolicy = Field(default_factory=ExtractorPolicy) # pyright: ignore[reportArgumentType]
+    wait: WaitPolicy = Field(default_factory=WaitPolicy) # pyright: ignore[reportArgumentType]
     normalization: NormalizationPolicy = Field(default_factory=NormalizationPolicy)
     storage: StoragePolicy
-    http_session: HttpSessionPolicy = Field(default_factory=HttpSessionPolicy)
+    http_session: HttpSessionPolicy = Field(default_factory=HttpSessionPolicy) # pyright: ignore[reportArgumentType]
     concurrency: int = Field(default=2, ge=1, le=32)
     retries: int = Field(default=2, ge=0, le=10)
     retry_backoff_sec: float = Field(1.0, ge=0.0)
