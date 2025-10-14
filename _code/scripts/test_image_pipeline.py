@@ -14,8 +14,8 @@ import sys
 # Add modules to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "modules"))
 
-from pillow_utils import ImageLoader, ImageLoaderPolicy, ImageOverlay, ImageOverlayPolicy, ImageSourcePolicy, ImagePolicy, OverlayFontPolicy
-from ocr_utils import ImageOCR, OcrPolicy
+from image_utils import ImageLoader, ImageLoaderPolicy, ImageOverlay, ImageOverlayPolicy, ImageSourcePolicy, ImagePolicy, OverlayFontPolicy
+from image_utils.services.ocr import ImageOCR, OcrPolicy
 
 
 def test_pipeline(image_path: Path):

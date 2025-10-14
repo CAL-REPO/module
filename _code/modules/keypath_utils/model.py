@@ -5,10 +5,10 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Optional, Dict
-from data_utils.types import KeyPath
+from data_utils.core.types import KeyPath
 from .policy import KeyPathStatePolicy
 from .accessor import KeyPathAccessor
-from data_utils.dict_ops import DictOps
+from data_utils.services.dict_ops import DictOps
 
 
 @dataclass

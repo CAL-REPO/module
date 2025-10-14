@@ -3,7 +3,7 @@
 
 from pathlib import Path
 from modules.cfg_utils import ConfigLoader
-from pillow_utils.policy import ImageLoaderPolicy, ImageOverlayPolicy
+from image_utils.core.policy import ImageLoaderPolicy, ImageOverlayPolicy
 
 print("=" * 80)
 print("ConfigLoader Section vs Root Test")

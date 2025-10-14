@@ -1,0 +1,3 @@
+# -*- coding: utf-8 -*-
+"""Mixin for connection management in structured data I/O."""
+# ...existing code from mixins/io/connection.py...

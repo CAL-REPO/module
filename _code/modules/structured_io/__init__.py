@@ -2,7 +2,7 @@
 from .formats.yaml_io import YamlParser, YamlDumper
 from .formats.json_io import JsonParser, JsonDumper
 from .fileio.structured_fileio import StructuredFileIO
-from .base.base_policy import BaseParserPolicy, BaseDumperPolicy
+from structured_io.core.base_policy import BaseParserPolicy, BaseDumperPolicy
 
 __all__ = [
     # Policies

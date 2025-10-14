@@ -63,7 +63,7 @@
 # print("Home Directory:", home())
 # print("Downloads Directory:", downloads())
 
-from pillow_utils.image_loader import ImageLoader
+from image_utils.adapter.loader import ImageLoader
 cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\pillow.yaml"
 
 ImageLoader(cfg_path).run()

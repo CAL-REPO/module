@@ -1,0 +1,3 @@
+# -*- coding: utf-8 -*-
+"""Mixin for caching operations in structured data I/O."""
+# ...existing code from mixins/io/cache.py...

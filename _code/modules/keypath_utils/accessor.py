@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 from typing import Any, Callable, Dict
-from data_utils.types import KeyPath
+from data_utils.core.types import KeyPath
 from unify_utils.normalizers.normalizer_keypath import KeyPathNormalizer, KeyPathNormalizePolicy
 
 _keypath_norm = KeyPathNormalizer(KeyPathNormalizePolicy()) # pyright: ignore[reportCallIssue]

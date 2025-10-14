@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
-from data_utils.types import PathLike
+from data_utils.core.types import PathLike
 
 from .ops import FSOOps
 from .policy import FSOOpsPolicy, FSOIOPolicy, ExistencePolicy

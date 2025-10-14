@@ -3,8 +3,8 @@
 
 from __future__ import annotations
 from typing import List
-from data_utils.types import KeyPath
-from data_utils.string_ops import StringOps
+from data_utils.core.types import KeyPath
+from data_utils.services.string_ops import StringOps
 from unify_utils.core.base_normalizer import NormalizerBase
 from unify_utils.core.policy import KeyPathNormalizePolicy
 

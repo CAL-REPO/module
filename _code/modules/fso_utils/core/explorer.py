@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from typing import Union
-from data_utils.types import PathLike
+from data_utils.core.types import PathLike
 from .policy import FSOExplorerPolicy
 
 class FSOExplorer:

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from typing import Union
-from data_utils.types import PathLike
+from data_utils.core.types import PathLike
 from .policy import FSOOpsPolicy
 
 class FSOOps:

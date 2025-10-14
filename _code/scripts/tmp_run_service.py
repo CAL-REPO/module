@@ -7,9 +7,9 @@ Tests the complete image processing pipeline using unified.yaml configuration:
 """
 
 from pathlib import Path
-from modules.pillow_utils.image_loader import ImageLoader
-from modules.ocr_utils.image_ocr import ImageOCR
-from modules.pillow_utils.image_overlay import ImageOverlay
+from image_utils.adapter.loader import ImageLoader
+from image_utils.services.ocr.services.image_ocr import ImageOCR
+from image_utils.adapter.image_overlay import ImageOverlay
 
 
 def main():

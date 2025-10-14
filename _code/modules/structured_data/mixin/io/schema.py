@@ -1,0 +1,3 @@
+# -*- coding: utf-8 -*-
+"""Mixin for schema management in structured data I/O."""
+# ...existing code from mixins/io/schema.py...

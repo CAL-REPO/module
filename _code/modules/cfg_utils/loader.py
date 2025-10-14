@@ -9,8 +9,8 @@ from pydantic import BaseModel, ValidationError
 
 from modules.structured_io.formats.yaml_io import YamlParser
 from keypath_utils import KeyPathDict
-from .normalizer import ConfigNormalizer
-from .policy import ConfigPolicy
+from .services.normalizer import ConfigNormalizer
+from .core.policy import ConfigPolicy
 
 T = TypeVar("T", bound=BaseModel)
 

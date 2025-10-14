@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 from yaml import SafeLoader, FullLoader, ScalarNode, Loader, SafeDumper, Dumper
 
-from structured_io.base.base_parser import BaseParser
-from structured_io.base.base_dumper import BaseDumper
+from structured_io.core.base_parser import BaseParser
+from structured_io.core.base_dumper import BaseDumper
 from unify_utils.normalizers.resolver_placeholder import PlaceholderResolver
 from unify_utils.normalizers.resolver_reference import ReferenceResolver
 
