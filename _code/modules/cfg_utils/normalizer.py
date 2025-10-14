@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 from typing import Any
-from unify_utils.normalizers.reference_resolver import ReferenceResolver
+from unify_utils.normalizers.resolver_reference import ReferenceResolver
 
 class ConfigNormalizer:
     """Config 데이터 후처리기

@@ -8,8 +8,8 @@ from yaml import SafeLoader, FullLoader, ScalarNode, Loader, SafeDumper, Dumper
 
 from structured_io.base.base_parser import BaseParser
 from structured_io.base.base_dumper import BaseDumper
-from unify_utils.normalizers.placeholder_resolver import PlaceholderResolver
-from unify_utils.normalizers.reference_resolver import ReferenceResolver
+from unify_utils.normalizers.resolver_placeholder import PlaceholderResolver
+from unify_utils.normalizers.resolver_reference import ReferenceResolver
 
 
 class YamlParser(BaseParser):

@@ -30,9 +30,9 @@ Public API
 # ---------------------------------------------------------------------------
 # Base / Policy
 # ---------------------------------------------------------------------------
-from .core.normalizer_base import NormalizerBase
-from .core.resolver_base import ResolverBase
-from .core.base import (
+from .core.base_normalizer import NormalizerBase
+from .core.base_resolver import ResolverBase
+from .core.policy import (
     NormalizePolicyBase,
     RuleNormalizePolicy,
     ValueNormalizePolicy,
@@ -54,16 +54,16 @@ from .presets.rules import (
 # ---------------------------------------------------------------------------
 # Normalizers
 # ---------------------------------------------------------------------------
-from .normalizers.rule_normalizer import RuleBasedNormalizer
-from .normalizers.value_normalizer import ValueNormalizer
-from .normalizers.list_normalizer import ListNormalizer
-from .normalizers.keypath_normalizer import KeyPathNormalizer
+from .normalizers.normalizer_rule import RuleBasedNormalizer
+from .normalizers.normalizer_value import ValueNormalizer
+from .normalizers.normalizer_list import ListNormalizer
+from .normalizers.normalizer_keypath import KeyPathNormalizer
 
 # ---------------------------------------------------------------------------
 # Resolvers (신규 노출)
 # ---------------------------------------------------------------------------
-from .normalizers.placeholder_resolver import PlaceholderResolver
-from .normalizers.reference_resolver import ReferenceResolver
+from .normalizers.resolver_placeholder import PlaceholderResolver
+from .normalizers.resolver_reference import ReferenceResolver
 
 # ---------------------------------------------------------------------------
 # Convenience factory helpers
@@ -72,13 +72,13 @@ from typing import Sequence
 
 def rule_normalizer(*, rules: Sequence[NormalizeRule] | None = None,
                     recursive: bool = False, strict: bool = False) -> RuleBasedNormalizer:
-    from .core.base import RuleNormalizePolicy
+    from .core.policy import RuleNormalizePolicy
     policy = RuleNormalizePolicy(rules=rules or [], recursive=recursive, strict=strict)
     return RuleBasedNormalizer(policy)
 
 def value_normalizer(*, date_fmt: str = "%Y-%m-%d",
                      bool_strict: bool = False, recursive: bool = False, strict: bool = False) -> ValueNormalizer:
-    from .core.base import ValueNormalizePolicy
+    from .core.policy import ValueNormalizePolicy
     policy = ValueNormalizePolicy(date_fmt=date_fmt, bool_strict=bool_strict, recursive=recursive, strict=strict)
     return ValueNormalizer(policy)
 
@@ -86,7 +86,7 @@ def list_normalizer(*, sep: str | None = None,
                     item_cast=None, keep_empty: bool = False,
                     min_len: int | None = None, max_len: int | None = None,
                     recursive: bool = False, strict: bool = False) -> ListNormalizer:
-    from .core.base import ListNormalizePolicy
+    from .core.policy import ListNormalizePolicy
     policy = ListNormalizePolicy(
         sep=sep, item_cast=item_cast, keep_empty=keep_empty,
         min_len=min_len, max_len=max_len, recursive=recursive, strict=strict)

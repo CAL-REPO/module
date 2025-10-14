@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import asyncio
 
-from .interfaces import CrawlDriver
+from .interfaces import BrowserController
 from .policy import CrawlPolicy, ScrollStrategy, WaitHook, WaitCondition
 
 
 class SeleniumNavigator:
-    def __init__(self, driver: CrawlDriver, policy: CrawlPolicy):
+    def __init__(self, driver: BrowserController, policy: CrawlPolicy):
         self._driver = driver
         self._policy = policy
         self._current_url: str | None = None
