@@ -90,26 +90,125 @@ class ConfigLoader:
     # ------------------------------------------------------------------
     # Output Transform
     # ------------------------------------------------------------------
-    def as_dict(self, **overrides: Any) -> dict[str, Any]:
-        """최종 병합 dict 반환"""
+    def as_dict(self, section: Optional[str] = None, **overrides: Any) -> dict[str, Any]:
+        """최종 병합 dict 반환
+        
+        Section 우선순위:
+        1. 명시적 section 파라미터 (section이 있으면 추출)
+        2. root (section이 없으면 root 전체 반환)
+        
+        Args:
+            section: Optional section name to extract
+            **overrides: Runtime overrides
+            
+        Returns:
+            Configuration dictionary
+        """
+        data = self._data.data.copy()
+        
+        # Extract section if specified (section or root)
+        if section:
+            if section not in data:
+                # Section not found, check if it's trying to use root
+                # For backwards compatibility, if section is not found, 
+                # we could return root, but explicit is better
+                raise KeyError(f"[ConfigLoader] Section '{section}' not found in config")
+            data = data[section]
+        # else: use root data as-is
+        
+        # Apply overrides
         if overrides:
             deep = self.policy.merge_mode == "deep"
-            temp = KeyPathDict(self._data.data.copy())
+            temp = KeyPathDict(data)
             temp.merge(overrides, deep=deep)
             return temp.data
-        return self._data.data
+        return data
+    
+    def get_section(self, section: str) -> dict[str, Any]:
+        """섹션 추출 (별칭 메서드)
+        
+        Args:
+            section: Section name to extract
+            
+        Returns:
+            Section data as dictionary
+        """
+        return self.as_dict(section=section)
+    
+    def has_section(self, section: str) -> bool:
+        """섹션 존재 여부 확인
+        
+        Args:
+            section: Section name to check
+            
+        Returns:
+            True if section exists, False otherwise
+        """
+        return section in self._data.data and isinstance(self._data.data[section], dict)
+    
+    def get_root(self) -> dict[str, Any]:
+        """Root 데이터 전체 반환 (별칭 메서드)
+        
+        Returns:
+            Root configuration dictionary
+        """
+        return self.as_dict(section=None)
 
-    def as_model(self, model: Type[T], **overrides: Any) -> T:
-        """최종 모델 변환"""
+    def as_model(self, model: Type[T], section: Optional[str] = None, **overrides: Any) -> T:
+        """최종 모델 변환
+        
+        Section 우선순위:
+        1. 명시적 section 파라미터
+        2. 자동 감지된 section (모델명 기반)
+        3. root (section이 없으면 root에서 바로 로드)
+        
+        Args:
+            model: Pydantic model class
+            section: Optional section name to extract from config
+                    If not provided, auto-detects from model name or uses root
+            **overrides: Runtime overrides
+            
+        Returns:
+            Validated model instance
+        """
         data = self.as_dict(**overrides)
-        model_name = model.__name__.lower()
-        candidates = [model_name]
-        if model_name.endswith("config"):
-            candidates.append(model_name[:-6])
-        for key in candidates:
-            if key and isinstance(data.get(key), dict):
-                data = data[key]
-                break
+        
+        # Section selection logic
+        if section:
+            # 1. Explicit section provided
+            if section not in data:
+                raise KeyError(f"[ConfigLoader] Section '{section}' not found in config")
+            data = data[section]
+        else:
+            # 2. Auto-detect section from model name
+            model_name = model.__name__.lower()
+            candidates = []
+            
+            # Handle common naming patterns
+            if model_name.endswith("policy"):
+                # ImageLoaderPolicy -> imageloader, loader
+                base = model_name[:-6]  # Remove "policy"
+                candidates.append(base)
+                if base.startswith("image"):
+                    candidates.append(base[5:])  # Remove "image" prefix
+            if model_name.endswith("config"):
+                candidates.append(model_name[:-6])
+            
+            candidates.append(model_name)
+            
+            # Try to find matching section
+            section_found = False
+            for key in candidates:
+                if key and isinstance(data.get(key), dict):
+                    data = data[key]
+                    section_found = True
+                    break
+            
+            # 3. If no section found, use root data as-is
+            # This allows YAML files without sections to work directly
+            if not section_found:
+                pass  # Use root data directly
+        
         # ensure dict keys are strings
         data = {str(k): v for k, v in data.items()}
         try:

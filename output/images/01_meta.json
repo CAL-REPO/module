@@ -1,0 +1,19 @@
+{
+  "source": {
+    "path": "M:\\CALife\\CAShop - 구매대행\\_code\\scripts\\01.jpg",
+    "width": 1500,
+    "height": 2322,
+    "mode": "RGB",
+    "format": "JPEG"
+  },
+  "processed": {
+    "width": 1500,
+    "height": 2322,
+    "mode": "RGB"
+  },
+  "ratios": {
+    "width": 1.0,
+    "height": 1.0
+  },
+  "saved_image_path": "M:\\CALife\\CAShop - 구매대행\\output\\images\\01_processed_010.jpg"
+}

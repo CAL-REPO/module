@@ -5,6 +5,24 @@ from .df_ops import DataFramePolicy, DataFrameOps
 from .dict_ops import DictOps
 from .list_ops import ListOps
 from .string_ops import StringOps
+from .db_ops import SQLiteKVStore, KVKeyMixin
+from .geometry_ops import GeometryOps
 from .types import PathLike, KeyPath, JsonDict, SectionName, FieldName, GroupedPairDict, MultiValueGroupDict
 
-__all__ = ["DataFramePolicy", "DataFrameOps", "DictOps", "ListOps", "StringOps", "PathLike", "KeyPath", "JsonDict", "SectionName", "FieldName", "GroupedPairDict", "MultiValueGroupDict"]
+__all__ = [
+    "DataFramePolicy",
+    "DataFrameOps",
+    "DictOps",
+    "ListOps",
+    "StringOps",
+    "SQLiteKVStore",
+    "KVKeyMixin",
+    "GeometryOps",
+    "PathLike",
+    "KeyPath",
+    "JsonDict",
+    "SectionName",
+    "FieldName",
+    "GroupedPairDict",
+    "MultiValueGroupDict",
+]

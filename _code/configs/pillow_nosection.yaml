@@ -1,0 +1,33 @@
+# ============================================================================
+# ImageLoader Configuration (No Section Version)
+# ============================================================================
+# This file works without a 'pillow:' section
+# ConfigLoader will use root data directly
+
+# Source image configuration
+source:
+  path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+  must_exist: true
+  convert_mode: null
+
+# Image save/copy configuration
+image:
+  save_copy: true
+  directory: "M:/CALife/CAShop - 구매대행/output/images"
+  filename: null
+  suffix: "_nosection"
+  format: null
+  quality: 95
+  ensure_unique: true
+
+# Metadata configuration
+meta:
+  save_meta: true
+  directory: "M:/CALife/CAShop - 구매대행/output/images"
+  filename: null
+
+# Processing configuration
+processing:
+  resize_to: null
+  blur_radius: null
+  convert_mode: null

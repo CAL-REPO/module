@@ -1,41 +1,50 @@
 # -*- coding: utf-8 -*-
-"""pillow_refactor — SRP-friendly image toolkit."""
+"""pillow_utils — SRP-friendly image processing toolkit with 3 entrypoints.
 
-from .models import ImageMeta, ImagePipelineResult
+Three main entrypoints:
+1. ImageLoader - Load/copy/resize images with metadata
+2. ImageOCR (in ocr_utils) - Run OCR with resize tracking
+3. ImageOverlay - Overlay text/graphics from OCR or manual input
+"""
+
 from .policy import (
     ImageSourcePolicy,
-    ImageTargetPolicy,
+    ImagePolicy,
     ImageMetaPolicy,
-    ImageProcessingPolicy,
-    ImagePipelinePolicy,
-    OverlayFontPolicy,
+    ImageProcessorPolicy,
+    ImageLoaderPolicy,
+    ImageOverlayPolicy,
     OverlayTextPolicy,
-    OverlayPolicy,
 )
 from .io import ImageReader, ImageWriter
 from .processor import ImageProcessor
-from .pipeline import ImagePipeline
-from .overlay import OverlayRenderer
-from .image_loader import ImageLoaderPolicy, ImageLoader
+from .renderer import OverlayTextRenderer
+from .image_loader import ImageLoader
+from .image_overlay import ImageOverlay
+
+# Re-export FontPolicy from font_utils for convenience
+from font_utils import FontPolicy
 
 __all__ = [
-    "ImageMeta",
-    "ImagePipelineResult",
+    # Policy models
     "ImageSourcePolicy",
-    "ImageTargetPolicy",
+    "ImagePolicy",
     "ImageMetaPolicy",
-    "ImageProcessingPolicy",
-    "ImagePipelinePolicy",
-    "OverlayFontPolicy",
+    "ImageProcessorPolicy",
+    "ImageLoaderPolicy",
+    "ImageOverlayPolicy",
     "OverlayTextPolicy",
-    "OverlayPolicy",
+    "FontPolicy",
+    # I/O
     "ImageReader",
     "ImageWriter",
+    # Processing
     "ImageProcessor",
-    "ImagePipeline",
-    "OverlayRenderer",
-    "ImageLoaderPolicy",
-    "ImageLoader"
+    # Rendering (pure functional)
+    "OverlayTextRenderer",
+    # Entrypoints
+    "ImageLoader",
+    "ImageOverlay",
 ]
 
 """Lightweight utilities for loading, copying and resizing a single image.

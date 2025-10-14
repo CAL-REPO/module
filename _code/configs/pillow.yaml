@@ -1,64 +1,43 @@
-# ImageLoaderPolicy configuration
+﻿# ============================================================================
+# ImageLoader Configuration (1st Entrypoint) - pillow_utils
+# ============================================================================
+# Complete YAML for loading, processing, and saving images
+# 
+# Usage:
+#   from pillow_utils import ImageLoader
+#   loader = ImageLoader("configs/pillow.yaml")
+#   result = loader.run()
 #
-# This YAML file defines the configuration for a single image loading
-# operation using the ImageLoader class from pillow_utils.  It controls
-# whether the image is copied and/or resized, where output and
-# metadata files are stored, and how logging is configured.  Adjust
-# the paths and settings below to suit your environment.
+# Section-based access (for unified config):
+#   from modules.cfg_utils import ConfigLoader
+#   loader_config = ConfigLoader("configs/pillow.yaml").get_section("pillow")
+# ============================================================================
+
 pillow:
+  # Source image configuration
+  source:
+    path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+    must_exist: true
+    convert_mode: null
 
-  src_path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"   # Path to the input image; must exist.
-  dest_dir: "M:/CALife/CAShop - 구매대행/_code/scripts"        # Directory to save the processed image.  If null, src_dir is used.
-  meta_dir: "M:/CALife/CAShop - 구매대행/_code/scripts"             # Directory to save the metadata JSON.  If null, dest_dir is used.
+  # Image save/copy configuration
+  image:
+    save_copy: true
+    directory: "M:/CALife/CAShop - 구매대행/output/images"
+    filename: null
+    suffix: "_processed"
+    format: null
+    quality: 95
+    ensure_unique: true
 
-  # Operation flags
-  save_copy: true                      # Set to false to skip copying/resizing the image.
-  write_meta: true                # Set to false to return metadata in memory only (no JSON file written).
+  # Metadata configuration
+  meta:
+    save_meta: true
+    directory: "M:/CALife/CAShop - 구매대행/output/images"
+    filename: null
 
-  # Resize settings
-  resize_to: [800, 600]           # Resize to width x height when copy is true.  Omit or set null to keep original size.
-  suffix: "_proceed"            # Suffix appended to the filename stem for the copied file.
-  ensure_unique: true             # Ensure the output filename is unique via a counter.
-
-  # Logging configuration (LogPolicy)
-  log_policy:
-    enabled: true                # Enable or disable logging entirely.
-    level: "INFO"                # Log level (e.g., DEBUG, INFO, WARNING, ERROR).
-    encoding: "utf-8"            # File encoding for the log file.
-    diagnose: true               # Include diagnostic information on exceptions.
-    backtrace: true              # Include full traceback on errors.
-    enqueue: true                # Use a queue to make logging multi-process safe.
-
-    # File/directory settings
-    base_dir: "M:/CALife/CAShop - 구매대행/_code/logs"   # Base directory for all logs.
-    dir_name: "ImageLoader"       # Name of the subdirectory for this component's logs.
-
-    # File naming policy
-    file_name_policy:
-      as_type: "file"
-      name: "image_loader"
-      extension: "log"
-      tail_mode: "datetime_counter"
-      ensure_unique: true
-
-    # Filesystem operations policy
-    fso_policy:
-      as_type: "file"
-      exist:
-        create_if_missing: true
-
-    # Log rotation and retention
-    rotation: "1 day"             # Rotate the log file every day.
-    retention: null              # Retain all rotated logs indefinitely; set to an integer for count-based retention.
-    compression: null            # Compress rotated logs (e.g., zip, gz); null for no compression.
-
-    # External notifications
-    use_notifier: false          # Enable to send alerts on errors.
-    notifier_policy:
-      enabled: false             # Overall switch for notifications.
-      email_host: null
-      email_port: 587
-      email_sender: null
-      email_password: null
-      email_recipient: null
-      slack_webhook_url: null
+  # Processing configuration
+  processing:
+    resize_to: null
+    blur_radius: null
+    convert_mode: null

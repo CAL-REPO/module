@@ -1,10 +1,6 @@
-"""ocr_utils package — thin, class-based wrappers for the legacy OCR module.
+"""OCR utilities for structured workflows."""
 
-This package provides a minimal class-based API while delegating the heavy
-lifting to the existing implementation in `modules.ocr.ocr`. The goal is to
-introduce a stable, testable surface (`ImageOCRService`, `run_ocr`) while the
-internal implementation can be refactored incrementally.
-"""
-from .service import ImageOCRService, run_ocr
+from .image_ocr import ImageOCR
+from .policy import OcrPolicy, OcrFilePolicy, OcrProviderPolicy, OcrPreprocessPolicy, OCRItem
 
-__all__ = ["ImageOCRService", "run_ocr"]
+__all__ = ["ImageOCR", "OcrPolicy", "OcrFilePolicy", "OcrProviderPolicy", "OcrPreprocessPolicy", "OCRItem"]

@@ -1,0 +1,217 @@
+# ============================================================================
+# Unified Configuration File - All Entrypoints
+# ============================================================================
+# This file contains all configurations for the 3 entrypoints:
+# 1. ImageLoader (pillow)
+# 2. ImageOCR (ocr)
+# 3. ImageOverlay (overlay)
+#
+# Usage examples:
+#
+# Load specific section:
+#   from modules.cfg_utils import ConfigLoader
+#   config = ConfigLoader("configs/unified.yaml")
+#   pillow_policy = config.as_model(ImageLoaderPolicy, section="pillow")
+#   ocr_policy = config.as_model(OcrPolicy, section="ocr")
+#   overlay_policy = config.as_model(ImageOverlayPolicy, section="overlay")
+#
+# Or use direct entrypoint loading (will auto-detect section):
+#   from pillow_utils import ImageLoader, ImageOverlay
+#   from ocr_utils import ImageOCR
+#   
+#   loader = ImageLoader("configs/unified.yaml")  # Uses "pillow" section
+#   ocr = ImageOCR("configs/unified.yaml")        # Uses "ocr" section
+#   overlay = ImageOverlay("configs/unified.yaml") # Uses "overlay" section
+# ============================================================================
+
+# ============================================================================
+# ImageLoader Configuration (1st Entrypoint)
+# ============================================================================
+pillow:
+  source:
+    path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+    must_exist: true
+    convert_mode: null
+
+  image:
+    save_copy: true
+    directory: "M:/CALife/CAShop - 구매대행/output/images"
+    filename: null
+    suffix: "_processed"
+    format: null
+    quality: 95
+    ensure_unique: true
+
+  meta:
+    save_meta: true
+    directory: "M:/CALife/CAShop - 구매대행/output/images"
+    filename: null
+
+  processing:
+    resize_to: null
+    blur_radius: null
+    convert_mode: null
+
+
+# ============================================================================
+# ImageOCR Configuration (2nd Entrypoint)
+# ============================================================================
+ocr:
+  file:
+    file_path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+    save_img: false
+    save_dir: ""
+    save_suffix: "_ocr"
+    save_ocr_meta: true
+    ocr_meta_dir: ""
+    ocr_meta_name: "meta_ocr.json"
+
+  provider:
+    provider: "paddle"
+    langs:
+      - "ch_sim"
+      - "en"
+    min_conf: 0.5
+    paddle_device: "gpu"
+    paddle_use_angle_cls: true
+    paddle_instance: {}
+
+  preprocess:
+    resized: false
+    max_width: 1200
+
+  debug: false
+
+  source:
+    path: ""
+    must_exist: true
+    convert_mode: "RGB"
+
+  target:
+    directory: null
+    filename_template: "{stem}{suffix}{ext}"
+    suffix: "_ocr"
+    format: null
+    quality: 95
+    ensure_unique: true
+
+  meta:
+    enabled: true
+    directory: null
+    filename: "{stem}{suffix}.json"
+
+  log:
+    enabled: true
+    level: "INFO"
+    console: true
+    name: "ocr"
+    suffix: ""
+    extension: ".log"
+    encoding: "utf-8"
+    use_cwd_logs: false
+    logs_under: null
+    subdir: "logs"
+    rotation: "10 MB"
+    retention: "7 days"
+    compression: "zip"
+    enqueue: true
+    backtrace: true
+    diagnose: false
+    use_notifier: false
+
+
+# ============================================================================
+# ImageOverlay Configuration (3rd Entrypoint)
+# ============================================================================
+overlay:
+  source:
+    path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+    must_exist: true
+    convert_mode: null
+
+  output:
+    save_copy: true
+    directory: "M:/CALife/CAShop - 구매대행/output/images"
+    filename: null
+    suffix: "_overlay"
+    format: null
+    quality: 95
+    ensure_unique: true
+
+  meta:
+    save_meta: true
+    directory: "M:/CALife/CAShop - 구매대행/output/images"
+    filename: null
+
+  font:
+    family: "M:/CALife/CAShop - 구매대행/_code/data/fonts/NotoSansKR-Regular.ttf"
+    size: 24
+    fill: "#FF0000"
+    stroke_fill: "#FFFFFF"
+    stroke_width: 2
+
+  background_opacity: 0.0
+
+  texts:
+    - text: "샘플 텍스트 1"
+      polygon:
+        - [100, 100]
+        - [400, 100]
+        - [400, 150]
+        - [100, 150]
+      font:
+        family: "M:/CALife/CAShop - 구매대행/_code/data/fonts/HMKMMAG.TTF"
+        size: 28
+        fill: "#FF0000"
+        stroke_fill: "#FFFFFF"
+        stroke_width: 2
+      anchor: "mm"
+      offset: [0.0, 0.0]
+      max_width_ratio: 0.95
+      
+    - text: "샘플 텍스트 2"
+      polygon:
+        - [100, 200]
+        - [400, 200]
+        - [400, 250]
+        - [100, 250]
+      font:
+        family: "M:/CALife/CAShop - 구매대행/_code/data/fonts/NotoSansKR-Regular.ttf"
+        size: 24
+        fill: "#0000FF"
+        stroke_fill: null
+        stroke_width: 0
+      anchor: "mm"
+      offset: [0.0, 0.0]
+      max_width_ratio: 0.95
+
+
+# ============================================================================
+# Full Pipeline Example (Future: Translate Module Integration)
+# ============================================================================
+# translate:
+#   source:
+#     path: "M:/CALife/CAShop - 구매대행/_code/scripts/01.jpg"
+#   
+#   # Step 1: Load & preprocess
+#   loader:
+#     resize_to: [1200, 900]
+#     convert_mode: "RGB"
+#   
+#   # Step 2: OCR
+#   ocr:
+#     langs: ["ch_sim", "en"]
+#     min_conf: 0.6
+#   
+#   # Step 3: Translate
+#   translator:
+#     source_lang: "zh"
+#     target_lang: "ko"
+#     api_key: null
+#   
+#   # Step 4: Overlay translated text
+#   overlay:
+#     font:
+#       family: "NanumGothic.ttf"
+#       size: null  # Auto-fit
+#     background_opacity: 0.3

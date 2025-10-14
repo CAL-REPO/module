@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
-# pillow_refactor/io.py
+# pillow_utils/io.py
+"""Image I/O utilities for reading and writing images with metadata.
+
+Uses dict for metadata instead of ImageMetaResult dataclass.
+Compatible with new policy structure.
+"""
 
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple
 
 from PIL import Image, ImageOps
 
@@ -19,12 +23,11 @@ from fso_utils.core.policy import (
 )
 from fso_utils.core.path_builder import FSOPathBuilder
 
-from .models import ImageMeta
-from .policy import ImageSourcePolicy, ImageTargetPolicy, ImageMetaPolicy
+from .policy import ImageSourcePolicy, ImagePolicy, ImageMetaPolicy
 
 
 class ImageReader:
-    """Load images from disk according to ImageSourcePolicy."""
+    """Load images from disk with metadata collection."""
 
     def __init__(self, policy: ImageSourcePolicy):
         self.policy = policy
@@ -36,7 +39,8 @@ class ImageReader:
             ),
         )
 
-    def load(self) -> tuple[Image.Image, ImageMeta]:
+    def load(self) -> Tuple[Image.Image, Dict[str, Any]]:
+        """Load image and collect metadata as dict."""
         path = self._fso.path
         image = Image.open(path)
         image = ImageOps.exif_transpose(image)
@@ -46,68 +50,78 @@ class ImageReader:
         return image, meta
 
     @staticmethod
-    def _collect_meta(image: Image.Image, path: Path) -> ImageMeta:
+    def _collect_meta(image: Image.Image, path: Path) -> Dict[str, Any]:
+        """Collect image metadata as dict instead of dataclass."""
         exif = image.getexif()
         exif_len = len(exif.tobytes()) if exif else 0
         file_size = path.stat().st_size if path.exists() else None
-        return ImageMeta(
-            src_path=path,
-            width=image.width,
-            height=image.height,
-            mode=image.mode,
-            format=image.format,
-            file_size=file_size,
-            exif_bytes_len=exif_len,
-        )
+        
+        return {
+            "src_path": str(path),
+            "width": image.width,
+            "height": image.height,
+            "mode": image.mode,
+            "format": image.format,
+            "file_size": file_size,
+            "exif_bytes_len": exif_len,
+        }
 
 
 class ImageWriter:
-    """Persist processed images and metadata using target policies."""
+    """Persist images and metadata with new policy structure."""
 
-    def __init__(self, target_policy: ImageTargetPolicy, meta_policy: ImageMetaPolicy):
+    def __init__(self, target_policy: ImagePolicy, meta_policy: ImageMetaPolicy):
         self.target_policy = target_policy
         self.meta_policy = meta_policy
 
     def save_image(self, image: Image.Image, base_path: Path) -> Path:
+        """Save image to disk using target policy."""
         target_path = self._build_target_path(base_path)
         format_hint = self.target_policy.format or image.format or target_path.suffix.lstrip(".").upper()
+        
+        # Normalize JPG to JPEG (PIL only supports 'JPEG')
+        if format_hint.upper() == "JPG":
+            format_hint = "JPEG"
+        
         save_kwargs = {}
-        if format_hint.upper() in {"JPEG", "JPG", "WEBP"}:
+        if format_hint.upper() in {"JPEG", "WEBP"}:
             save_kwargs["quality"] = self.target_policy.quality
         image.save(target_path, format=format_hint, **save_kwargs)
         return target_path
 
-    def save_meta(self, meta: ImageMeta, base_path: Path) -> Optional[Path]:
-        if not self.meta_policy.enabled:
+    def save_meta(self, meta: Dict[str, Any], base_path: Path) -> Optional[Path]:
+        """Save metadata dict to JSON file."""
+        if not self.meta_policy.save_meta:
             return None
+        
         directory = self.meta_policy.directory or base_path.parent
         directory.mkdir(parents=True, exist_ok=True)
-        filename = self.meta_policy.filename.format(
-            stem=base_path.stem,
-            suffix=self.target_policy.suffix,
-        )
+        
+        # Determine filename
+        if self.meta_policy.filename:
+            filename = self.meta_policy.filename
+        else:
+            filename = f"{base_path.stem}_meta.json"
+        
         path = directory / filename
-        payload = asdict(meta)
-        payload["src_path"] = str(meta.src_path)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
         return path
 
     def _build_target_path(self, base_path: Path) -> Path:
+        """Build target path using new ImagePolicy structure."""
         directory = self.target_policy.directory or base_path.parent
         directory = directory.resolve()
-        extension = (
-            self.target_policy.format.lower()
-            if self.target_policy.format
-            else base_path.suffix.lstrip(".")
-        )
-        stem = base_path.stem
-        formatted_name = self.target_policy.filename_template.format(
-            stem=stem,
-            suffix=self.target_policy.suffix,
-            ext=f".{extension}" if extension else "",
-        )
-        name_part = Path(formatted_name).stem
-        ext_part = Path(formatted_name).suffix or (f".{extension}" if extension else "")
+        
+        # Determine filename
+        if self.target_policy.filename:
+            name = self.target_policy.filename
+        else:
+            ext = self.target_policy.format or base_path.suffix.lstrip(".")
+            name = f"{base_path.stem}{self.target_policy.suffix}.{ext}" if ext else f"{base_path.stem}{self.target_policy.suffix}"
+        
+        name_part = Path(name).stem
+        ext_part = Path(name).suffix
+        
         builder = FSOPathBuilder(
             base_dir=directory,
             name_policy=FSONamePolicy(

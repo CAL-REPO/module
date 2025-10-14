@@ -1,279 +1,243 @@
-"""Standalone image loading and optional copy/resizing with metadata and logging.
+"""ImageLoader: First entrypoint for pillow_utils.
 
-This module defines a small pipeline for handling a single image after it
-has been downloaded.  It loads the image from disk, optionally copies
-the image to a target directory using policies defined in :mod:`fso_utils`,
-optionally resizes it, computes resize ratios, and persists a JSON
-metadata file.  All operations are logged via :mod:`log_utils` using a
-configurable :class:`~log_utils.policy.LogPolicy`.
+Loads images with optional processing, copy, and metadata persistence.
+Uses ImageLoaderPolicy from policy.py which combines source, image, meta, and processing configs.
 
-The design adheres to the single responsibility principle (SRP):
-
-* :class:`ImageLoaderPolicy` describes what should happen (source and
-  destination directories, naming options, flags for copying and writing
-  metadata, resize size, and logging settings).
-* :class:`ImageLoader` orchestrates reading, processing and writing while
-  delegating path resolution to :mod:`fso_utils` and logging to
-  :mod:`log_utils`.
-* Image manipulation and metadata generation are contained within this
-  module; external data processing or OCR should occur in other modules.
+Core features:
+- Load image from source (ImageFilePolicy)
+- Optional processing (resize, blur, convert)
+- Optional save_copy to disk (ImagePolicy with FSO_utils)
+- Metadata always generated, optional save_meta (ImageMetaPolicy)
+- Supports YAML config + **kwargs runtime override
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Dict, Union
 
 from PIL import Image
-from pydantic import BaseModel, Field, model_validator
 
-from fso_utils import (
-    FSONamePolicy,
-    FSOOpsPolicy,
-    ExistencePolicy,
-    FSOPathBuilder,
-)
+from fso_utils import FSONamePolicy, FSOOpsPolicy, ExistencePolicy, FSOPathBuilder
 from log_utils import LogManager, LogPolicy
-
-
-class ImageLoaderPolicy(BaseModel):
-    """Configuration model for loading a single image with optional copy and resize.
-
-    Parameters
-    ----------
-    src_path: Path
-        Path to the source image on disk.  Must exist.
-    dest_dir: Optional[Path]
-        Directory where the processed image will be saved.  If ``None``, the
-        source directory is used.
-    meta_dir: Optional[Path]
-        Directory where the metadata JSON will be saved.  If ``None``, the
-        value of ``dest_dir`` (or the source directory) is used.
-    save_copy: bool
-        Whether to copy and optionally resize the image.  If ``False``,
-        no image file will be written and the destination path in the
-        metadata will match ``src_path``.
-    write_meta: bool
-        Whether to write a metadata JSON file.  When ``False``, metadata
-        will be returned in memory but no file will be created.
-    resize_to: Optional[Tuple[int, int]]
-        If provided and ``save_copy`` is ``True``, the image will be resized to this
-        ``(width, height)`` using a high‑quality resampling filter.  Ratios are
-        computed and stored in metadata.
-    suffix: str
-        String appended to the filename stem when generating the output
-        filename.  Defaults to ``"_copy"``.
-    ensure_unique: bool
-        Whether to ensure that the output filename is unique by applying a
-        counter suffix via :class:`FSOPathBuilder`.
-    log_policy: Optional[LogPolicy]
-        Optional logging policy used to configure logging via
-        :class:`~log_utils.manager.LogManager`.  When ``None``, a default
-        policy is used.
-    """
-
-    src_path: Path
-    dest_dir: Optional[Path] = None
-    meta_dir: Optional[Path] = None
-    save_copy: bool = Field(True, description="Whether to copy/resize the image.")
-    write_meta: bool = Field(True, description="Whether to write metadata JSON to disk.")
-    resize_to: Optional[Tuple[int, int]] = None
-    suffix: str = Field("_copy", description="Suffix appended to the filename stem.")
-    ensure_unique: bool = Field(True, description="Ensure the output filename is unique.")
-    log_policy: Optional[LogPolicy] = None
-
-    @model_validator(mode="after")
-    def _validate_source(self) -> "ImageLoaderPolicy":
-        if not self.src_path.exists():
-            raise FileNotFoundError(f"Source image not found: {self.src_path}")
-        return self
+from path_utils.os_paths import OSPath
+from modules.cfg_utils import ConfigLoader
+from .policy import ImageLoaderPolicy
 
 
 class ImageLoader:
-    """Loads a single image and optionally copies/resizes it.
-
-    The loader reads an image from ``policy.src_path`` and, depending on
-    :attr:`ImageLoaderPolicy.copy`, optionally resizes it and writes the processed
-    image to ``policy.dest_dir``.  It also writes a metadata JSON to
-    ``policy.meta_dir`` containing original and new dimensions and the
-    resize ratios.  Logging is performed via the provided
-    :class:`~log_utils.manager.LogManager`.
+    """First entrypoint: Loads image with optional processing and persistence.
+    
+    Uses ImageLoaderPolicy which combines:
+    - source: ImageFilePolicy (path, must_exist, convert_mode)
+    - image: ImagePolicy (save_copy, directory, filename, suffix, etc.)
+    - meta: ImageMetaPolicy (save_meta, directory, filename)
+    - processing: ImageProcessingPolicy (resize_to, blur_radius, convert_mode)
+    
+    Supports YAML config + **kwargs runtime override.
     """
 
-    def __init__(self, policy_or_path):
-        # policy_or_path: ImageLoaderPolicy | str | Path
+    def __init__(self, policy_or_path: Union[ImageLoaderPolicy, str, Path], **kwargs: Any):
+        """Initialize with policy or YAML path, optional **kwargs override.
+        
+        The ConfigLoader will automatically detect the 'pillow' section from:
+        - Section-based YAML: pillow: { source: {...}, image: {...}, ... }
+        - Direct YAML: source: {...}, image: {...}, ...
+        - Unified config file with multiple sections
+        """
         if isinstance(policy_or_path, (str, Path)):
-            from modules.cfg_utils import ConfigLoader
+            # ConfigLoader auto-detects 'pillow' section from ImageLoaderPolicy name
             cfg = ConfigLoader(policy_or_path).as_model(ImageLoaderPolicy)
-            self.policy = cfg
+            if kwargs:
+                policy_dict = cfg.model_dump()
+                policy_dict.update(kwargs)
+                self.policy = ImageLoaderPolicy(**policy_dict)
+            else:
+                self.policy = cfg
         elif isinstance(policy_or_path, ImageLoaderPolicy):
-            self.policy = policy_or_path
+            if kwargs:
+                policy_dict = policy_or_path.model_dump()
+                policy_dict.update(kwargs)
+                self.policy = ImageLoaderPolicy(**policy_dict)
+            else:
+                self.policy = policy_or_path
         else:
-            raise TypeError(f"ImageLoader: policy_or_path must be ImageLoaderPolicy or yaml path, got {type(policy_or_path)}")
-        # Resolve default directories relative to the source path
-        self.dest_dir = (self.policy.dest_dir or self.policy.src_path.parent).resolve()
-        self.meta_dir = (self.policy.meta_dir or self.dest_dir).resolve()
-        # Use provided log policy or a default one
-        self.log_policy = self.policy.log_policy or LogPolicy() # pyright: ignore[reportCallIssue]
+            raise TypeError(f"Expected ImageLoaderPolicy or path, got {type(policy_or_path)}")
+        
+        # Setup logger
+        log_policy = kwargs.get('log_policy') or LogPolicy()  # pyright: ignore
+        self.logger = LogManager(name="ImageLoader", policy=log_policy).setup()
 
-    def _build_dest_path(self) -> Path:
-        """Construct a destination path for the processed image using fso_utils."""
-        src = self.policy.src_path
-        stem = src.stem + self.policy.suffix
-        ext = src.suffix
-        name_policy = FSONamePolicy(
+    def _get_default_dir(self) -> Path:
+        """Get default directory using path_utils.downloads()."""
+        return OSPath.downloads()
+    
+    def _build_dest_path(self, source_path: Path) -> Path:
+        """Build image save path using FSO_utils with policy settings."""
+        # Determine directory: policy.image.directory or path_utils.download()
+        target_dir = self.policy.image.directory or self._get_default_dir()
+        target_dir = target_dir.resolve()
+        target_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Determine filename: explicit or auto-generated
+        if self.policy.image.filename:
+            name = self.policy.image.filename
+        else:
+            name = f"{source_path.stem}{self.policy.image.suffix}{source_path.suffix}"
+        
+        # Build with FSO_utils
+        name_policy = FSONamePolicy(  # pyright: ignore
             as_type="file",
-            name=stem,
-            extension=ext,
-            tail_mode="counter" if self.policy.ensure_unique else None,
-            ensure_unique=self.policy.ensure_unique,
-        ) # pyright: ignore[reportCallIssue]
-        ops_policy = FSOOpsPolicy(
-            as_type="file",
-            exist=ExistencePolicy(create_if_missing=True), # pyright: ignore[reportCallIssue]
+            name=Path(name).stem,
+            extension=Path(name).suffix,
+            tail_mode="counter" if self.policy.image.ensure_unique else None,
+            ensure_unique=self.policy.image.ensure_unique,
         )
-        builder = FSOPathBuilder(base_dir=self.dest_dir, name_policy=name_policy, ops_policy=ops_policy)
+        ops_policy = FSOOpsPolicy(  # pyright: ignore
+            as_type="file",
+            exist=ExistencePolicy(create_if_missing=True),  # pyright: ignore
+        )
+        builder = FSOPathBuilder(base_dir=target_dir, name_policy=name_policy, ops_policy=ops_policy)
         return builder()
 
-    def _build_meta_path(self, image_path: Path) -> Path:
-        """Construct a path for the metadata JSON file based on the image path."""
-        filename = image_path.stem + ".json"
-        return self.meta_dir / filename
+    def _build_meta_path(self, source_path: Path) -> Path:
+        """Build metadata JSON path using policy settings."""
+        # Determine directory: policy.meta.directory or path_utils.download()
+        meta_dir = self.policy.meta.directory or self._get_default_dir()
+        meta_dir = meta_dir.resolve()
+        meta_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Determine filename: explicit or auto-generated
+        if self.policy.meta.filename:
+            filename = self.policy.meta.filename
+        else:
+            filename = f"{source_path.stem}_meta.json"
+        
+        return meta_dir / filename
 
-    def _run_impl(self, image: Optional[Image.Image] = None) -> dict[str, Any]:
-        """Execute the image load, optional copy/resize, and metadata persistence.
-
-        Parameters
-        ----------
-        image: Optional[Image.Image]
-            An already loaded PIL Image object.  If provided, the loader
-            will use this instead of reading from ``policy.src_path``.  This
-            allows callers to avoid reloading the image when it is already
-            available in memory.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the original image path, the (possibly new)
-            image path, the metadata path (if written), original and new sizes,
-            and resize ratios.  In case of failure, logs will capture the
-            exception and the exception will be re‑raised.
+    def run(self, image: Optional[Image.Image] = None) -> Dict[str, Any]:
+        """Execute image loading pipeline with new policy structure.
+        
+        Args:
+            image: Optional pre-loaded PIL Image (avoids re-loading)
+            
+        Returns:
+            Dict with: image, metadata, saved_image_path, saved_meta_path
         """
-        # Set up logging
-        manager = LogManager(name="ImageLoader", policy=self.log_policy)
-        logger = manager.setup()
-        logger.info(f"[ImageLoader] 시작: {self.policy.src_path}")
+        source_path = self.policy.source.path
+        
+        self.logger.info("=" * 70)
+        self.logger.info(f"[ImageLoader] Source: {source_path}")
+        self.logger.info("=" * 70)
+        
         try:
-            # Load the source image if not provided
-            img = image or Image.open(self.policy.src_path)
+            # Step 1: Load image
+            if source_path.exists() or not self.policy.source.must_exist:
+                img = image or Image.open(source_path)
+            else:
+                raise FileNotFoundError(f"Source not found: {source_path}")
+            
             orig_width, orig_height = img.size
-            logger.info(f"[ImageLoader] 원본 크기: {orig_width}x{orig_height}")
-
-            # Determine whether to copy and/or resize
-            if self.policy.save_copy:
-                # Optionally resize
-                new_width, new_height = orig_width, orig_height
-                processed_img = img
-                ratio_x = ratio_y = 1.0
-                if self.policy.resize_to:
-                    new_width, new_height = self.policy.resize_to
-                    processed_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                    ratio_x = new_width / orig_width
-                    ratio_y = new_height / orig_height
-                    logger.info(
-                        f"[ImageLoader] 리사이즈: {orig_width}x{orig_height} → {new_width}x{new_height} (ratio {ratio_x:.4f}, {ratio_y:.4f})"
-                    )
-
-                # Build destination path and save the image
-                dest_path = self._build_dest_path()
-                processed_img.save(dest_path)
-                logger.info(f"[ImageLoader] 이미지 저장: {dest_path}")
+            orig_mode = img.mode
+            orig_format = img.format
+            self.logger.info(f"[Load] {orig_width}x{orig_height} {orig_mode} {orig_format or 'unknown'}")
+            
+            # Optional source mode conversion
+            if self.policy.source.convert_mode:
+                img = img.convert(self.policy.source.convert_mode)
+                self.logger.info(f"[Load] Converted to: {self.policy.source.convert_mode}")
+            
+            # Step 2: Process image (resize, blur, convert)
+            processed_img = img
+            width_ratio = height_ratio = 1.0
+            
+            if self.policy.processing.resize_to:
+                new_width, new_height = self.policy.processing.resize_to
+                processed_img = processed_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                width_ratio = new_width / orig_width
+                height_ratio = new_height / orig_height
+                self.logger.info(
+                    f"[Process] Resize: {orig_width}x{orig_height} → {new_width}x{new_height} "
+                    f"(ratio: {width_ratio:.3f}, {height_ratio:.3f})"
+                )
+            
+            if self.policy.processing.blur_radius:
+                from PIL import ImageFilter
+                processed_img = processed_img.filter(
+                    ImageFilter.GaussianBlur(self.policy.processing.blur_radius)
+                )
+                self.logger.info(f"[Process] Blur: radius={self.policy.processing.blur_radius}")
+            
+            if self.policy.processing.convert_mode:
+                processed_img = processed_img.convert(self.policy.processing.convert_mode)
+                self.logger.info(f"[Process] Convert: {self.policy.processing.convert_mode}")
+            
+            new_width, new_height = processed_img.size
+            
+            # Step 3: Save image copy if requested
+            saved_image_path = None
+            if self.policy.image.save_copy:
+                dest_path = self._build_dest_path(source_path)
+                
+                save_format = self.policy.image.format or orig_format
+                save_kwargs = {}
+                if save_format in ['JPEG', 'JPG', 'WEBP']:
+                    save_kwargs['quality'] = self.policy.image.quality
+                
+                processed_img.save(dest_path, format=save_format, **save_kwargs)
+                saved_image_path = dest_path
+                self.logger.info(f"[Save] Image: {dest_path}")
             else:
-                # No copy: use original image path and sizes
-                dest_path = self.policy.src_path
-                new_width, new_height = orig_width, orig_height
-                ratio_x = ratio_y = 1.0
-                logger.info("[ImageLoader] 복사를 건너뜁니다: 원본 이미지를 그대로 사용합니다")
-
-            # Build metadata and save to JSON
-            meta_path = self._build_meta_path(dest_path)
+                self.logger.info("[Save] Image save skipped (save_copy=False)")
+            
+            # Step 4: Build metadata (always generated)
             metadata = {
-                "src_path": str(self.policy.src_path),
-                "dest_path": str(dest_path),
-                "orig_width": orig_width,
-                "orig_height": orig_height,
-                "new_width": new_width,
-                "new_height": new_height,
-                "ratio_x": ratio_x,
-                "ratio_y": ratio_y,
+                "source": {
+                    "path": str(source_path),
+                    "width": orig_width,
+                    "height": orig_height,
+                    "mode": orig_mode,
+                    "format": orig_format,
+                },
+                "processed": {
+                    "width": new_width,
+                    "height": new_height,
+                    "mode": processed_img.mode,
+                },
+                "ratios": {
+                    "width": width_ratio,
+                    "height": height_ratio,
+                },
+                "saved_image_path": str(saved_image_path) if saved_image_path else None,
             }
-            if self.policy.write_meta:
-                self.meta_dir.mkdir(parents=True, exist_ok=True)
-                meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-                logger.info(f"[ImageLoader] 메타데이터 저장: {meta_path}")
+            
+            # Step 5: Save metadata if requested
+            saved_meta_path = None
+            if self.policy.meta.save_meta:
+                meta_path = self._build_meta_path(source_path)
+                meta_path.write_text(
+                    json.dumps(metadata, ensure_ascii=False, indent=2),
+                    encoding='utf-8'
+                )
+                saved_meta_path = meta_path
+                metadata["saved_meta_path"] = str(meta_path)
+                self.logger.info(f"[Save] Metadata: {meta_path}")
             else:
-                logger.info("[ImageLoader] 메타데이터 저장을 건너뜁니다")
-
-            logger.info("[ImageLoader] 완료")
-            # Include meta_path only if written
-            metadata["meta_path"] = str(meta_path) if self.policy.write_meta else None
-            return metadata
+                metadata["saved_meta_path"] = None
+                self.logger.info("[Save] Metadata save skipped (save_meta=False)")
+            
+            self.logger.info("=" * 70)
+            self.logger.info("[ImageLoader] ✅ Complete")
+            self.logger.info("=" * 70)
+            
+            return {
+                "image": processed_img,
+                "metadata": metadata,
+                "saved_image_path": saved_image_path,
+                "saved_meta_path": saved_meta_path,
+            }
+            
         except Exception as e:
-            logger.error(f"[ImageLoader] 오류 발생: {e}", exc_info=True)
-            return {}
-
-    class _RunProxy:
-        """Callable proxy returned by the `run` property.
-
-        - Calling the proxy executes the real loader implementation.
-        - Use `.debug()` to enter pdb before execution.
-        - Plain access returns the proxy (no execution).
-        """
-        def __init__(self, loader: "ImageLoader"):
-            self._loader = loader
-
-        def __call__(self, image: Optional[Image.Image] = None) -> dict[str, Any]:
-            return self._loader._run_impl(image)
-
-        def debug(self, image: Optional[Image.Image] = None):
-            import pdb
-
-            pdb.set_trace()
-            return self.__call__(image)
-
-        def __repr__(self):
-            return f"<ImageLoader.run proxy; call with () to execute or .debug() to run under pdb>"
-
-    @property
-    def run(self) -> "ImageLoader._RunProxy":
-        """Return a callable proxy. Accessing this property does not execute processing.
-
-        If the environment variable `IMAGELOADER_DEBUG_ON_ATTR` is set to a
-        truthy value, the proxy will automatically enter the debugger on access
-        by calling `pdb.set_trace()` once (useful during interactive debugging).
-        """
-        proxy = ImageLoader._RunProxy(self)
-        # Emit a warning so plain attribute access is visible to the developer.
-        try:
-            manager = LogManager(name="ImageLoader", policy=self.log_policy)
-            logger = manager.setup()
-            logger.warning("[ImageLoader] `.run` 속성에 접근했습니다. 실행하려면 `.run()`을 호출하세요. 디버그하려면 `.run.debug()`를 사용하세요.")
-        except Exception:
-            pass
-        try:
-            # Also print to stdout so it's visible in simple script runs
-            print("[경고] ImageLoader.run 속성에 접근했습니다. 실행하려면 ImageLoader(...).run()을 호출하세요. 디버그하려면 .run.debug()를 사용하세요.")
-        except Exception:
-            pass
-        # Optional: auto-enter debugger on attribute access when env var set
-        try:
-            import os
-
-            if os.getenv("IMAGELOADER_DEBUG_ON_ATTR"):
-                import pdb
-
-                pdb.set_trace()
-        except Exception:
-            pass
-        return proxy
+            self.logger.error(f"[ImageLoader] ❌ Error: {e}", exc_info=True)
+            raise
