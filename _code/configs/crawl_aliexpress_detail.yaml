@@ -1,0 +1,179 @@
+# -*- coding: utf-8 -*-
+# AliExpress 상세 페이지 - 모든 이미지와 텍스트 추출
+
+crawl:
+  navigation:
+    base_url: "https://www.aliexpress.com/item"
+    url_template: "{url}"  # 검색에서 얻은 URL 사용
+
+  scroll:
+    strategy: "fixed"
+    scroll_count: 15
+    scroll_pause_sec: 1.0
+
+  wait:
+    hook: "css"
+    selector: "[class*='product'], .product-main"
+    timeout_sec: 25.0
+    condition: "visibility"
+
+  extractor:
+    type: "js"
+    js_snippet: |
+      const result = {
+        images: [],
+        descriptions: []
+      };
+      
+      // 1. 메인 갤러리 이미지
+      document.querySelectorAll('[class*="image-view"] img, .images-view-wrap img').forEach((img) => {
+        let url = img.src || img.getAttribute('data-src') || '';
+        // 고해상도 이미지로 변환
+        url = url.replace(/_\d+x\d+\./, '_800x800.');
+        if (/^https?:\/\//i.test(url) && !url.includes('data:image')) {
+          result.images.push({
+            url: url,
+            type: 'main_gallery',
+            alt: img.alt || ''
+          });
+        }
+      });
+      
+      // 2. 상세 설명 이미지
+      document.querySelectorAll('[class*="product-desc"] img, .detail-desc img').forEach((img) => {
+        let url = img.src || img.getAttribute('data-src') || '';
+        url = url.replace(/_\d+x\d+\./, '_800x800.');
+        if (/^https?:\/\//i.test(url) && !url.includes('data:image')) {
+          result.images.push({
+            url: url,
+            type: 'description',
+            alt: img.alt || ''
+          });
+        }
+      });
+      
+      // 3. 리뷰 이미지
+      document.querySelectorAll('[class*="review"] img, .feedback-item img').forEach((img) => {
+        let url = img.src || '';
+        if (/^https?:\/\//i.test(url) && !url.includes('avatar')) {
+          result.images.push({
+            url: url,
+            type: 'review',
+            alt: ''
+          });
+        }
+      });
+      
+      // 4. 상품 제목
+      const titleEl = document.querySelector('h1[class*="title"], .product-title-text');
+      if (titleEl) {
+        result.descriptions.push({
+          content: titleEl.innerText?.trim() || '',
+          type: 'title'
+        });
+      }
+      
+      // 5. 가격
+      const priceEl = document.querySelector('[class*="price--current"], .product-price-value');
+      if (priceEl) {
+        result.descriptions.push({
+          content: priceEl.innerText?.trim() || '',
+          type: 'price'
+        });
+      }
+      
+      // 6. 상품 설명
+      const descEl = document.querySelector('[class*="product-description"], .detail-desc-decorate');
+      if (descEl) {
+        result.descriptions.push({
+          content: descEl.innerText?.trim() || '',
+          type: 'description'
+        });
+      }
+      
+      // 7. 상품 속성 (색상, 사이즈 등)
+      document.querySelectorAll('[class*="sku-property"]').forEach((prop) => {
+        const label = prop.querySelector('[class*="sku-property-text"]')?.innerText?.trim() || '';
+        const values = Array.from(prop.querySelectorAll('[class*="sku-property-item"]'))
+          .map(item => item.innerText?.trim())
+          .filter(Boolean)
+          .join(', ');
+        if (label && values) {
+          result.descriptions.push({
+            content: `${label}: ${values}`,
+            type: 'property'
+          });
+        }
+      });
+      
+      // 8. 배송 정보
+      const shippingEl = document.querySelector('[class*="shipping-info"]');
+      if (shippingEl) {
+        result.descriptions.push({
+          content: shippingEl.innerText?.trim() || '',
+          type: 'shipping'
+        });
+      }
+      
+      // 9. 스토어 정보
+      const storeEl = document.querySelector('[class*="store-info"], .shop-name');
+      if (storeEl) {
+        result.descriptions.push({
+          content: storeEl.innerText?.trim() || '',
+          type: 'store'
+        });
+      }
+      
+      return result;
+
+  normalization:
+    rules:
+      # 이미지 추출 (타입별로 구분)
+      - kind: "image"
+        source: "payload.images[*].url"
+        static_section: "ali_detail"
+        name_template: "ali_detail_{record_index}_{item_index}"
+        extension: "jpg"
+      
+      # 이미지 타입 (메타데이터)
+      - kind: "text"
+        source: "payload.images[*].type"
+        static_section: "ali_detail"
+        name_template: "ali_detail_{record_index}_{item_index}_type"
+        allow_empty: true
+      
+      # 이미지 alt (캡션)
+      - kind: "text"
+        source: "payload.images[*].alt"
+        static_section: "ali_detail"
+        name_template: "ali_detail_{record_index}_{item_index}_alt"
+        allow_empty: true
+      
+      # 설명 텍스트 (타입별로 구분)
+      - kind: "text"
+        source: "payload.descriptions[*].content"
+        static_section: "ali_detail"
+        name_template: "ali_detail_{record_index}_{item_index}_text"
+      
+      # 텍스트 타입 (메타데이터)
+      - kind: "text"
+        source: "payload.descriptions[*].type"
+        static_section: "ali_detail"
+        name_template: "ali_detail_{record_index}_{item_index}_text_type"
+
+  storage:
+    image:
+      base_dir: "_output/aliexpress/detail/images"
+      ensure_unique: true
+    text:
+      base_dir: "_output/aliexpress/detail/text"
+
+  http_session:
+    use_browser_headers: true
+    headers:
+      Accept-Language: "en-US,en;q=0.9,ko;q=0.8"
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  concurrency: 1
+  retries: 3
+  retry_backoff_sec: 2.0

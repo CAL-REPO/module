@@ -1,0 +1,138 @@
+# ============================================================================
+# ImageLoader - Complete Configuration Example
+# ============================================================================
+# 모든 가능한 정책 옵션을 포함한 전체 예제입니다.
+# 실제 사용시에는 필요한 항목만 선택하여 사용하세요.
+
+image:
+  # --------------------------------------------------------------------------
+  # 1. Source - 소스 이미지 설정
+  # --------------------------------------------------------------------------
+  source:
+    path: "input/sample.jpg"           # 소스 이미지 경로 (필수)
+    must_exist: false                   # 파일 존재 여부 확인 (기본: false)
+    convert_mode: "RGB"                 # PIL 모드 변환 (예: RGB, L, RGBA 등)
+  
+  # --------------------------------------------------------------------------
+  # 2. Save - 이미지 저장 설정 (FSO 기반)
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true                     # 이미지 복사본 저장 여부 (기본: true)
+    directory: "output/processed"       # 저장 디렉토리 (None이면 downloads 폴더)
+    
+    # FSO Name Policy - 파일 이름 생성 정책
+    name:
+      as_type: "file"                   # 타입: file 또는 dir
+      prefix: null                      # 파일명 앞에 붙일 접두사
+      name: ""                          # 기본 파일명 (보통 소스 파일명 사용)
+      suffix: "_processed"              # 파일명 뒤에 붙일 접미사
+      tail: null                        # 수동 tail (예: "v1", "final")
+      extension: null                   # 확장자 (None이면 format 또는 원본 사용)
+      
+      # Tail 자동 생성 옵션
+      delimiter: "_"                    # 구분자 (기본: "_")
+      tail_mode: "counter"              # 자동 tail 모드: date|datetime|counter|datetime_counter
+      date_format: "%Y-%m-%d"           # tail_mode가 date/datetime일 때 사용
+      counter_width: 3                  # counter 자릿수 (예: 001, 002)
+      auto_expand: true                 # counter가 width를 초과해도 허용
+      tail_suffix: null                 # tail 뒤 추가 접미사
+      
+      # 파일명 정규화 옵션
+      sanitize: true                    # 특수문자 제거 (기본: true)
+      case: "keep"                      # 대소문자: lower|upper|keep
+      ensure_unique: true               # 중복 방지 (기본: true)
+    
+    # FSO Ops Policy - 파일 존재/확장자 처리 정책
+    ops:
+      as_type: "file"                   # 타입: file 또는 dir
+      
+      # 존재 여부 정책
+      exist:
+        must_exist: false               # 경로가 반드시 존재해야 하는지
+        create_if_missing: true         # 없으면 생성 (디렉토리)
+        overwrite: false                # 덮어쓰기 허용
+      
+      # 확장자 정책
+      ext:
+        require_ext: false              # 확장자 필수 여부
+        default_ext: null               # 기본 확장자
+        allowed_exts: null              # 허용 확장자 목록
+    
+    # 이미지 포맷 설정
+    format: null                        # 저장 포맷 (None이면 원본 유지)
+    quality: 95                         # JPEG/WebP 품질 (1-100)
+  
+  # --------------------------------------------------------------------------
+  # 3. Meta - 메타데이터 저장 설정 (FSO 기반)
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true                     # 메타데이터 JSON 저장 여부
+    directory: null                     # 메타 디렉토리 (None이면 이미지와 동일)
+    
+    # FSO Name Policy - 메타데이터 파일명 정책
+    name:
+      as_type: "file"
+      prefix: null
+      name: ""                          # 소스 파일명 사용
+      suffix: "_meta"                   # 메타 파일 접미사
+      tail: null
+      extension: ".json"                # 메타 파일 확장자
+      delimiter: "_"
+      tail_mode: null                   # counter 미사용
+      date_format: "%Y-%m-%d"
+      counter_width: 3
+      auto_expand: true
+      tail_suffix: null
+      sanitize: true
+      case: "keep"
+      ensure_unique: false              # 메타는 덮어쓰기 허용
+    
+    # FSO Ops Policy
+    ops:
+      as_type: "file"
+      exist:
+        must_exist: false
+        create_if_missing: true
+        overwrite: true                 # 메타는 덮어쓰기
+      ext:
+        require_ext: false
+        default_ext: ".json"
+        allowed_exts: null
+  
+  # --------------------------------------------------------------------------
+  # 4. Process - 이미지 처리 설정
+  # --------------------------------------------------------------------------
+  process:
+    resize_to: null                     # 리사이즈 크기 [width, height]
+    blur_radius: null                   # 블러 반경 (float)
+    convert_mode: null                  # 처리 후 모드 변환
+  
+  # --------------------------------------------------------------------------
+  # 5. Log - 로그 설정
+  # --------------------------------------------------------------------------
+  log:
+    name: "image_loader"                # ✨ 서비스 이름 (filter 격리용)
+    level: "INFO"                       # 로그 레벨: DEBUG|INFO|WARNING|ERROR
+    format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    colorize: true                      # 컬러 출력
+    serialize: false                    # JSON 직렬화
+    backtrace: false                    # 백트레이스 포함
+    diagnose: false                     # 진단 정보 포함
+    enqueue: false                      # 비동기 큐 사용
+    catch: true                         # 예외 캐치
+    
+    # 파일 출력 설정
+    handlers:
+      - sink: "output/logs/image_loader_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
+        rotation: "1 day"               # 로테이션: 1 day, 100 MB 등
+        retention: "7 days"             # 보관 기간
+        compression: "zip"              # 압축 형식
+        encoding: "utf-8"
+        colorize: false
+        serialize: false
+        backtrace: true
+        diagnose: false
+        enqueue: false
+        catch: true

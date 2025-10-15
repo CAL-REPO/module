@@ -1,0 +1,230 @@
+# ============================================================================
+# Crawl Configuration - Complete Example
+# ============================================================================
+# 모든 가능한 크롤링 설정 옵션을 포함한 전체 예제입니다.
+
+crawl:
+  # --------------------------------------------------------------------------
+  # 1. Navigation - 페이지 순회 설정
+  # --------------------------------------------------------------------------
+  navigation:
+    base_url: "https://example.com/products"
+    
+    # URL 템플릿 (페이지 번호 포함)
+    url_template: "https://example.com/products?category={category}&page={page}&sort={sort}"
+    
+    # URL 파라미터
+    params:
+      category: "electronics"
+      sort: "popular"
+    
+    # 페이지 설정
+    page_param: "page"            # 페이지 번호 파라미터 이름
+    start_page: 1                 # 시작 페이지
+    max_pages: 10                 # 최대 크롤링 페이지 수
+  
+  # --------------------------------------------------------------------------
+  # 2. Scroll - 스크롤 전략
+  # --------------------------------------------------------------------------
+  scroll:
+    # 스크롤 전략
+    # - none: 스크롤 안 함
+    # - paginate: 페이지네이션 (페이지 번호로 이동)
+    # - infinite: 무한 스크롤 (스크롤하면서 로딩)
+    strategy: "infinite"
+    
+    # 무한 스크롤 설정
+    max_scrolls: 10               # 최대 스크롤 횟수
+    scroll_pause_sec: 1.5         # 스크롤 후 대기 시간 (초)
+  
+  # --------------------------------------------------------------------------
+  # 3. Extractor - 데이터 추출 설정
+  # --------------------------------------------------------------------------
+  extractor:
+    # 추출 방식
+    # - dom: HTML DOM에서 CSS 셀렉터로 추출
+    # - js: JavaScript 코드 실행 결과 추출
+    # - api: API 엔드포인트 호출
+    type: "dom"
+    
+    # DOM 추출 설정
+    item_selector: ".product-card"  # 아이템 컨테이너 셀렉터
+    
+    # JS 추출 설정 (type="js"일 때)
+    js_snippet: null
+    # js_snippet: |
+    #   return Array.from(document.querySelectorAll('.item')).map(el => ({
+    #     title: el.querySelector('.title').textContent,
+    #     price: el.querySelector('.price').textContent
+    #   }));
+    
+    # API 추출 설정 (type="api"일 때)
+    api_endpoint: null
+    # api_endpoint: "https://api.example.com/products"
+    api_method: "GET"
+    payload: null
+  
+  # --------------------------------------------------------------------------
+  # 4. Wait - 페이지 로딩 대기 설정
+  # --------------------------------------------------------------------------
+  wait:
+    # 대기 후크
+    # - none: 대기 안 함
+    # - css: CSS 셀렉터가 나타날 때까지 대기
+    # - xpath: XPath가 나타날 때까지 대기
+    hook: "css"
+    
+    # 대기할 요소 셀렉터
+    selector: ".product-card"
+    
+    # 타임아웃 (초)
+    timeout_sec: 15.0
+    
+    # 대기 조건
+    # - presence: 요소가 DOM에 존재
+    # - visibility: 요소가 화면에 보임
+    condition: "visibility"
+  
+  # --------------------------------------------------------------------------
+  # 5. Normalization - 데이터 정규화 규칙
+  # --------------------------------------------------------------------------
+  normalization:
+    rules:
+      # 이미지 추출 규칙 1: 상품 썸네일
+      - kind: "image"
+        source: ".thumbnail img.src"     # CSS 셀렉터 경로
+        section_field: ".category"       # 섹션 그룹핑 필드
+        static_section: null
+        name_template: "{section}_thumb_{index}"  # 파일명 템플릿
+        extension: ".jpg"
+        explode: true                    # 리스트를 여러 아이템으로 분해
+        allow_empty: false               # 빈 값 허용 안 함
+      
+      # 이미지 추출 규칙 2: 상세 이미지들
+      - kind: "image"
+        source: ".gallery img.src"
+        static_section: "gallery"
+        name_template: "detail_{index}"
+        extension: ".jpg"
+        explode: true
+        allow_empty: false
+      
+      # 텍스트 추출 규칙 1: 상품명
+      - kind: "text"
+        source: ".title"
+        static_section: "titles"
+        name_template: "title_{index}"
+        extension: ".txt"
+        explode: false
+        allow_empty: false
+      
+      # 텍스트 추출 규칙 2: 상품 설명
+      - kind: "text"
+        source: ".description"
+        static_section: "descriptions"
+        name_template: "desc_{index}"
+        extension: ".txt"
+        explode: false
+        allow_empty: true                # 설명이 없을 수도 있음
+      
+      # 파일 추출 규칙: 첨부 파일
+      - kind: "file"
+        source: ".attachment a.href"
+        static_section: "attachments"
+        name_template: "file_{index}"
+        extension: null                  # 원본 확장자 유지
+        explode: true
+        allow_empty: true
+  
+  # --------------------------------------------------------------------------
+  # 6. Storage - 저장 설정
+  # --------------------------------------------------------------------------
+  storage:
+    # 이미지 저장 설정
+    image:
+      base_dir: "output/crawl/images"
+      sub_dir: "products"               # base_dir 아래 하위 디렉토리
+      name_template: "{section}_{index}"
+      extension: ".jpg"
+      ensure_unique: true               # 중복 파일명 방지
+    
+    # 텍스트 저장 설정
+    text:
+      base_dir: "output/crawl/texts"
+      sub_dir: "products"
+      name_template: "{section}_{index}"
+      extension: ".txt"
+      ensure_unique: true
+    
+    # 파일 저장 설정
+    file:
+      base_dir: "output/crawl/files"
+      sub_dir: "attachments"
+      name_template: "{section}_{index}"
+      extension: null                   # 원본 확장자 유지
+      ensure_unique: true
+  
+  # --------------------------------------------------------------------------
+  # 7. HTTP Session - HTTP 세션 설정
+  # --------------------------------------------------------------------------
+  http_session:
+    # 브라우저 헤더 사용
+    use_browser_headers: true
+    
+    # 세션 JSON 파일 경로
+    session_json_path: "data/session/firefox_session.json"
+    
+    # 추가 헤더
+    headers:
+      "Accept": "application/json"
+      "X-Custom-Header": "custom-value"
+  
+  # --------------------------------------------------------------------------
+  # 8. Execution - 실행 설정
+  # --------------------------------------------------------------------------
+  # 실행 모드
+  # - async: 비동기 실행 (고성능, 복잡한 파이프라인)
+  # - sync: 동기 실행 (간단한 스크립트, 노트북)
+  execution_mode: "async"
+  
+  # 동시 처리 수 (async 모드에서만 유효)
+  # 1-32 사이 값, 기본값 2
+  concurrency: 4
+  
+  # 재시도 설정
+  retries: 3                      # 최대 재시도 횟수 (0-10)
+  retry_backoff_sec: 2.0          # 재시도 간격 (초)
+
+
+# ============================================================================
+# 사용 예제
+# ============================================================================
+# 
+# from crawl_utils import FirefoxWebDriver, SyncCrawlRunner, CrawlPolicy
+# from cfg_utils import ConfigLoader
+# 
+# # 1. YAML에서 정책 로드
+# loader = ConfigLoader("crawl_utils/config/crawl_full.yaml")
+# policy = loader.as_model(CrawlPolicy, section="crawl")
+# 
+# # 2. WebDriver 설정
+# driver_config = {
+#     "headless": True,
+#     "window_size": (1920, 1080)
+# }
+# 
+# # 3. 동기 방식 실행
+# with FirefoxWebDriver(driver_config) as driver:
+#     runner = SyncCrawlRunner(policy)
+#     items = runner.run_crawl(driver, max_pages=5)
+#     print(f"Crawled {len(items)} items")
+# 
+# # 4. 편의 함수 사용
+# from crawl_utils import run_sync_crawl
+# 
+# with FirefoxWebDriver(driver_config) as driver:
+#     items = run_sync_crawl(
+#         "crawl_utils/config/crawl_full.yaml",
+#         driver,
+#         max_pages=10
+#     )

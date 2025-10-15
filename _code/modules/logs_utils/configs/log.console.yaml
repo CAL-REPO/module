@@ -1,0 +1,16 @@
+# ========================================
+# Console Only Configuration
+# ========================================
+# 개발/디버깅용 - 콘솔 출력만 사용
+
+name: "dev"
+
+sinks:
+  - sink_type: "console"
+    level: "DEBUG"
+    format: "<green>{time:HH:mm:ss.SSS}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | <level>{message}</level>"
+    colorize: true
+    enqueue: false
+    backtrace: true
+    diagnose: true
+    catch: true

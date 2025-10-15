@@ -1,0 +1,119 @@
+# -*- coding: utf-8 -*-
+# Taobao 검색 결과 페이지 - 상품 정보 추출
+
+crawl:
+  navigation:
+    base_url: "https://s.taobao.com/search"
+    url_template: "https://s.taobao.com/search?q={query}&s={offset}"
+    params:
+      query: "nike"
+    page_param: "s"
+    start_page: 0
+    max_pages: 3
+
+  scroll:
+    strategy: "fixed"
+    scroll_count: 5
+    scroll_pause_sec: 1.0
+
+  wait:
+    hook: "css"
+    selector: ".item"
+    timeout_sec: 15.0
+    condition: "presence"
+
+  extractor:
+    type: "js"
+    js_snippet: |
+      const items = [];
+      // 검색 결과 리스트에서 상품 정보 추출
+      document.querySelectorAll('.item').forEach((item) => {
+        const img = item.querySelector('.pic img');
+        const titleEl = item.querySelector('.title');
+        const priceEl = item.querySelector('.price strong');
+        const shopEl = item.querySelector('.shopname');
+        const linkEl = item.querySelector('.pic a');
+        
+        if (img && titleEl && linkEl) {
+          let imageUrl = img.getAttribute('data-src') || img.src || '';
+          if (imageUrl.startsWith('//')) imageUrl = 'https:' + imageUrl;
+          
+          let detailUrl = linkEl.href || '';
+          if (detailUrl.startsWith('//')) detailUrl = 'https:' + detailUrl;
+          
+          items.push({
+            product_url: detailUrl,              // 상세 페이지 URL
+            thumbnail: imageUrl,                 // 썸네일 이미지
+            title: titleEl.innerText?.trim() || '',
+            price: priceEl?.innerText?.trim() || '',
+            shop_name: shopEl?.innerText?.trim() || '',
+            sales: item.querySelector('.deal-cnt')?.innerText?.trim() || '',
+            location: item.querySelector('.location')?.innerText?.trim() || ''
+          });
+        }
+      });
+      return items;
+
+  normalization:
+    rules:
+      # 썸네일 이미지
+      - kind: "image"
+        source: "payload.thumbnail"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_thumb"
+        extension: "jpg"
+      
+      # 상품 URL
+      - kind: "text"
+        source: "payload.product_url"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_url"
+      
+      # 상품명
+      - kind: "text"
+        source: "payload.title"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_title"
+      
+      # 가격
+      - kind: "text"
+        source: "payload.price"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_price"
+      
+      # 상점명
+      - kind: "text"
+        source: "payload.shop_name"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_shop"
+      
+      # 판매량
+      - kind: "text"
+        source: "payload.sales"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_sales"
+        allow_empty: true
+      
+      # 지역
+      - kind: "text"
+        source: "payload.location"
+        static_section: "taobao_search"
+        name_template: "tb_search_{record_index}_{item_index}_location"
+        allow_empty: true
+
+  storage:
+    image:
+      base_dir: "_output/taobao/search/images"
+      ensure_unique: true
+    text:
+      base_dir: "_output/taobao/search/text"
+
+  http_session:
+    use_browser_headers: true
+    headers:
+      Accept-Language: "zh-CN,zh;q=0.9,ko;q=0.8"
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  concurrency: 1
+  retries: 3
+  retry_backoff_sec: 2.0

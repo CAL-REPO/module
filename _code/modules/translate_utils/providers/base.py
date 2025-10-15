@@ -21,7 +21,7 @@ class Provider(ABC):
         *,
         target_lang: str,
         source_lang: Optional[str] = None,
-        model_type: Optional[str] = None, # latency_optimized | quality_optimized | prefer_quality_optimized
+        model_type: Optional[str] = None,
     ) -> List[str]:
         """Translate a list of texts and return the list of translated strings.
 

@@ -1,0 +1,62 @@
+# ============================================================================
+# Translation Configuration (translate_utils)
+# ============================================================================
+# Default configuration for Translator entrypoint
+#
+# Usage:
+#   from translate_utils import Translator
+#   translator = Translator("translate_utils/config/translate.yaml")
+#   result = translator.run()
+#
+# Runtime override:
+#   translator = Translator("config.yaml", provider__target_lang="EN")
+# ============================================================================
+
+# Source configuration
+source:
+  text: []                    # Inline texts to translate (list of strings)
+  file_path: ""               # Optional: UTF-8 file path to read texts from
+
+# Provider configuration
+provider:
+  provider: "deepl"           # Provider: "deepl" | "google" | "mock"
+  target_lang: "KO"           # Target language code
+  source_lang: "AUTO"         # Source language (AUTO for auto-detection)
+  model_type: "prefer_quality_optimized"  # DeepL model type
+  timeout: 30                 # API request timeout (seconds)
+
+# Chinese text preprocessing
+zh:
+  mode: "clause"              # Chunking mode: "off" | "clause"
+  max_len: 48                 # Maximum chunk length
+  min_len: 80                 # Minimum chunk length
+  phrase_map: []              # List of [source, target] phrase replacements
+
+# Storage configuration
+store:
+  save_db: true               # Save translations to SQLite cache
+  db_dir: "M:/CALife/CAShop - 구매대행/data/db"
+  db_name: "translate_cache.sqlite3"
+  save_tr: false              # Save results to JSON file
+  tr_dir: ""
+  tr_name: "translated_text.json"
+
+# Logging configuration (logs_utils integration)
+log_config:
+  name: "Translator"
+  sinks:
+    - sink_type: "console"
+      level: "INFO"
+      format: "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | <level>{message}</level>"
+      colorize: true
+    
+    # Optional: File logging
+    # - sink_type: "file"
+    #   filepath: "M:/CALife/CAShop - 구매대행/output/logs/translator/{time:YYYY-MM-DD}_translate.log"
+    #   level: "DEBUG"
+    #   rotation: "50 MB"
+    #   retention: "30 days"
+    #   compression: "zip"
+
+# Debug mode
+debug: false

@@ -1,0 +1,64 @@
+# ============================================================================
+# ImageOverlay - Simple Example (자주 사용하는 설정만)
+# ============================================================================
+
+# ============================================================================
+# ImageOverlay - Simple Configuration Example
+# ============================================================================
+# 실제 사용시 자주 쓰이는 옵션만 포함한 간단한 예제입니다.
+
+overlay:
+  # 소스 이미지
+  source:
+    path: "input/base.jpg"
+    must_exist: false
+    convert_mode: "RGB"
+  
+  # 텍스트 오버레이
+  texts:
+    - text: "번역된 텍스트"
+      polygon:                          # 텍스트 영역 좌표
+        - [100, 50]
+        - [400, 50]
+        - [400, 100]
+        - [100, 100]
+      
+      font:
+        family: "NanumGothic"
+        size: 24
+        color: [0, 0, 0]                # 검은색
+        opacity: 1.0
+        stroke_width: 1
+        stroke_color: [255, 255, 255]   # 흰색 외곽선
+      
+      anchor: "mm"                      # 중앙 정렬
+      offset: [0, 0]
+      max_width_ratio: 0.95
+  
+  # 배경 투명도
+  background_opacity: 0.8               # 80% 불투명 배경
+  
+  # 저장
+  save:
+    save_copy: true
+    directory: "output/overlay"
+    
+    name:
+      suffix: "_translated"
+      tail_mode: "counter"
+      ensure_unique: true
+    
+    format: "jpg"
+    quality: 95
+  
+  # 메타데이터
+  meta:
+    save_meta: true
+    name:
+      suffix: "_overlay"
+      extension: ".json"
+  
+  # 로그
+  log:
+    level: "INFO"
+    colorize: true

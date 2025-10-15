@@ -38,3 +38,33 @@ class BaseOperationsPolicy:
     verbose: bool = False
     strict_mode: bool = True
     auto_validate: bool = True
+
+
+@dataclass
+class DBPolicy(BaseOperationsPolicy):
+    """Policy class for database operations (SQLite).
+    
+    Extends BaseOperationsPolicy with database-specific configuration
+    options for connection management, transactions, and optimization.
+    
+    Attributes:
+        table_name: Default table name for operations. Defaults to ``"cache"``.
+        auto_commit: If ``True``, automatically commit after each write
+            operation. If ``False``, manual commit is required. Defaults to ``True``.
+        create_if_missing: If ``True``, create database and table if they
+            don't exist. Defaults to ``True``.
+        enforce_schema: If ``True``, validate DDL schema on table creation.
+            Defaults to ``True``.
+        connection_timeout: Connection timeout in seconds. Defaults to ``5``.
+        enable_wal: If ``True``, enable Write-Ahead Logging for better
+            concurrency. Defaults to ``True``.
+        foreign_keys: If ``True``, enable foreign key constraints.
+            Defaults to ``True``.
+    """
+    table_name: str = "cache"
+    auto_commit: bool = True
+    create_if_missing: bool = True
+    enforce_schema: bool = True
+    connection_timeout: int = 5
+    enable_wal: bool = True
+    foreign_keys: bool = True

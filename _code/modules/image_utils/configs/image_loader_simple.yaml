@@ -1,0 +1,42 @@
+# ============================================================================
+# ImageLoader - Simple Example (자주 사용하는 설정만)
+# ============================================================================
+
+image:
+  # 소스 이미지
+  source:
+    path: "input/sample.jpg"
+    must_exist: false
+    convert_mode: "RGB"
+  
+  # 이미지 저장 (FSO 기반)
+  save:
+    save_copy: true
+    directory: "output/processed"
+    
+    # 간단한 파일명 설정
+    name:
+      suffix: "_processed"              # 파일명 뒤에 붙을 이름
+      tail_mode: "counter"              # 중복시 001, 002 추가
+      ensure_unique: true               # 중복 파일명 방지
+    
+    format: "jpg"                       # 저장 포맷
+    quality: 95                         # JPEG 품질
+  
+  # 메타데이터 저장
+  meta:
+    save_meta: true
+    name:
+      suffix: "_meta"
+      extension: ".json"
+  
+  # 이미지 처리
+  process:
+    resize_to: [800, 600]               # 리사이즈 크기
+    blur_radius: null                   # 블러 없음
+    convert_mode: null
+  
+  # 로그
+  log:
+    level: "INFO"
+    colorize: true

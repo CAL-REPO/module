@@ -5,11 +5,12 @@ operations (DataFrame, Database, etc.) through shared policy and mixin
 base classes.
 """
 
-from .policy import BaseOperationsPolicy, OperationsPolicy
+from .policy import BaseOperationsPolicy, OperationsPolicy, DBPolicy
 from .mixin import BaseOperationsMixin
 
 __all__ = [
     "BaseOperationsPolicy",
     "OperationsPolicy",
+    "DBPolicy",
     "BaseOperationsMixin",
 ]

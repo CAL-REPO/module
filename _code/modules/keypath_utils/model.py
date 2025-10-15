@@ -21,7 +21,7 @@ class KeyPathDict:
 
     def merge(self, patch: Mapping[str, Any], *, deep: bool = True, inplace: bool = True) -> KeyPathDict:
         if deep:
-            DictOps.deep_update(self.data, dict(patch), inplace=inplace)
+            DictOps.deep_update(self.data, dict(patch), inplace=inplace)  # Explicitly convert to dict
         else:
             self.data.update(patch)
         return self

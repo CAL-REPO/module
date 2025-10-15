@@ -1,0 +1,32 @@
+# ========================================
+# Structured (JSON) Logging Configuration
+# ========================================
+# 로그 분석/모니터링 도구 연동용 (ELK, Splunk 등)
+
+name: "structured"
+
+sinks:
+  # JSON 구조화 로그
+  - sink_type: "file"
+    filepath: "output/logs/structured/{time:YYYY-MM-DD}.jsonl"
+    level: "INFO"
+    rotation: "50 MB"
+    retention: "14 days"
+    compression: null  # JSON은 그대로 유지 (분석 도구 호환성)
+    format: "{message}"
+    enqueue: true
+    serialize: true  # JSON 직렬화
+    backtrace: true
+    diagnose: false
+    colorize: false
+    catch: true
+    
+  # 개발자용 콘솔 (가독성)
+  - sink_type: "console"
+    level: "DEBUG"
+    format: "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <level>{message}</level>"
+    colorize: true
+    enqueue: false
+    backtrace: false
+    diagnose: false
+    catch: true

@@ -1,0 +1,46 @@
+# ============================================================================
+# ImageOCR - Simple Example (자주 사용하는 설정만)
+# ============================================================================
+
+ocr:
+  # 소스 이미지
+  source:
+    path: "input/document.jpg"
+    must_exist: false
+    convert_mode: "RGB"
+  
+  # OCR 제공자
+  provider:
+    provider: "paddle"
+    langs: ["ch", "en"]                 # 중국어, 영어
+    min_conf: 0.5                       # 신뢰도 50% 이상만
+    paddle_device: "cpu"
+    paddle_use_angle_cls: true
+  
+  # 전처리
+  preprocess:
+    max_width: 2000                     # OCR용 최대 너비
+  
+  # 후처리
+  postprocess:
+    strip_special_chars: true           # 특수문자 제거
+    filter_alphanumeric: true           # 영숫자만 있는 텍스트 제외
+    deduplicate_iou_threshold: 0.7      # 중복 제거
+    prefer_lang_order: ["ch", "en"]
+  
+  # 저장 (OCR은 보통 이미지 저장 안 함)
+  save:
+    save_copy: false
+  
+  # OCR 결과 메타데이터
+  meta:
+    save_meta: true                     # OCR 결과 JSON 저장
+    directory: "output/ocr"
+    name:
+      suffix: "_ocr"
+      extension: ".json"
+  
+  # 로그
+  log:
+    level: "INFO"
+    colorize: true

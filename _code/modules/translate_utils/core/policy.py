@@ -11,11 +11,24 @@ dicts, or already-built models.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from modules.cfg_utils import ConfigLoader, ConfigPolicy
+from cfg_utils import ConfigLoader, ConfigPolicy
+
+
+class LogConfig(BaseModel):
+    """Logging configuration model compatible with logs_utils.LogContextManager"""
+    name: str = Field(default="Translator")
+    sinks: List[Dict[str, Any]] = Field(default_factory=lambda: [
+        {
+            "sink_type": "console",
+            "level": "INFO",
+            "format": "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | <level>{message}</level>",
+            "colorize": True
+        }
+    ])
 
 
 class SourcePolicy(BaseModel):
@@ -52,6 +65,7 @@ class TranslatePolicy(BaseModel):
     provider: ProviderPolicy = Field(default_factory=ProviderPolicy)
     zh: ZhChunkPolicy = Field(default_factory=ZhChunkPolicy)
     store: StorePolicy = Field(default_factory=StorePolicy)
+    log_config: Optional[LogConfig] = Field(default=None, description="Logging configuration")
     debug: bool = Field(default=False)
 
     @staticmethod

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# crawl_refactor/extractor.py
+# crawl_utils/services/extractor.py
+# Extractor: 데이터 추출 (Async)
 
 from __future__ import annotations
 

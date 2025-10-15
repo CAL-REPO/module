@@ -1,50 +1,99 @@
 # -*- coding: utf-8 -*-
-"""pillow_utils — SRP-friendly image processing toolkit with 3 entrypoints.
+"""image_utils — SRP-friendly image processing toolkit with 3 entrypoints.
 
 Three main entrypoints:
 1. ImageLoader - Load/copy/resize images with metadata
-2. ImageOCR (in ocr_utils) - Run OCR with resize tracking
+2. ImageOCR - Run OCR with resize tracking
 3. ImageOverlay - Overlay text/graphics from OCR or manual input
 """
 
 from .core.policy import (
+    # Common policies
     ImageSourcePolicy,
-    ImagePolicy,
+    ImageSavePolicy,
     ImageMetaPolicy,
-    ImageProcessorPolicy,
+    
+    # ImageLoader
+    ImageProcessPolicy,
     ImageLoaderPolicy,
-    ImageOverlayPolicy,
+    
+    # ImageOCR
+    OCRProviderPolicy,
+    OCRPreprocessPolicy,
+    OCRPostprocessPolicy,
+    ImageOCRPolicy,
+    
+    # ImageOverlay
     OverlayTextPolicy,
+    ImageOverlayPolicy,
+    
+    # Backward compatibility (deprecated)
+    ImagePolicy,
+    ImageProcessorPolicy,
 )
+
+from .core.models import OCRItem
+
 from .services.io import ImageReader, ImageWriter
 from .services.processor import ImageProcessor
 from .services.renderer import OverlayTextRenderer
-from .adapter.loader import ImageLoader
-from .adapter.image_overlay import ImageOverlay
+
+# Entry points (services → entry points로 변경)
+from .services.image_loader import ImageLoader
+from .services.image_ocr import ImageOCR
+from .services.image_overlay import ImageOverlay
+
+# Image downloader (동기 HTTP 다운로드)
+from .services.image_downloader import ImageDownloader, ImageDownloadPolicy, download_images
 
 # Re-export FontPolicy from font_utils for convenience
 from font_utils import FontPolicy
 
 __all__ = [
-    # Policy models
+    # Common policies
     "ImageSourcePolicy",
-    "ImagePolicy",
+    "ImageSavePolicy",
     "ImageMetaPolicy",
-    "ImageProcessorPolicy",
+    
+    # ImageLoader policies
+    "ImageProcessPolicy",
     "ImageLoaderPolicy",
-    "ImageOverlayPolicy",
+    
+    # ImageOCR policies
+    "OCRProviderPolicy",
+    "OCRPreprocessPolicy",
+    "OCRPostprocessPolicy",
+    "ImageOCRPolicy",
+    
+    # ImageOverlay policies
     "OverlayTextPolicy",
+    "ImageOverlayPolicy",
+    
+    # Models
+    "OCRItem",
+    
+    # Font
     "FontPolicy",
-    # I/O
+    
+    # Services
     "ImageReader",
     "ImageWriter",
-    # Processing
     "ImageProcessor",
-    # Rendering (pure functional)
     "OverlayTextRenderer",
+    
     # Entrypoints
     "ImageLoader",
+    "ImageOCR",
     "ImageOverlay",
+    
+    # Image Downloader
+    "ImageDownloader",
+    "ImageDownloadPolicy",
+    "download_images",
+    
+    # Backward compatibility (deprecated)
+    "ImagePolicy",
+    "ImageProcessorPolicy",
 ]
 
 """Lightweight utilities for loading, copying and resizing a single image.

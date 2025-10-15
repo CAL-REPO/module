@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Union
 from fso_utils import FSOOpsPolicy, ExistencePolicy, FSOOps
 from xl_utils.core.policy import XwWbPolicy
-from xl_utils.save_manager import XwSaveManager
+from xl_utils.services.save_manager import XwSaveManager
 
 
 class XwWbPathResolver:
@@ -46,6 +46,7 @@ class XwWb:
         self.book: Optional[xw.Book] = None
         self.save_manager = XwSaveManager(app)
         self.path_resolver = XwWbPathResolver(self.path, self.policy) if self.path else None
+        self._context_managed = False
     
     def open(self) -> xw.Book:
         """워크북 열기 (정책 기반 경로 확인)"""
@@ -89,3 +90,19 @@ class XwWb:
         if not self.book:
             raise RuntimeError("Workbook not opened")
         return self.book.sheets[name_or_index]
+    
+    # ==========================================================================
+    # Context Manager Protocol
+    # ==========================================================================
+    
+    def __enter__(self) -> "XwWb":
+        """Context manager 진입 - Workbook 열기"""
+        self._context_managed = True
+        self.open()
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager 종료 - auto_save 정책에 따라 저장 후 닫기"""
+        if self.book:
+            self.close(save=self.policy.auto_save)
+        return None

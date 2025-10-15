@@ -15,15 +15,10 @@ from typing import Optional, Dict, Any, Tuple
 from PIL import Image, ImageOps
 
 from fso_utils.core.ops import FSOOps
-from fso_utils.core.policy import (
-    FSOOpsPolicy,
-    ExistencePolicy,
-    FileExtensionPolicy,
-    FSONamePolicy,
-)
+from fso_utils.core.policy import FSOOpsPolicy, ExistencePolicy
 from fso_utils.core.path_builder import FSOPathBuilder
 
-from ..core.policy import ImageSourcePolicy, ImagePolicy, ImageMetaPolicy
+from ..core.policy import ImageSourcePolicy, ImageSavePolicy, ImageMetaPolicy
 
 
 class ImageReader:
@@ -68,14 +63,14 @@ class ImageReader:
 
 
 class ImageWriter:
-    """Persist images and metadata with new policy structure."""
+    """Persist images and metadata using FSO_utils policies."""
 
-    def __init__(self, target_policy: ImagePolicy, meta_policy: ImageMetaPolicy):
+    def __init__(self, target_policy: ImageSavePolicy, meta_policy: ImageMetaPolicy):
         self.target_policy = target_policy
         self.meta_policy = meta_policy
 
     def save_image(self, image: Image.Image, base_path: Path) -> Path:
-        """Save image to disk using target policy."""
+        """Save image to disk using FSO-based target policy."""
         target_path = self._build_target_path(base_path)
         format_hint = self.target_policy.format or image.format or target_path.suffix.lstrip(".").upper()
         
@@ -90,52 +85,46 @@ class ImageWriter:
         return target_path
 
     def save_meta(self, meta: Dict[str, Any], base_path: Path) -> Optional[Path]:
-        """Save metadata dict to JSON file."""
+        """Save metadata dict to JSON file using FSO policy."""
         if not self.meta_policy.save_meta:
             return None
         
         directory = self.meta_policy.directory or base_path.parent
         directory.mkdir(parents=True, exist_ok=True)
         
-        # Determine filename
-        if self.meta_policy.filename:
-            filename = self.meta_policy.filename
-        else:
-            filename = f"{base_path.stem}_meta.json"
+        # Use FSO to build metadata path
+        meta_builder = FSOPathBuilder(
+            base_dir=directory,
+            name_policy=self.meta_policy.name.model_copy(
+                update={"name": base_path.stem}
+            ),
+            ops_policy=self.meta_policy.ops,
+        )
+        path = meta_builder()
         
-        path = directory / filename
         path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
         return path
 
     def _build_target_path(self, base_path: Path) -> Path:
-        """Build target path using new ImagePolicy structure."""
+        """Build target path using FSO policies directly."""
         directory = self.target_policy.directory or base_path.parent
         directory = directory.resolve()
         
-        # Determine filename
-        if self.target_policy.filename:
-            name = self.target_policy.filename
-        else:
-            ext = self.target_policy.format or base_path.suffix.lstrip(".")
-            name = f"{base_path.stem}{self.target_policy.suffix}.{ext}" if ext else f"{base_path.stem}{self.target_policy.suffix}"
+        # Determine extension from policy or source
+        ext = self.target_policy.format or base_path.suffix.lstrip(".")
+        if ext and not ext.startswith("."):
+            ext = f".{ext}"
         
-        name_part = Path(name).stem
-        ext_part = Path(name).suffix
-        
+        # Use FSO PathBuilder with policy's name and ops settings
         builder = FSOPathBuilder(
             base_dir=directory,
-            name_policy=FSONamePolicy(
-                as_type="file",
-                name=name_part,
-                extension=ext_part,
-                tail_mode="counter" if self.target_policy.ensure_unique else None,
-                ensure_unique=self.target_policy.ensure_unique,
-            ), # pyright: ignore[reportCallIssue]
-            ops_policy=FSOOpsPolicy(
-                as_type="file",
-                exist=ExistencePolicy(create_if_missing=True), # pyright: ignore[reportCallIssue]
-                ext=FileExtensionPolicy(default_ext=ext_part or None), # pyright: ignore[reportCallIssue]
+            name_policy=self.target_policy.name.model_copy(
+                update={
+                    "name": base_path.stem,
+                    "extension": ext,
+                }
             ),
+            ops_policy=self.target_policy.ops,
         )
         return builder()
 

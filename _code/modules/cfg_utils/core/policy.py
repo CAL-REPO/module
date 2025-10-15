@@ -10,9 +10,10 @@ processed.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional, Union
+from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Import the base parser policy from structured_io.  This replaces the
 # older YamlParserPolicy used in previous versions of cfg_utils.
@@ -25,7 +26,7 @@ class ConfigPolicy(BaseModel):
     A ``ConfigPolicy`` aggregates several related options:
 
     * **YAML parsing policy** – delegated to :class:`structured_io.base.base_policy.BaseParserPolicy`.
-      Use :attr:`yaml_policy` to customize encoding, environment variable expansion,
+      Use :attr:`yaml` to customize encoding, environment variable expansion,
       include directives and other YAML parsing rules.
 
     * **Normalizer options** – :attr:`drop_blanks` toggles removal of
@@ -45,15 +46,38 @@ class ConfigPolicy(BaseModel):
     """
 
     # ------------------------------------------------------------------
+    # ConfigLoader 자신의 설정 파일 경로
+    # ------------------------------------------------------------------
+    config_loader_path: Optional[Union[str, Path]] = Field(
+        default=None,
+        description="ConfigLoader 정책 파일 경로 (None이면 cfg_utils/configs/config_loader.yaml 사용)"
+    )
+
+    # ------------------------------------------------------------------
     # YAML parsing options (delegated)
     # ------------------------------------------------------------------
-    yaml_policy: BaseParserPolicy = Field(
-        default_factory=lambda: BaseParserPolicy(), # pyright: ignore[reportCallIssue]
+    loader_config_path: Optional[Union[str, Path]] = Field(
+        default=None,
+        description=(
+            "ConfigLoader 자신의 정책 파일 경로. "
+            "None이면 cfg_utils/configs/config_loader.yaml 사용"
+        )
+    )
+    
+    yaml: Optional[BaseParserPolicy] = Field(
+        default=None,
         description=(
             "Policy governing YAML parsing behavior.  This includes encoding, "
             "environment variable expansion, include directives and other lower‑level rules."
-        ),
+        )
     )
+    
+    @model_validator(mode='after')
+    def _set_yaml_default(self):
+        """yaml이 None이면 기본 BaseParserPolicy 할당"""
+        if self.yaml is None:
+            self.yaml = BaseParserPolicy()
+        return self
 
     # ------------------------------------------------------------------
     # Normalizer options

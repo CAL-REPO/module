@@ -1,98 +1,156 @@
 # -*- coding: utf-8 -*-
-# pillow_utils/policy.py
-"""Pydantic policies for pillow_utils image processing.
+# image_utils/core/policy.py
+"""Unified policy definitions for image_utils.
 
 All policies support:
 - BaseModel defaults from class definition
 - YAML config loading via ConfigLoader
-- Runtime **override via keyword arguments
+- Runtime **kwargs override via model_copy()
+
+This module consolidates all policy classes for the 3 entrypoints:
+1. ImageLoader
+2. ImageOCR
+3. ImageOverlay
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field, model_validator
 
 from font_utils import FontPolicy
+from logs_utils import LogPolicy
+from fso_utils import FSONamePolicy, FSOOpsPolicy, ExistencePolicy, FileExtensionPolicy
 
 
 # ==============================================================================
-# Core Image Policies
+# Common Policies (Shared across entrypoints)
 # ==============================================================================
 
 class ImageSourcePolicy(BaseModel):
-    """Source image file configuration."""
-    path: Path
-    must_exist: bool = Field(False, description="Require source image to exist.")
+    """Source image file configuration.
+    
+    Attributes:
+        path: Path to source image file
+        must_exist: Require source image to exist before processing
+        convert_mode: Optional PIL mode conversion (e.g., 'RGB', 'L')
+    """
+    path: Path = Field(..., description="Path to source image file")
+    must_exist: bool = Field(False, description="Require source to exist")
     convert_mode: Optional[str] = Field(
-        None, description="Optional Pillow mode conversion (e.g. 'RGB')."
+        None, 
+        description="Optional Pillow mode conversion (e.g. 'RGB')"
     )
 
 
-class ImagePolicy(BaseModel):
-    """Image save/copy configuration with FSO_utils integration.
+class ImageSavePolicy(BaseModel):
+    """Image save/copy configuration using FSO_utils.
+    
+    Integrates with fso_utils for consistent file naming and path building
+    across the entire project.
     
     Attributes:
         save_copy: Whether to save a copy of the image
-        directory: Target directory (None = use path_utils.download())
-        filename: Target filename (None = use original_name_copy.ext)
-        suffix: Suffix for filename (default: '_copy')
-        format: Target format (None = keep original)
+        directory: Target directory (None = use path_utils.downloads())
+        name: FSO name policy for file naming (prefix, suffix, tail_mode, etc.)
+        ops: FSO operations policy for file existence/extension handling
+        format: Target format (None = keep original format)
         quality: JPEG/WebP quality (1-100)
-        ensure_unique: Add counter suffix to avoid overwriting
     """
     save_copy: bool = Field(True, description="Save copy of image")
     directory: Optional[Path] = Field(
-        None, description="Target directory (None = path_utils.download())"
+        None, 
+        description="Target directory (None = path_utils.downloads())"
     )
-    filename: Optional[str] = Field(
-        None, description="Target filename (None = {original_name}_copy{ext})"
+    name: FSONamePolicy = Field(
+        default_factory=lambda: FSONamePolicy(
+            as_type="file",
+            suffix="_processed",
+            tail_mode="counter",
+            ensure_unique=True,
+        ),  # type: ignore
+        description="FSO name policy for file naming"
     )
-    suffix: str = Field("_copy", description="Suffix for auto-generated filename")
+    ops: FSOOpsPolicy = Field(
+        default_factory=lambda: FSOOpsPolicy(
+            as_type="file",
+            exist=ExistencePolicy(create_if_missing=True),  # type: ignore
+        ),  # type: ignore
+        description="FSO operations policy"
+    )
     format: Optional[str] = Field(None, description="Target format (None = original)")
     quality: int = Field(95, ge=1, le=100, description="JPEG/WebP quality")
-    ensure_unique: bool = Field(True, description="Uniquify filename with counter")
 
 
 class ImageMetaPolicy(BaseModel):
-    """Image metadata save configuration with FSO_utils integration.
+    """Image metadata save configuration using FSO_utils.
     
-    Note: enabled field removed - metadata is always generated.
-    ImageLoader's existence implies metadata generation.
+    Note: Metadata is always generated internally.
+    This policy controls whether to persist it to disk.
     
     Attributes:
         save_meta: Whether to save metadata JSON to disk
-        directory: Target directory (None = use path_utils.download())
-        filename: Metadata filename (None = {original_name}_meta.json)
+        directory: Target directory (None = same as image)
+        name: FSO name policy for metadata file naming
+        ops: FSO operations policy for metadata file handling
     """
     save_meta: bool = Field(True, description="Save metadata JSON to disk")
     directory: Optional[Path] = Field(
-        None, description="Metadata directory (None = path_utils.download())"
+        None, 
+        description="Metadata directory (None = same as image)"
     )
-    filename: Optional[str] = Field(
-        None, description="Metadata filename (None = {original_name}_meta.json)"
+    name: FSONamePolicy = Field(
+        default_factory=lambda: FSONamePolicy(
+            as_type="file",
+            suffix="_meta",
+            extension=".json",
+            ensure_unique=False,
+        ),  # type: ignore
+        description="FSO name policy for metadata file"
+    )
+    ops: FSOOpsPolicy = Field(
+        default_factory=lambda: FSOOpsPolicy(
+            as_type="file",
+            exist=ExistencePolicy(create_if_missing=True, overwrite=True),  # type: ignore
+            ext=FileExtensionPolicy(default_ext=".json"),  # type: ignore
+        ),  # type: ignore
+        description="FSO operations policy for metadata"
     )
 
 
-class ImageProcessorPolicy(BaseModel):
-    """Image processing operations configuration."""
+# ==============================================================================
+# 1st EntryPoint: ImageLoader
+# ==============================================================================
+
+class ImageProcessPolicy(BaseModel):
+    """Image processing operations configuration.
+    
+    Attributes:
+        resize_to: Target size (width, height) for resize
+        blur_radius: Gaussian blur radius
+        convert_mode: PIL mode conversion (e.g., 'RGB', 'L')
+    """
     resize_to: Optional[Tuple[int, int]] = Field(
-        None, description="Target size (width, height) for resize"
+        None, 
+        description="Target size (width, height)"
     )
     blur_radius: Optional[float] = Field(
-        None, description="Gaussian blur radius"
+        None, 
+        description="Gaussian blur radius"
     )
     convert_mode: Optional[str] = Field(
-        None, description="PIL mode conversion (e.g., 'RGB', 'L')"
+        None, 
+        description="PIL mode conversion (e.g., 'RGB', 'L')"
     )
 
 
 class ImageLoaderPolicy(BaseModel):
     """Complete policy for ImageLoader (1st entrypoint).
     
-    Combines file source, image save, metadata save, and processing policies.
+    Combines source, save, metadata, and processing policies.
+    
     Supports:
     - BaseModel defaults
     - YAML config via ConfigLoader
@@ -100,19 +158,119 @@ class ImageLoaderPolicy(BaseModel):
     
     Example:
         # From YAML
-        policy = ConfigLoader('config.yaml').as_model(ImageLoaderPolicy)
+        loader = ConfigLoader('config.yaml')
+        policy = loader.as_model(ImageLoaderPolicy)
         
         # Runtime override
         policy = ImageLoaderPolicy(**yaml_dict, save_copy=False)
     """
     source: ImageSourcePolicy
-    image: ImagePolicy = Field(default_factory=ImagePolicy)  # pyright: ignore
-    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # pyright: ignore
-    processing: ImageProcessorPolicy = Field(default_factory=ImageProcessorPolicy)  # pyright: ignore
+    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
+    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
+    process: ImageProcessPolicy = Field(default_factory=ImageProcessPolicy)  # type: ignore
+    log: LogPolicy = Field(default_factory=LogPolicy)  # type: ignore
 
 
 # ==============================================================================
-# Overlay Policies (for image_overlay.py entrypoint)
+# 2nd EntryPoint: ImageOCR
+# ==============================================================================
+
+class OCRProviderPolicy(BaseModel):
+    """OCR provider configuration.
+    
+    Attributes:
+        provider: OCR provider name ('paddle', 'tesseract', etc.)
+        langs: Language codes for OCR (e.g., ['ch', 'en'])
+        min_conf: Minimum confidence threshold (0.0-1.0)
+        paddle_device: PaddleOCR device ('cpu', 'gpu')
+        paddle_use_angle_cls: Enable angle classification in PaddleOCR
+        paddle_instance: Cached PaddleOCR instances (internal use)
+    """
+    provider: str = Field("paddle", description="OCR provider name")
+    langs: List[str] = Field(
+        default_factory=lambda: ["ch", "en"], 
+        description="Language codes"
+    )
+    min_conf: float = Field(0.5, ge=0.0, le=1.0, description="Min confidence")
+    
+    # PaddleOCR specific
+    paddle_device: str = Field("cpu", description="PaddleOCR device")
+    paddle_use_angle_cls: bool = Field(True, description="Enable angle classification")
+    paddle_instance: Optional[Any] = Field(
+        None, 
+        description="Cached PaddleOCR instances (internal)"
+    )
+
+
+class OCRPreprocessPolicy(BaseModel):
+    """OCR preprocessing configuration.
+    
+    Attributes:
+        max_width: Maximum width for OCR (resize if image is wider)
+    """
+    max_width: Optional[int] = Field(
+        None, 
+        description="Max width for OCR (resize if wider)"
+    )
+
+
+class OCRPostprocessPolicy(BaseModel):
+    """OCR postprocessing configuration.
+    
+    Attributes:
+        strip_special_chars: Remove special characters from text
+        filter_alphanumeric: Filter out alphanumeric-only text
+        deduplicate_iou_threshold: IoU threshold for bbox deduplication
+        prefer_lang_order: Language preference order for deduplication
+    """
+    strip_special_chars: bool = Field(
+        True, 
+        description="Remove special characters"
+    )
+    filter_alphanumeric: bool = Field(
+        True, 
+        description="Filter alphanumeric-only text"
+    )
+    deduplicate_iou_threshold: float = Field(
+        0.7, 
+        ge=0.0, 
+        le=1.0, 
+        description="IoU threshold for deduplication"
+    )
+    prefer_lang_order: List[str] = Field(
+        default_factory=lambda: ["ch", "en"], 
+        description="Language preference order"
+    )
+
+
+class ImageOCRPolicy(BaseModel):
+    """Complete policy for ImageOCR (2nd entrypoint).
+    
+    Combines source, OCR provider, preprocessing, postprocessing,
+    save, metadata, and logging policies.
+    
+    Example:
+        # From YAML
+        ocr = ConfigLoader('ocr_config.yaml')
+        policy = ocr.as_model(ImageOCRPolicy)
+        
+        # Runtime override
+        policy = ImageOCRPolicy(
+            source=ImageSourcePolicy(path=Path('image.jpg')),
+            provider=OCRProviderPolicy(langs=['ch', 'en'])
+        )
+    """
+    source: ImageSourcePolicy
+    provider: OCRProviderPolicy = Field(default_factory=OCRProviderPolicy)  # type: ignore
+    preprocess: OCRPreprocessPolicy = Field(default_factory=OCRPreprocessPolicy)  # type: ignore
+    postprocess: OCRPostprocessPolicy = Field(default_factory=OCRPostprocessPolicy)  # type: ignore
+    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
+    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
+    log: LogPolicy = Field(default_factory=LogPolicy)  # type: ignore
+
+
+# ==============================================================================
+# 3rd EntryPoint: ImageOverlay
 # ==============================================================================
 
 class OverlayTextPolicy(BaseModel):
@@ -122,62 +280,86 @@ class OverlayTextPolicy(BaseModel):
     - YAML-based configuration
     - Dict-based runtime override via **kwargs
     - Manual coordinate specification via polygon field
+    
+    Attributes:
+        text: Text to overlay
+        polygon: Polygon coordinates for text placement
+        font: Font configuration
+        anchor: PIL anchor point (e.g., 'mm', 'lt')
+        offset: Position offset (dx, dy)
+        max_width_ratio: Max text width ratio in bbox
     """
     text: str = Field(..., description="Text to overlay")
     polygon: List[Tuple[float, float]] = Field(
         ...,
-        description="Polygon coordinates for text placement area",
+        description="Polygon coordinates [(x,y), ...]"
     )
-    font: FontPolicy = Field(default_factory=FontPolicy)  # pyright: ignore
-    anchor: str = Field(
-        "mm", description="PIL anchor point (e.g., 'mm', 'lt')"
-    )
-    offset: Tuple[float, float] = Field(
-        (0.0, 0.0), description="Position offset (dx, dy)"
-    )
+    font: FontPolicy = Field(default_factory=FontPolicy)  # type: ignore
+    anchor: str = Field("mm", description="PIL anchor point")
+    offset: Tuple[float, float] = Field((0.0, 0.0), description="Position offset")
     max_width_ratio: float = Field(
-        0.95, gt=0.0, description="Max text width ratio in bbox"
+        0.95, 
+        gt=0.0, 
+        description="Max text width ratio"
     )
 
 
 class ImageOverlayPolicy(BaseModel):
-    """Complete policy for image overlay operations.
+    """Complete policy for ImageOverlay (3rd entrypoint).
     
-    This policy combines source image, output configuration, and overlay specifications.
-    All overlay data (coordinates, text) must be provided manually through:
+    Combines source, overlay text specifications, save, metadata,
+    and logging policies.
+    
+    All overlay data (coordinates, text) must be provided through:
     - YAML configuration
     - Runtime dict override via **kwargs
     
-    Note: OCR results integration is handled by translate module entrypoint.
-    This policy accepts only pre-transformed overlay specifications.
+    Note: OCR results integration is handled separately.
     
     Attributes:
         source: Source image configuration
-        output: Output directory and naming configuration
-        meta: Metadata persistence settings
-        font: Default font configuration for all overlays
+        texts: Text overlay configurations
         background_opacity: Background opacity (0.0-1.0)
-        texts: Text overlay configurations (YAML or dict-based)
+        save: Image save configuration
+        meta: Metadata save configuration
         log: Logging configuration
+    
+    Example:
+        # From YAML
+        overlay = ConfigLoader('overlay_config.yaml')
+        policy = overlay.as_model(ImageOverlayPolicy)
+        
+        # Runtime override
+        policy = ImageOverlayPolicy(
+            source=ImageSourcePolicy(path=Path('image.jpg')),
+            texts=[
+                OverlayTextPolicy(
+                    text="Hello",
+                    polygon=[(10,10), (100,10), (100,50), (10,50)]
+                )
+            ]
+        )
     """
-    # Image I/O
     source: ImageSourcePolicy
-    output: ImagePolicy = Field(default_factory=ImagePolicy)  # pyright: ignore
-    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # pyright: ignore
-    
-    # Overlay configuration
-    font: FontPolicy = Field(default_factory=FontPolicy)  # pyright: ignore
-    background_opacity: float = Field(0.0, ge=0.0, le=1.0, description="Background opacity")
-    
-    # Manual overlay specifications (from YAML or dict override)
     texts: List[OverlayTextPolicy] = Field(
         default_factory=list,
-        description="Text overlay configurations (YAML or dict-based)"
+        description="Text overlay configurations"
     )
-    
-    @model_validator(mode="after")
-    def validate_overlay_source(self):
-        """Ensure texts is provided."""
-        if not self.texts:
-            raise ValueError("ImageOverlayPolicy requires 'texts' field with at least one overlay specification")
-        return self
+    background_opacity: float = Field(
+        0.0, 
+        ge=0.0, 
+        le=1.0, 
+        description="Background opacity"
+    )
+    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
+    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
+    log: LogPolicy = Field(default_factory=LogPolicy)  # type: ignore
+
+
+# ==============================================================================
+# Backward Compatibility Aliases (Deprecated)
+# ==============================================================================
+
+# Keep old names for backward compatibility (will be removed in future)
+ImagePolicy = ImageSavePolicy  # Updated alias
+ImageProcessorPolicy = ImageProcessPolicy

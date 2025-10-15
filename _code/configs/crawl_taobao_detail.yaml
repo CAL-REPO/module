@@ -1,0 +1,159 @@
+# -*- coding: utf-8 -*-
+# Taobao 상세 페이지 - 모든 이미지와 텍스트 추출
+
+crawl:
+  navigation:
+    # 상세 페이지 URL은 동적으로 제공됨
+    base_url: "https://item.taobao.com/item.htm"
+    url_template: "{url}"  # 검색에서 얻은 URL 사용
+
+  scroll:
+    strategy: "fixed"
+    scroll_count: 10
+    scroll_pause_sec: 0.8
+
+  wait:
+    hook: "css"
+    selector: "#J_DetailMeta, .tb-detail-hd"
+    timeout_sec: 20.0
+    condition: "visibility"
+
+  extractor:
+    type: "js"
+    js_snippet: |
+      const result = {
+        images: [],
+        descriptions: []
+      };
+      
+      // 1. 메인 상품 이미지 (갤러리)
+      document.querySelectorAll('#J_ImgBooth img, .tb-booth img').forEach((img) => {
+        let url = img.getAttribute('data-src') || img.src || '';
+        if (url.startsWith('//')) url = 'https:' + url;
+        if (/^https?:\/\//i.test(url) && !url.includes('data:image')) {
+          result.images.push({
+            url: url,
+            type: 'main_gallery',
+            alt: img.alt || ''
+          });
+        }
+      });
+      
+      // 2. 상세 설명 이미지
+      document.querySelectorAll('#J_DivItemDesc img, .detail-content img').forEach((img) => {
+        let url = img.getAttribute('data-src') || img.src || '';
+        if (url.startsWith('//')) url = 'https:' + url;
+        if (/^https?:\/\//i.test(url) && !url.includes('data:image')) {
+          result.images.push({
+            url: url,
+            type: 'description',
+            alt: img.alt || ''
+          });
+        }
+      });
+      
+      // 3. 리뷰 이미지
+      document.querySelectorAll('.rate-image img').forEach((img) => {
+        let url = img.src || '';
+        if (url.startsWith('//')) url = 'https:' + url;
+        if (/^https?:\/\//i.test(url)) {
+          result.images.push({
+            url: url,
+            type: 'review',
+            alt: ''
+          });
+        }
+      });
+      
+      // 4. 상품 제목
+      const titleEl = document.querySelector('.tb-detail-hd h1, .tb-main-title');
+      if (titleEl) {
+        result.descriptions.push({
+          content: titleEl.innerText?.trim() || '',
+          type: 'title'
+        });
+      }
+      
+      // 5. 가격
+      const priceEl = document.querySelector('.tb-rmb-num, .tb-price');
+      if (priceEl) {
+        result.descriptions.push({
+          content: priceEl.innerText?.trim() || '',
+          type: 'price'
+        });
+      }
+      
+      // 6. 상세 설명 텍스트
+      const descEl = document.querySelector('#J_DivItemDesc, .detail-content');
+      if (descEl) {
+        result.descriptions.push({
+          content: descEl.innerText?.trim() || '',
+          type: 'description'
+        });
+      }
+      
+      // 7. 속성 정보
+      document.querySelectorAll('.tb-property-type .tb-sku-line').forEach((line) => {
+        const label = line.querySelector('.tb-label')?.innerText?.trim() || '';
+        const value = line.querySelector('.tb-value')?.innerText?.trim() || '';
+        if (label && value) {
+          result.descriptions.push({
+            content: `${label}: ${value}`,
+            type: 'property'
+          });
+        }
+      });
+      
+      return result;
+
+  normalization:
+    rules:
+      # 이미지 추출 (타입별로 구분)
+      - kind: "image"
+        source: "payload.images[*].url"  # 배열의 모든 항목
+        static_section: "taobao_detail"
+        name_template: "tb_detail_{record_index}_{item_index}"
+        extension: "jpg"
+      
+      # 이미지 타입 (메타데이터)
+      - kind: "text"
+        source: "payload.images[*].type"
+        static_section: "taobao_detail"
+        name_template: "tb_detail_{record_index}_{item_index}_type"
+        allow_empty: true
+      
+      # 이미지 alt (캡션)
+      - kind: "text"
+        source: "payload.images[*].alt"
+        static_section: "taobao_detail"
+        name_template: "tb_detail_{record_index}_{item_index}_alt"
+        allow_empty: true
+      
+      # 설명 텍스트 (타입별로 구분)
+      - kind: "text"
+        source: "payload.descriptions[*].content"
+        static_section: "taobao_detail"
+        name_template: "tb_detail_{record_index}_{item_index}_text"
+      
+      # 텍스트 타입 (메타데이터)
+      - kind: "text"
+        source: "payload.descriptions[*].type"
+        static_section: "taobao_detail"
+        name_template: "tb_detail_{record_index}_{item_index}_text_type"
+
+  storage:
+    image:
+      base_dir: "_output/taobao/detail/images"
+      ensure_unique: true
+    text:
+      base_dir: "_output/taobao/detail/text"
+
+  http_session:
+    use_browser_headers: true
+    headers:
+      Accept-Language: "zh-CN,zh;q=0.9,ko;q=0.8"
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  concurrency: 1
+  retries: 3
+  retry_backoff_sec: 2.0

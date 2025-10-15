@@ -10,7 +10,14 @@ from time import sleep
 
 from ..providers.base import Provider
 
-from modules.log_utils import DummyLogger
+# Simple dummy logger for when no logger is provided
+class DummyLogger:
+    """No-op logger for pipeline when logger is not provided."""
+    def debug(self, *args, **kwargs): pass
+    def info(self, *args, **kwargs): pass
+    def warning(self, *args, **kwargs): pass
+    def error(self, *args, **kwargs): pass
+    def success(self, *args, **kwargs): pass
 
 from ..core.policy import TranslatePolicy
 from .preprocessor import TextPreprocessor

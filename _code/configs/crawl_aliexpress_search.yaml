@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+# AliExpress 검색 결과 페이지 - 상품 정보 추출
+
+crawl:
+  navigation:
+    base_url: "https://www.aliexpress.com/wholesale"
+    url_template: "https://www.aliexpress.com/wholesale?SearchText={query}&page={page}"
+    params:
+      query: "shoes"
+    page_param: "page"
+    start_page: 1
+    max_pages: 3
+
+  scroll:
+    strategy: "infinite"
+    max_scrolls: 8
+    scroll_pause_sec: 0.8
+
+  wait:
+    hook: "css"
+    selector: "[class*='list--gallery']"
+    timeout_sec: 20.0
+    condition: "visibility"
+
+  extractor:
+    type: "js"
+    js_snippet: |
+      const items = [];
+      // AliExpress 검색 결과에서 상품 정보 추출
+      document.querySelectorAll('[class*="list--gallery"] [class*="list-item"]').forEach((item) => {
+        const img = item.querySelector('img[class*="image"]');
+        const linkEl = item.querySelector('a[class*="title"]');
+        const titleEl = item.querySelector('[class*="multi--title"]');
+        const priceEl = item.querySelector('[class*="price--current"]');
+        const ratingEl = item.querySelector('[class*="rating"]');
+        const ordersEl = item.querySelector('[class*="order"]');
+        const shippingEl = item.querySelector('[class*="shipping"]');
+        
+        if (img && titleEl && linkEl) {
+          let imageUrl = img.src || img.getAttribute('data-src') || '';
+          // AliExpress 이미지 해상도 변환
+          imageUrl = imageUrl.replace(/_\d+x\d+\./, '_640x640.');
+          
+          let detailUrl = linkEl.href || '';
+          
+          items.push({
+            product_url: detailUrl,
+            thumbnail: imageUrl,
+            title: titleEl.innerText?.trim() || '',
+            price: priceEl?.innerText?.trim() || '',
+            rating: ratingEl?.innerText?.trim() || '',
+            orders: ordersEl?.innerText?.trim() || '',
+            shipping: shippingEl?.innerText?.trim() || '',
+            currency: 'USD'
+          });
+        }
+      });
+      return items;
+
+  normalization:
+    rules:
+      # 썸네일 이미지
+      - kind: "image"
+        source: "payload.thumbnail"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_thumb"
+        extension: "jpg"
+      
+      # 상품 URL
+      - kind: "text"
+        source: "payload.product_url"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_url"
+      
+      # 상품명
+      - kind: "text"
+        source: "payload.title"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_title"
+      
+      # 가격
+      - kind: "text"
+        source: "payload.price"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_price"
+      
+      # 평점
+      - kind: "text"
+        source: "payload.rating"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_rating"
+        allow_empty: true
+      
+      # 주문수
+      - kind: "text"
+        source: "payload.orders"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_orders"
+        allow_empty: true
+      
+      # 배송비
+      - kind: "text"
+        source: "payload.shipping"
+        static_section: "ali_search"
+        name_template: "ali_search_{record_index}_{item_index}_shipping"
+        allow_empty: true
+
+  storage:
+    image:
+      base_dir: "_output/aliexpress/search/images"
+      ensure_unique: true
+    text:
+      base_dir: "_output/aliexpress/search/text"
+
+  http_session:
+    use_browser_headers: true
+    headers:
+      Accept-Language: "en-US,en;q=0.9,ko;q=0.8"
+      User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  concurrency: 1
+  retries: 3
+  retry_backoff_sec: 2.0

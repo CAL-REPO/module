@@ -1,0 +1,56 @@
+# -*- coding: utf-8 -*-
+# AliExpress 크롤링용 Firefox 설정 (자동화 탐지 회피)
+
+firefox:
+  provider: "firefox"
+  headless: false                # GUI 모드 (탐지 회피)
+  window_size: [1440, 900]       # 일반 해상도
+  
+  # -------------------------------------------------------------------------
+  # Session 관리 (중요!)
+  # -------------------------------------------------------------------------
+  session_path: "data/session/firefox_aliexpress.json"
+  save_session: true             # 세션 자동 저장/복원
+  
+  # -------------------------------------------------------------------------
+  # User-Agent & Accept-Language (영어/국제 사이트 최적화)
+  # -------------------------------------------------------------------------
+  # Firefox 120.0 Windows 기반
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0"
+  
+  # 영어 우선 (한국어 포함)
+  accept_languages: "en-US,en;q=0.9,ko;q=0.8"
+  
+  # -------------------------------------------------------------------------
+  # 자동화 탐지 회피 (Anti-Detection)
+  # -------------------------------------------------------------------------
+  disable_automation: true       # navigator.webdriver = false
+  
+  # Firefox 전용 preferences
+  dom_enabled: false             # dom.webdriver.enabled = false
+  resist_fingerprint_enabled: false  # 지문 방지 비활성화
+  
+  # -------------------------------------------------------------------------
+  # Firefox 경로 설정
+  # -------------------------------------------------------------------------
+  driver_path: null              # geckodriver 자동 다운로드
+  binary_path: null              # Firefox 실행 파일 자동 감지
+  profile_path: null             # 새 프로필 사용
+  
+  # -------------------------------------------------------------------------
+  # Driver 관리
+  # -------------------------------------------------------------------------
+  use_webdriver_manager: true    # geckodriver 자동 다운로드/업데이트
+  
+  # -------------------------------------------------------------------------
+  # 추가 옵션
+  # -------------------------------------------------------------------------
+  enable_cookies: true
+  enable_cache: true
+  load_images: true              # AliExpress는 이미지 중요
+  enable_javascript: true
+  
+  # -------------------------------------------------------------------------
+  # 로깅
+  # -------------------------------------------------------------------------
+  log_config: "logs/firefox_aliexpress.log"

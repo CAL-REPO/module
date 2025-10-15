@@ -1,10 +1,9 @@
-
 # data_utils/__init__.py
 # Data utilities for DataFrames, databases, dictionaries, lists, strings, and geometry.
 
 # Structured data operations
 from structured_data.core import BaseOperationsPolicy, OperationsPolicy, BaseOperationsMixin
-from structured_data.composites import DFPolicy, DataFrameOps, DBPolicy, SQLiteKVStore, TranslationCache
+from structured_data.composite import DFPolicy, DataFrameOps, SQLiteKVStore
 
 # Legacy utilities
 from data_utils.services.dict_ops import DictOps
@@ -19,9 +18,6 @@ __all__ = [
 
     # DataFrame operations
     "DFPolicy", "DataFrameOps",
-
-    # Database operations
-    "DBPolicy", "SQLiteKVStore", "TranslationCache",
 
     # Legacy utilities
     "DictOps", "ListOps", "StringOps", "GeometryOps",

@@ -8,14 +8,19 @@ Type definitions and aliases for data structures used throughout data_utils modu
 
 from __future__ import annotations
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Sequence
+from pydantic import BaseModel
 
 # =======================================================
 # ✅ 공통 타입 정의 (전 모듈 공통 import 용)
 # =======================================================
 
+T = TypeVar("T", bound=BaseModel)
+
 PathLike = Union[str, Path]
 """A path-like type representing either a string or a :class:`pathlib.Path`."""
+
+PathsLike = Sequence[Union[str, Path]]
 
 KeyPath = Union[str, List[str]]
 """A key path used for dictionary navigation.

@@ -1,0 +1,98 @@
+# ============================================================================
+# Crawl Configuration - Simple Example
+# ============================================================================
+# 자주 사용하는 크롤링 설정 예제입니다.
+
+crawl:
+  # --------------------------------------------------------------------------
+  # 1. Navigation - 페이지 순회 설정
+  # --------------------------------------------------------------------------
+  navigation:
+    base_url: "https://example.com/products"
+    url_template: "https://example.com/products?page={page}"
+    page_param: "page"
+    start_page: 1
+    max_pages: 5
+    params: {}
+  
+  # --------------------------------------------------------------------------
+  # 2. Scroll - 스크롤 전략
+  # --------------------------------------------------------------------------
+  scroll:
+    strategy: "none"              # none | paginate | infinite
+    max_scrolls: 0
+    scroll_pause_sec: 0.5
+  
+  # --------------------------------------------------------------------------
+  # 3. Extractor - 데이터 추출 설정
+  # --------------------------------------------------------------------------
+  extractor:
+    type: "dom"                   # dom | js | api
+    item_selector: ".product-item"
+  
+  # --------------------------------------------------------------------------
+  # 4. Wait - 페이지 로딩 대기 설정
+  # --------------------------------------------------------------------------
+  wait:
+    hook: "css"                   # none | css | xpath
+    selector: ".product-item"
+    timeout_sec: 10.0
+    condition: "presence"         # presence | visibility
+  
+  # --------------------------------------------------------------------------
+  # 5. Normalization - 데이터 정규화 규칙
+  # --------------------------------------------------------------------------
+  normalization:
+    rules:
+      # 이미지 추출 규칙
+      - kind: "image"
+        source: "img.src"
+        section_field: null
+        static_section: "products"
+        name_template: "product_{index}"
+        extension: ".jpg"
+        explode: true
+        allow_empty: false
+      
+      # 텍스트 추출 규칙
+      - kind: "text"
+        source: "title"
+        static_section: "products"
+        name_template: "product_{index}"
+        extension: ".txt"
+        explode: false
+        allow_empty: false
+  
+  # --------------------------------------------------------------------------
+  # 6. Storage - 저장 설정
+  # --------------------------------------------------------------------------
+  storage:
+    image:
+      base_dir: "output/crawl/images"
+      sub_dir: null
+      name_template: "{section}_{index}"
+      extension: ".jpg"
+      ensure_unique: true
+    
+    text:
+      base_dir: "output/crawl/texts"
+      sub_dir: null
+      name_template: "{section}_{index}"
+      extension: ".txt"
+      ensure_unique: true
+  
+  # --------------------------------------------------------------------------
+  # 7. HTTP Session - HTTP 세션 설정
+  # --------------------------------------------------------------------------
+  http_session:
+    use_browser_headers: false
+    session_json_path: null
+    headers: {}
+  
+  # --------------------------------------------------------------------------
+  # 8. Execution - 실행 설정
+  # --------------------------------------------------------------------------
+  execution_mode: "async"         # async | sync
+  concurrency: 2                  # 동시 처리 수 (async 모드에서만)
+  retries: 2
+  retry_backoff_sec: 1.0

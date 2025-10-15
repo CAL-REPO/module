@@ -1,0 +1,32 @@
+# ========================================
+# WebDriver Logging Configuration
+# ========================================
+# crawl_utils WebDriver용 로깅 설정
+
+name: "webdriver"
+
+sinks:
+  # 콘솔 출력 (개발/디버깅)
+  - sink_type: "console"
+    level: "INFO"
+    format: "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | <level>{message}</level>"
+    colorize: true
+    enqueue: false
+    backtrace: false
+    diagnose: false
+    catch: true
+    
+  # 파일 로그 (상세 기록)
+  - sink_type: "file"
+    filepath: "output/logs/webdriver/{time:YYYY-MM-DD}_webdriver.log"
+    level: "DEBUG"
+    rotation: "10 MB"
+    retention: "7 days"
+    compression: "zip"
+    format: "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name:<15} | {file}:{line} | {message}"
+    enqueue: true
+    serialize: false
+    backtrace: true
+    diagnose: false
+    colorize: false
+    catch: true

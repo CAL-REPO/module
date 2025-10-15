@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 """
 data_utils.services.dict_ops
@@ -8,7 +7,7 @@ Dictionary manipulation utilities for deep update, merge, and key remapping.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Mapping, Union, List
+from typing import Any, Callable, Dict, Mapping, Union
 import copy
 from boltons.iterutils import remap
 
@@ -27,9 +26,9 @@ class DictOps:
     def deep_update(base: Dict[str, Any], patch: Dict[str, Any], *, inplace: bool = True) -> Dict[str, Any]:
         """Recursively merge ``patch`` into ``base``.
 
-        Uses :func:`boltons.iterutils.remap` to traverse the patch dictionary
-        and merge nested dictionaries. Non-dictionary values will overwrite
-        existing values. Nested dictionaries are merged recursively.
+        Iterates over the top-level keys in ``patch`` and merges them into ``base``.
+        Nested dictionaries are merged recursively. Non-dictionary values will 
+        overwrite existing values.
 
         Args:
             base: The destination dictionary to merge into.
@@ -42,15 +41,49 @@ class DictOps:
         """
         target = base if inplace else copy.deepcopy(base)
 
-        def visit(path, key, value):
+        # Iterate over top-level keys in patch
+        for key, value in patch.items():
             if isinstance(value, dict) and isinstance(target.get(key), dict):
+                # Both are dicts: recursively merge
                 DictOps.deep_update(target[key], value, inplace=True)
-                return key, target[key]
-            target[key] = copy.deepcopy(value)
+            else:
+                # Overwrite with deep copy
+                target[key] = copy.deepcopy(value)
+
+        return target
+
+    # ------------------------------------------------------------------
+    # Drop None Values
+    # ------------------------------------------------------------------
+    @staticmethod
+    def drop_none(data: Dict[str, Any], *, deep: bool = True) -> Dict[str, Any]:
+        """Remove all keys with None values from a dictionary.
+
+        Args:
+            data: The dictionary to filter.
+            deep: If ``True``, remove None values recursively in nested dicts.
+                If ``False``, only filter top-level keys.
+
+        Returns:
+            A new dictionary with None values removed.
+
+        Examples:
+            >>> DictOps.drop_none({"a": 1, "b": None, "c": 3})
+            {'a': 1, 'c': 3}
+            >>> DictOps.drop_none({"a": {"b": None, "c": 2}}, deep=True)
+            {'a': {'c': 2}}
+        """
+        def visit(path, key, value):
+            # Drop if value is None
+            if value is None:
+                return False  # Drop this key-value pair
             return key, value
 
-        remap(patch, visit=visit)
-        return target
+        if not deep:
+            # Shallow filter
+            return {k: v for k, v in data.items() if v is not None}
+
+        return remap(data, visit=visit)
 
     # ------------------------------------------------------------------
     # Rekey

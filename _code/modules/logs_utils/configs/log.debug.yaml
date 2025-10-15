@@ -1,0 +1,32 @@
+# ========================================
+# Debug Logging Configuration
+# ========================================
+# 디버깅용 - 최대한 상세한 로그
+
+name: "debug"
+
+sinks:
+  # 콘솔 (실시간 확인)
+  - sink_type: "console"
+    level: "DEBUG"
+    format: "<green>{time:HH:mm:ss.SSS}</green> | <level>{level:<8}</level> | <cyan>{file}:{line}</cyan> | <yellow>{function}</yellow> | <level>{message}</level>"
+    colorize: true
+    enqueue: false
+    backtrace: true
+    diagnose: true
+    catch: true
+    
+  # 파일 (전체 로그 보관)
+  - sink_type: "file"
+    filepath: "output/logs/debug/{time:YYYY-MM-DD_HH-mm-ss}_debug.log"
+    level: "DEBUG"
+    rotation: "500 MB"  # 큰 파일 허용
+    retention: 5  # 최근 5개만 유지
+    compression: "zip"
+    format: "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {process}:{thread} | {file}:{line} | {function} | {message}"
+    enqueue: true
+    serialize: false
+    backtrace: true
+    diagnose: true  # 변수값 포함
+    colorize: false
+    catch: true

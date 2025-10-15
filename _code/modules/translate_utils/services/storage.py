@@ -8,78 +8,71 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-# Import structured_data composites lazily to avoid heavy import-time side effects
-SQLiteKVStore = None
-StructuredTranslationCache = None
-from modules.fso_utils import ExistencePolicy, FSOOps, FSOOpsPolicy
-from modules.structured_io import json_fileio
+from fso_utils import ExistencePolicy, FSOOps, FSOOpsPolicy
+from structured_io import json_fileio
 
 from ..core.policy import StorePolicy
+from .cache import TranslationCache
 
 
-class TranslationCache:
-    """SQLite-backed translation cache."""
+class TranslationStorage:
+    """Translation storage managing both database cache and JSON file output.
+    
+    This class now uses the refactored TranslationCache (which wraps SQLiteKVStore)
+    instead of the old stub from structured_data.composite.database.
+    """
 
     def __init__(self, policy: StorePolicy, *, default_dir: Path):
         self.policy = policy
-        self._store: Optional[SQLiteKVStore] = None
-        self.path: Optional[Path] = None
+        self._cache: Optional[TranslationCache] = None
+        self.db_path: Optional[Path] = None
 
         if policy.save_db:
-            # Lazy import to avoid pulling heavy deps during module import
-            from modules.structured_data.composites import TranslationCache as StructuredTranslationCache
-
+            # Use the new TranslationCache from translate_utils.services.cache
             base_dir = Path(policy.db_dir).expanduser() if policy.db_dir else default_dir
-            self.path = base_dir / policy.db_name
-            # Use the structured_data composite TranslationCache which provides
-            # get_translation/put_translation helpers for the schema used by the
-            # translation pipeline.
-            self._store = StructuredTranslationCache(self.path).open()
-        else:
-            # Use an in-memory dict based cache for testing or when DB disabled
-            class _InMemory:
-                def __init__(self):
-                    self._d = {}
-
-                def get(self, key):
-                    return self._d.get(key)
-
-                def put(self, key, value):
-                    self._d[key] = value
-
-                def close(self):
-                    self._d.clear()
-
-            self._inmem = _InMemory()
+            self.db_path = base_dir / policy.db_name
+            self._cache = TranslationCache(self.db_path)
+            # Open cache connection
+            self._cache.open()
 
     @property
     def enabled(self) -> bool:
-        return self._store is not None
+        """Check if database cache is enabled."""
+        return self._cache is not None
 
     def get(self, src: str, target_lang: str, model: str) -> Optional[str]:
-        if not self._store:
-            # in-memory cache
-            if hasattr(self, "_inmem"):
-                key = f"{src}\x1f{target_lang}\x1f{model}"
-                return self._inmem.get(key)
+        """Get cached translation.
+        
+        Args:
+            src: Source text.
+            target_lang: Target language code.
+            model: Translation model name.
+        
+        Returns:
+            Cached translation if found, None otherwise.
+        """
+        if not self._cache:
             return None
-        return self._store.get_translation(src, target_lang, model)
+        return self._cache.get_translation(src, target_lang, model)
 
     def put(self, src: str, tgt: str, target_lang: str, model: str) -> None:
-        if not self._store:
-            if hasattr(self, "_inmem"):
-                key = f"{src}\x1f{target_lang}\x1f{model}"
-                self._inmem.put(key, tgt)
+        """Store translation in cache.
+        
+        Args:
+            src: Source text.
+            tgt: Translated text.
+            target_lang: Target language code.
+            model: Translation model name.
+        """
+        if not self._cache:
             return
-        self._store.put_translation(src, tgt, target_lang, model)
+        self._cache.put_translation(src, tgt, target_lang, model)
 
     def close(self) -> None:
-        if getattr(self, "_store", None):
-            self._store.close()
-            self._store = None
-        if hasattr(self, "_inmem"):
-            self._inmem.close()
-            delattr(self, "_inmem")
+        """Close database cache connection."""
+        if self._cache:
+            self._cache.close()
+            self._cache = None
 
 
 class TranslationResultWriter:

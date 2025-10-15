@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
-from modules.fso_utils.core.io import FileReader
+from fso_utils.core.io import FileReader
 
 from ..core.policy import SourcePolicy
 

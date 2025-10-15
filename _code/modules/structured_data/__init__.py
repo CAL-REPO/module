@@ -5,8 +5,8 @@ using a unified mixin-based architecture organized by role/responsibility.
 
 Organization:
     base/        - Common base classes and policies
-    mixins/      - Role-based mixins (io, transform, create, ops)
-    composites/  - Pre-composed classes for common use cases
+    mixin/       - Role-based mixins (io, transform, create, ops)
+    composite/   - Pre-composed classes for common use cases
 
 Architecture:
     Each mixin is focused on a specific role (I/O, transformation, etc.)
@@ -19,10 +19,11 @@ from .core import (
     BaseOperationsPolicy,
     OperationsPolicy,
     BaseOperationsMixin,
+    DBPolicy,
 )
 
 # Role-based mixins (NEW - organized by function)
-from .mixins import (
+from .mixin import (
     # I/O mixins
     ConnectionMixin,
     SchemaMixin,
@@ -43,15 +44,13 @@ from .mixins import (
 )
 
 # Composite classes (Ready-to-use combinations)
-from .composites import (
+from .composite import (
     SQLiteKVStore,
-    TranslationCache,
     DataFrameOps,
 )
 
 # Policies (moved from db/base.py and df/base.py)
-from .composites.database import DBPolicy
-from .composites.dataframe import DFPolicy
+from .composite.dataframe import DFPolicy
 
 # Backward compatibility aliases
 DataFrameOpsCompat = DataFrameOps  # For old code using "DataFrameOpsCompat"
@@ -81,7 +80,6 @@ __all__ = [
     
     # Composites
     "SQLiteKVStore",
-    "TranslationCache",
     "DataFrameOps",
     
     # Backward compatibility

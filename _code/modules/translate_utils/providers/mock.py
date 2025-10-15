@@ -11,7 +11,14 @@ from ..providers.base import Provider
 
 
 class MockProvider(Provider):
-    def __init__(self, prefix: str = "[tr]"):
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 30, prefix: str = "[tr]"):
+        """Mock provider with compatible signature.
+        
+        Args:
+            api_key: Ignored (for API compatibility)
+            timeout: Ignored (for API compatibility)
+            prefix: Prefix for mock translations
+        """
         self.prefix = prefix
 
     def translate_text(

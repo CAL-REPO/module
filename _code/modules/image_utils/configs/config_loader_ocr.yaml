@@ -1,0 +1,26 @@
+# Configuration for ConfigLoader (ImageOCR)
+# ImageOCR의 기본 섹션 및 정책을 정의합니다.
+
+config_loader:
+  yaml:
+    source_paths:
+      path: "./ocr.yaml"
+      section: "ocr"  # ImageOCR가 사용할 섹션
+    enable_env: false
+    enable_include: false
+    enable_placeholder: false
+    enable_reference: false
+    safe_mode: true
+    encoding: "utf-8"
+    on_error: "ignore"
+    sort_keys: false
+    default_flow_style: false
+    indent: 2
+  
+  # Normalizer options
+  drop_blanks: true
+  resolve_reference: true
+  
+  # Merge options
+  merge_order: "base→yaml→arg"
+  merge_mode: "deep"

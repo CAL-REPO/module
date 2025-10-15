@@ -5,9 +5,9 @@ Text preprocessing utilities (phrase map, chunking).
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List
 
-from modules.data_utils import ListOps, StringOps
+from data_utils import ListOps, StringOps
 
 from ..core.policy import ZhChunkPolicy
 

@@ -1,0 +1,22 @@
+# ========================================
+# Simple Logging Configuration
+# ========================================
+# 가장 기본적인 로깅 설정 (콘솔 + 파일)
+
+name: "app"
+
+sinks:
+  # 콘솔 출력
+  - sink_type: "console"
+    level: "INFO"
+    format: "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <level>{message}</level>"
+    colorize: true
+    
+  # 파일 출력
+  - sink_type: "file"
+    filepath: "output/logs/app.log"
+    level: "INFO"
+    rotation: "10 MB"
+    retention: "7 days"
+    compression: "zip"
+    format: "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {message}"
