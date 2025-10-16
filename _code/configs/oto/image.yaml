@@ -17,7 +17,7 @@ image:
   # 2. Save - 이미지 저장 설정
   # --------------------------------------------------------------------------
   save:
-    save_copy: true                     # 이미지 복사본 저장 여부
+    save_copy: false                    # 이미지 복사본 저장 여부 (임시로 비활성화)
     directory: "${temp_input_dir}"      # 저장 디렉토리
     
     # FSO Name Policy - 파일 이름 생성 정책
@@ -62,7 +62,7 @@ image:
   # 3. Meta - 메타데이터 저장 설정
   # --------------------------------------------------------------------------
   meta:
-    save_meta: true                     # 메타 저장 활성화
+    save_meta: false                    # 메타 저장 활성화 (임시로 비활성화)
     directory: "${temp_input_dir}"      # 메타 저장 디렉토리
     # name:
     #   as_type: "file"

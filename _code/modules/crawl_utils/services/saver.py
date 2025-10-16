@@ -11,15 +11,15 @@ from typing import Dict, List, Optional, Sequence
 from fso_utils.core.path_builder import FSOPathBuilder
 from fso_utils.core.policy import FSONamePolicy, FSOOpsPolicy, ExistencePolicy
 
-from .fetcher import HTTPFetcher, SyncHTTPFetcher
+from .fetcher import AsyncHTTPFetcher, SyncHTTPFetcher
 from crawl_utils.core.interfaces import CrawlSaver, ResourceFetcher
 from crawl_utils.core.models import NormalizedItem, SavedArtifact, SaveSummary
 from ..core.policy import StoragePolicy
 
 
-class FileSaver(CrawlSaver):
+class AsyncFileSaver(CrawlSaver):
     """
-    정규화된 아이템을 파일로 저장하는 CrawlSaver 구현체.
+    Asynchronous file saver for normalized items.
     
     NormalizedItem의 kind (image/text/file)에 따라 적절한 저장 방식을 자동 결정:
     - image: URL에서 다운로드 또는 bytes 저장
@@ -37,7 +37,7 @@ class FileSaver(CrawlSaver):
         items: Sequence[NormalizedItem],
         fetcher: Optional[ResourceFetcher] = None,
     ) -> SaveSummary:
-        fetcher = fetcher or HTTPFetcher()
+        fetcher = fetcher or AsyncHTTPFetcher()
         results: Dict[str, List[SavedArtifact]] = {"image": [], "text": [], "file": []}
 
         for item in items:
@@ -232,3 +232,9 @@ class SyncFileSaver:
     @staticmethod
     def _default_extension(kind: str) -> str:
         return {"image": "jpg", "text": "txt"}.get(kind, "bin")
+
+
+# ============================================================================
+# Backward compatibility alias
+# ============================================================================
+FileSaver = AsyncFileSaver  # Old name

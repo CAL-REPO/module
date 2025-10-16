@@ -47,11 +47,11 @@ ocr:
   save:
     save_copy: true                     # OCR 결과 이미지 저장 활성화
     directory: "${temp_input_dir}"      # 저장 디렉토리
-    # name:
+    name:
     #   as_type: "file"
     #   prefix: null
     #   name: ""
-    #   suffix: "_ocr"
+      suffix: "_ocr"
     #   tail: null
     #   extension: null
     #   delimiter: "_"
@@ -82,11 +82,11 @@ ocr:
   meta:
     save_meta: true                     # OCR 메타 저장 활성화
     directory: "${temp_input_dir}"      # 메타 저장 디렉토리
-    # name:
+    name:
     #   as_type: "file"
     #   prefix: null
     #   name: ""
-    #   suffix: "_ocr"
+      suffix: "_ocr"
     #   tail: null
     #   extension: ".json"
     #   delimiter: "_"

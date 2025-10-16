@@ -26,6 +26,29 @@ class KeyPathDict:
             self.data.update(patch)
         return self
 
+    def apply_overrides(self, overrides: Dict[str, Any]) -> KeyPathDict:
+        """Apply overrides with dot notation support.
+        
+        Keys with '.' or '__' are treated as KeyPath (e.g., 'source.path' or 'source__path').
+        '__' is converted to '.' for convenience (e.g., for function kwargs).
+        Keys without separators are set directly.
+        
+        Args:
+            overrides: Dict of key-value pairs to apply
+            
+        Returns:
+            Self for chaining
+        """
+        for key, value in overrides.items():
+            # Convert __ to . for convenience (kwargs compatibility)
+            normalized_key = key.replace('__', '.')
+            
+            if '.' in normalized_key:
+                self.override(normalized_key, value)
+            else:
+                self.data[key] = value
+        return self
+
     def rekey(self, mapping_or_func, *, deep: bool = True) -> KeyPathDict:
         updated = DictOps.rekey(self.data, mapping_or_func, deep=deep)
         self.data.clear()

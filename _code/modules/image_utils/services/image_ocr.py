@@ -68,6 +68,8 @@ class ImageOCR:
         # ImageWriter 초기화 (FSO 기반)
         self.writer = ImageWriter(self.policy.save, self.policy.meta)
         
+        # ImageLoader의 reader/processor 불필요 (OCR는 직접 PIL 사용)
+        
         self.log.info(f"ImageOCR initialized: source={self.policy.source.path}, provider={self.policy.provider.provider}")
     
     def _load_config(
@@ -383,11 +385,16 @@ class ImageOCR:
                 
                 self.log.info(f"Loading image for OCR: {source_path}")
                 
-                img = self.reader.read(
-                    path=source_path,
-                    must_exist=self.policy.source.must_exist,
-                    convert_mode=self.policy.source.convert_mode,
-                )
+                # PIL Image로 직접 로드
+                img = Image.open(source_path)
+                
+                # EXIF orientation 처리
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
+                
+                # convert_mode 처리
+                if self.policy.source.convert_mode:
+                    img = img.convert(self.policy.source.convert_mode)
             
             result["original_path"] = source_path
             result["original_size"] = img.size
@@ -401,9 +408,9 @@ class ImageOCR:
                 
                 scale = self.policy.preprocess.max_width / img.width
                 new_height = int(img.height * scale)
-                preprocessed_img = self.processor.resize(
-                    image=img,
-                    target_size=(self.policy.preprocess.max_width, new_height),
+                preprocessed_img = img.resize(
+                    (self.policy.preprocess.max_width, new_height),
+                    Image.Resampling.LANCZOS
                 )
             
             result["preprocessed_size"] = preprocessed_img.size
@@ -432,10 +439,9 @@ class ImageOCR:
             if self.policy.save.save_copy and source_path:
                 self.log.info("Saving OCR result image...")
                 
-                saved_path = self.writer.write(
+                saved_path = self.writer.save_image(
                     image=preprocessed_img,
-                    policy=self.policy.save,
-                    source_path=source_path,
+                    base_path=source_path,
                 )
                 result["saved_path"] = saved_path
                 self.log.success(f"Saved to: {saved_path}")

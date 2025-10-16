@@ -70,4 +70,9 @@ class ReferenceResolver(ResolverBase):
                 if self.strict:
                     raise KeyError(f"[ReferenceResolver] Invalid keypath: {'.'.join(keys)}")
                 return None
+        
+        # 참조된 값이 또 다른 ${} 패턴을 포함하면 재귀적으로 치환
+        if isinstance(ref, str) and self.PATTERN.search(ref):
+            return self._resolve_placeholders(ref)
+        
         return ref

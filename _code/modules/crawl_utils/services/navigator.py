@@ -15,7 +15,9 @@ if TYPE_CHECKING:
     from .adapter import SyncSeleniumAdapter
 
 
-class SeleniumNavigator:
+class AsyncNavigator:
+    """Asynchronous Navigator for page navigation."""
+    
     def __init__(self, driver: BrowserController, policy: CrawlPolicy):
         self._driver = driver
         self._policy = policy
@@ -154,5 +156,8 @@ class SyncNavigator:
         return self._driver.execute_js(script)  # Direct call
 
 
-# Backward compatibility alias
-Navigator = SeleniumNavigator
+# ============================================================================
+# Backward compatibility aliases
+# ============================================================================
+SeleniumNavigator = AsyncNavigator  # Old name
+Navigator = AsyncNavigator  # Generic alias

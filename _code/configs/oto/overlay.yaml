@@ -46,7 +46,7 @@ overlay:
   # 4. Save - 이미지 저장 설정
   # --------------------------------------------------------------------------
   save:
-    save_copy: true                     # 오버레이된 이미지 저장
+    save_copy: true                    # 오버레이된 이미지 저장 (임시로 비활성화)
     directory: "${temp_input_dir}"      # 저장 디렉토리
     
     name:
@@ -86,11 +86,11 @@ overlay:
   meta:
     save_meta: true                     # 메타 저장 활성화
     directory: "${temp_input_dir}"      # 메타 저장 디렉토리
-    # name:
+    name:
     #   as_type: "file"
     #   prefix: null
     #   name: ""
-    #   suffix: "_overlay"
+      suffix: "_overlay"
     #   tail: null
     #   extension: ".json"
     #   delimiter: "_"

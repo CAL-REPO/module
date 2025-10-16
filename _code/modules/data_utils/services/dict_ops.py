@@ -53,6 +53,42 @@ class DictOps:
         return target
 
     # ------------------------------------------------------------------
+    # Blank Value Handling
+    # ------------------------------------------------------------------
+    @staticmethod
+    def blanks_to_none(data: Dict[str, Any], *, deep: bool = True) -> Dict[str, Any]:
+        """Convert blank values (empty strings) to None.
+
+        Args:
+            data: The dictionary to process.
+            deep: If ``True``, convert blank values recursively in nested dicts.
+                If ``False``, only process top-level values.
+
+        Returns:
+            A new dictionary with blank values converted to None.
+
+        Examples:
+            >>> DictOps.blanks_to_none({"a": "test", "b": "", "c": "  "})
+            {'a': 'test', 'b': None, 'c': None}
+            >>> DictOps.blanks_to_none({"a": {"b": "", "c": "ok"}}, deep=True)
+            {'a': {'b': None, 'c': 'ok'}}
+        """
+        def visit(path, key, value):
+            # Convert empty/whitespace strings to None
+            if isinstance(value, str) and not value.strip():
+                return key, None
+            return key, value
+
+        if not deep:
+            # Shallow conversion
+            return {
+                k: (None if isinstance(v, str) and not v.strip() else v)
+                for k, v in data.items()
+            }
+
+        return remap(data, visit=visit)
+
+    # ------------------------------------------------------------------
     # Drop None Values
     # ------------------------------------------------------------------
     @staticmethod
@@ -82,6 +118,39 @@ class DictOps:
         if not deep:
             # Shallow filter
             return {k: v for k, v in data.items() if v is not None}
+
+        return remap(data, visit=visit)
+    
+    @staticmethod
+    def drop_blanks(data: Dict[str, Any], *, deep: bool = True) -> Dict[str, Any]:
+        """Remove all keys with blank values (None or empty strings).
+
+        Args:
+            data: The dictionary to filter.
+            deep: If ``True``, remove blank values recursively in nested dicts.
+                If ``False``, only filter top-level keys.
+
+        Returns:
+            A new dictionary with blank values removed.
+
+        Examples:
+            >>> DictOps.drop_blanks({"a": 1, "b": None, "c": "", "d": "ok"})
+            {'a': 1, 'd': 'ok'}
+            >>> DictOps.drop_blanks({"a": {"b": "", "c": 2}}, deep=True)
+            {'a': {'c': 2}}
+        """
+        def visit(path, key, value):
+            # Drop if value is None or empty string
+            if value is None or (isinstance(value, str) and not value.strip()):
+                return False  # Drop this key-value pair
+            return key, value
+
+        if not deep:
+            # Shallow filter
+            return {
+                k: v for k, v in data.items() 
+                if v is not None and not (isinstance(v, str) and not v.strip())
+            }
 
         return remap(data, visit=visit)
 

@@ -89,7 +89,14 @@ class ImageWriter:
         if not self.meta_policy.save_meta:
             return None
         
-        directory = self.meta_policy.directory or base_path.parent
+        # Use FSO PathBuilder for metadata with name and ops policy
+        # 빈 문자열, ".", None 모두 base_path.parent로 대체
+        directory = self.meta_policy.directory
+        if not directory or directory in ("", "."):
+            directory = base_path.parent
+        else:
+            directory = Path(directory)
+        directory = directory.resolve()
         directory.mkdir(parents=True, exist_ok=True)
         
         # Use FSO to build metadata path
@@ -107,7 +114,12 @@ class ImageWriter:
 
     def _build_target_path(self, base_path: Path) -> Path:
         """Build target path using FSO policies directly."""
-        directory = self.target_policy.directory or base_path.parent
+        # 빈 문자열, ".", None 모두 base_path.parent로 대체
+        directory = self.target_policy.directory
+        if not directory or directory in ("", "."):
+            directory = base_path.parent
+        else:
+            directory = Path(directory)
         directory = directory.resolve()
         
         # Determine extension from policy or source

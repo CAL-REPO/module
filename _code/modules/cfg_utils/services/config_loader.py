@@ -109,20 +109,20 @@ class ConfigLoader:
         if model and isinstance(cfg_like, model):
             if not overrides:
                 return cfg_like
-            # Overrides 적용
+            # Overrides 적용 (dot notation 지원)
             config_dict = cfg_like.model_dump()
             temp = KeyPathDict(config_dict)
-            temp.merge(overrides, deep=True)
+            temp.apply_overrides(overrides)
             return model(**temp.data)
         
         # 2. None인 경우 처리
         if cfg_like is None:
             # policy_overrides에 yaml.source_paths가 있으면 ConfigLoader 생성
             if policy_overrides and "yaml.source_paths" in policy_overrides:
-                loader = ConfigLoader._create_loader({}, policy_overrides=policy_overrides)  # type: ignore
+                loader = ConfigLoader({}, policy_overrides=policy_overrides)
                 if model:
-                    return loader._as_model_internal(model, section=None, **overrides)
-                return loader._as_dict_internal(section=None, **overrides)
+                    return loader._as_model_internal(model, **overrides)
+                return loader._as_dict_internal(**overrides)
             # yaml.source_paths도 없으면 빈 dict로 처리
             cfg_like = {}
         
@@ -133,7 +133,7 @@ class ConfigLoader:
             
             if overrides:
                 temp = KeyPathDict(copy.deepcopy(cfg_like))
-                temp.merge(overrides, deep=True)
+                temp.apply_overrides(overrides)
                 cfg_like = temp.data
             
             # Model이 있으면 변환, 없으면 dict 반환
@@ -144,19 +144,20 @@ class ConfigLoader:
         # 4. List인 경우 여러 파일 병합
         if isinstance(cfg_like, (list, tuple)) and not isinstance(cfg_like, (str, bytes)):
             # 각 파일을 순서대로 로드하고 병합
+            # NOTE: List 병합은 항상 deep merge 사용 (파일 간 설정 충돌 방지)
             merged_dict = {}
             for cfg_path in cfg_like:
                 # 각 파일을 dict로 로드 (재귀 호출, policy_overrides 전파)
                 loaded = ConfigLoader.load(cfg_path, policy_overrides=policy_overrides)
-                # Deep merge
+                # Always deep merge for multi-file scenarios
                 temp = KeyPathDict(merged_dict)
                 temp.merge(loaded, deep=True)
                 merged_dict = temp.data
             
-            # Overrides 적용
+            # Overrides 적용 (dot notation 지원)
             if overrides:
                 temp = KeyPathDict(merged_dict)
-                temp.merge(overrides, deep=True)
+                temp.apply_overrides(overrides)
                 merged_dict = temp.data
             
             # Model이 있으면 변환, 없으면 dict 반환
@@ -166,17 +167,14 @@ class ConfigLoader:
         
         # 5. Path/str인 경우 ConfigLoader로 로드
         if isinstance(cfg_like, (str, Path)):
-            loader = ConfigLoader._create_loader(cfg_like, policy_overrides=policy_overrides)
-            
-            # ConfigLoader 내부에서 이미 section 처리 완료
-            # _as_*_internal에서는 section=None으로 전달 (재처리 방지)
+            loader = ConfigLoader(cfg_like, policy_overrides=policy_overrides)
             
             # Model이 있으면 모델로 변환
             if model:
-                return loader._as_model_internal(model, section=None, **overrides)
+                return loader._as_model_internal(model, **overrides)
             
             # Model이 없으면 dict 반환
-            return loader._as_dict_internal(section=None, **overrides)
+            return loader._as_dict_internal(**overrides)
         
         # 6. 지원하지 않는 타입
         raise TypeError(f"Unsupported config type: {type(cfg_like)}")
@@ -185,15 +183,6 @@ class ConfigLoader:
     # Internal: 기존 로직 유지 (private)
     # ==========================================================================
     
-    @staticmethod
-    def _create_loader(
-        cfg_like: Union[PathLike, PathsLike, dict],
-        *,
-        policy_overrides: Optional[Dict[str, Any]] = None
-    ) -> "ConfigLoader":
-        """ConfigLoader 인스턴스 생성 (내부용)"""
-        return ConfigLoader(cfg_like, policy_overrides=policy_overrides)
-
     def __init__(
         self,
         cfg_like: Union[BaseModel, PathLike, PathsLike, dict],
@@ -209,13 +198,21 @@ class ConfigLoader:
         """
         self.cfg_like = cfg_like
         
+        # policy_overrides 저장 (reference_context 사용을 위해)
+        self.policy_overrides = policy_overrides or {}
+        
         # ConfigLoader 자신의 정책 로드 (KeyPathState 사용)
         self.policy: ConfigPolicy = self._load_loader_policy(policy_overrides=policy_overrides)
         
-        # YamlParser 초기화 (사용자 데이터 파싱용)
-        self.parser: YamlParser = YamlParser(policy=self.policy.yaml)
+        # reference_context 추출
+        reference_context = self.policy_overrides.get("reference_context", {})
         
-        self.normalizer: ConfigNormalizer = ConfigNormalizer(self.policy)
+        # YamlParser 초기화 (사용자 데이터 파싱용, reference_context 전달)
+        self.parser: YamlParser = YamlParser(policy=self.policy.yaml, context=reference_context)
+        
+        # ConfigNormalizer에 reference_context 전달
+        self.normalizer: ConfigNormalizer = ConfigNormalizer(self.policy, reference_context=reference_context)
+        
         self._data: KeyPathDict = KeyPathDict()
         self._load_and_merge()
     
@@ -256,27 +253,42 @@ class ConfigLoader:
         
         # 3. config_loader.yaml 병합
         if config_loader_path.exists():
-            # 재귀 방지: 단순 YamlParser로 로드
+            # 단순 YamlParser로 로드 (재귀 없음 - policy만 읽음)
             from modules.structured_io.formats.yaml_io import YamlParser
+            # NOTE: BaseParserPolicy 기본값 사용 (encoding="utf-8", on_error="raise", safe_mode=True)
             parser = YamlParser(policy=BaseParserPolicy(
                 source_paths=None,
                 enable_env=False,
                 enable_include=False,
                 enable_placeholder=False,
-                enable_reference=False,
-                encoding="utf-8",
-                on_error="raise",
-                safe_mode=True
+                enable_reference=False
             ))
-            text = config_loader_path.read_text(encoding="utf-8")
+            text = config_loader_path.read_text()
             parsed = parser.parse(text, base_path=config_loader_path)
             
             # "config_loader" 섹션 추출
+            config_section = None
             if isinstance(parsed, dict) and "config_loader" in parsed:
-                policy_state.merge(parsed["config_loader"], deep=True)
-            # 하위 호환성: config_policy
-            elif isinstance(parsed, dict) and "config_policy" in parsed:
-                policy_state.merge(parsed["config_policy"], deep=True)
+                config_section = parsed["config_loader"]
+            
+            # ReferenceResolver로 ${key} 치환 (재귀 안전 - policy 데이터만 처리)
+            if config_section and isinstance(config_section, dict):
+                from unify_utils.normalizers.resolver_reference import ReferenceResolver
+                
+                # policy_overrides에서 reference_context(paths_dict)를 context로 사용
+                context = {}
+                if policy_overrides and "reference_context" in policy_overrides:
+                    reference_ctx = policy_overrides["reference_context"]
+                    if isinstance(reference_ctx, dict):
+                        context = reference_ctx
+                
+                # context가 있으면 ReferenceResolver 적용
+                if context:
+                    resolver = ReferenceResolver(context, recursive=True, strict=False)
+                    config_section = resolver.apply(config_section)
+                
+                # policy_state에 병합
+                policy_state.merge(config_section, deep=True)
         
         # 4. policy_overrides 병합
         if policy_overrides:
@@ -300,14 +312,26 @@ class ConfigLoader:
         deep = self.policy.merge_mode == "deep"
 
         # source_paths 자동 로드 (yaml.source_paths가 지정되어 있으면)
-        if self.policy.yaml.source_paths:  # type: ignore
+        if self.policy.yaml.source_paths:
             # 1단계: source_paths를 SourcePathConfig 리스트로 정규화
-            normalized_sources = self._normalize_source_paths(self.policy.yaml.source_paths)  # type: ignore
+            normalized_sources = self._normalize_source_paths(self.policy.yaml.source_paths)
             
-            # 2단계: 정규화된 소스들을 순서대로 병합
+            # 2단계: 상대 경로를 config_loader_path 기준으로 해석
+            # policy_overrides에서 config_loader_path 가져오기
+            config_loader_path = self.policy_overrides.get("config_loader_path")
+            base_dir = None
+            if config_loader_path:
+                base_dir = Path(config_loader_path).parent
+            
+            # 3단계: 정규화된 소스들을 순서대로 병합
             for source_config in normalized_sources:
+                source_path = Path(source_config.path)
+                # 상대 경로이면 base_dir 기준으로 해석
+                if base_dir and not source_path.is_absolute():
+                    source_path = base_dir / source_path
+                
                 self._merge_from_path(
-                    Path(source_config.path),
+                    source_path,
                     deep=deep,
                     section=source_config.section
                 )
@@ -395,7 +419,7 @@ class ConfigLoader:
         Args:
             path: Path to YAML file or raw YAML content string
             deep: Whether to deep merge
-            section: Section to extract from parsed YAML. If None, merges entire content.
+            section: Optional section key to extract before merging
         """
         # Try to read as a file path first
         path_obj = Path(str(path))
@@ -408,23 +432,15 @@ class ConfigLoader:
         # Parse YAML content
         parsed = self.parser.parse(text, base_path=path_obj if path_obj.exists() else None)
         
+        # Extract section if specified
+        if section and isinstance(parsed, dict) and section in parsed:
+            parsed = parsed[section]
+        
         # Merge parsed data
         if isinstance(parsed, dict):
-            # 섹션이 명시적으로 지정되었고 parsed에 해당 섹션이 있으면 추출
-            if section and section in parsed:
-                section_data = parsed[section]
-                # 섹션 데이터가 None이 아닌지 확인
-                if section_data is not None:
-                    self._data.merge(section_data, deep=deep)
-                # None이면 병합하지 않음 (빈 섹션)
-            else:
-                # 섹션이 없으면 전체 병합
-                self._data.merge(parsed, deep=deep)
-        else:
-            # parsed가 dict가 아닌 경우 (scalar value)
-            # 그냥 직접 병합 (섹션 없이)
-            if parsed is not None:
-                self._data.merge(parsed, deep=deep)
+            self._data.merge(parsed, deep=deep)
+        elif parsed is not None:
+            self._data.merge(parsed, deep=deep)
 
     def _merge_from_sequence(self, seq: Iterable[Union[str, Path]], *, deep: bool) -> None:
         """Merge multiple YAML files in order. Each entry may be a path or str."""
@@ -442,103 +458,47 @@ class ConfigLoader:
         self._data = KeyPathDict(normalized)
 
     # ------------------------------------------------------------------
-    # Overrides / small mutators
-    # ------------------------------------------------------------------
-    def merge_overrides(self, overrides: Dict[str, Any]) -> None:
-        """Merge runtime overrides into the current data according to policy."""
-        deep = self.policy.merge_mode == "deep"
-        self._data.merge(overrides, deep=deep)
-
-    def override_path(self, path: str, value: Any) -> None:
-        """Directly override a single dotted key path in the data store."""
-        self._data.override(path, value)
-
-    # ------------------------------------------------------------------
     # Internal helpers (기존 as_dict, as_model을 private로 변경)
     # ------------------------------------------------------------------
-    def _as_dict_internal(self, section: Optional[str] = None, **overrides: Any) -> Dict[str, Any]:
+    def _as_dict_internal(self, **overrides: Any) -> Dict[str, Any]:
         """Return the merged configuration as a plain dict (internal use only).
 
         Args:
-            section: Optional section key to extract from the configuration.
             **overrides: Runtime overrides to apply on top of the result.
             
         Returns:
             The configuration as a dictionary.
         """
-        data = dict(self._data.data)  # shallow copy
+        data = dict(self._data.data)
 
-        # Extract section if specified
-        if section and section in data:
-            data = data[section]
-        elif section:
-            # Section requested but not found - return empty dict or raise?
-            # For now, return empty dict to match fallback behavior
-            data = {}
-
-        # Apply overrides if provided
+        # Apply overrides if provided (dot notation 지원)
         if overrides:
-            deep = self.policy.merge_mode == "deep"
             temp = KeyPathDict(data)
-            temp.merge(overrides, deep=deep)
+            temp.apply_overrides(overrides)
             return temp.data
 
         return data
 
-    def _as_model_internal(self, model: Type[T], section: Optional[str] = None, **overrides: Any) -> T:
+    def _as_model_internal(self, model: Type[T], **overrides: Any) -> T:
         """Validate the merged configuration as a Pydantic model instance (internal use only).
-
-        Section selection follows this order:
-        1. explicit ``section`` argument
-        2. auto-detect from the :class:`model` name ("MyPolicy" -> "mypolicy")
-        3. fall back to the root mapping
         
         Args:
             model: The Pydantic model class to validate against.
-            section: Optional section key to extract before validation.
             **overrides: Runtime overrides to apply before validation.
             
         Returns:
             Validated model instance.
         """
-        # Get base data
+        # Get base data (section already extracted during merge)
         data = dict(self._data.data)
         
-        # Apply section selection if explicitly provided
-        if section and section in data:
-            data = data[section]
-        elif not section:
-            # Best-effort auto-detection using model name patterns
-            model_name = model.__name__.lower()
-            candidates: list[str] = []
-            if model_name.endswith("policy"):
-                base = model_name[:-6]
-                candidates.append(base)
-                if base.startswith("image"):
-                    candidates.append(base[5:])
-            if model_name.endswith("config"):
-                candidates.append(model_name[:-6])
-            candidates.append(model_name)
-
-            for key in candidates:
-                if key and isinstance(data.get(key), dict):
-                    data = data[key]
-                    break
-
         # Apply overrides
         if overrides:
-            # data가 dict인지 확인
-            if not isinstance(data, dict):
-                raise TypeError(f"Cannot apply overrides to non-dict data: {type(data)}")
-            deep = self.policy.merge_mode == "deep"
             temp = KeyPathDict(data)
-            temp.merge(overrides, deep=deep)
+            temp.apply_overrides(overrides)
             data = temp.data
-
-        # Ensure data is dict and keys are strings
-        if not isinstance(data, dict):
-            raise TypeError(f"Configuration data must be a dict, got {type(data)}")
         
+        # Ensure keys are strings
         data = {str(k): v for k, v in data.items()}
         try:
             return model(**data)

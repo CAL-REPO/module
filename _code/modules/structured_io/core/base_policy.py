@@ -20,16 +20,16 @@ class BaseParserPolicy(BaseModel):
         SourcePathConfig,
         List[SourcePathConfig]
     ]] = Field(
-        None, 
+        default=None, 
         description="소스 파일 경로. 단일 SourcePathConfig 또는 리스트"
     )
-    enable_env: bool = Field(True, description="환경 변수(${VAR} 또는 ${VAR:default}) 확장 활성화")
-    enable_include: bool = Field(True, description="!include 태그 활성화 여부 (JSON에서는 비활성)")
-    enable_placeholder: bool = Field(True, description="{{ var }} 또는 ${VAR} 스타일 치환")
-    enable_reference: bool = Field(False, description="${ref:path.to.key} 참조 치환")
-    encoding: str = Field("utf-8", description="파일 인코딩")
-    on_error: str = Field("raise", description="에러 처리: 'raise' | 'ignore' | 'warn'")
-    safe_mode: bool = Field(True, description="YAML: SafeLoader 사용 여부 / JSON: 의미 없음")
+    enable_env: bool = Field(default=True, description="환경 변수(${VAR} 또는 ${VAR:default}) 확장 활성화")
+    enable_include: bool = Field(default=True, description="!include 태그 활성화 여부 (JSON에서는 비활성)")
+    enable_placeholder: bool = Field(default=True, description="{{ var }} 또는 ${VAR} 스타일 치환")
+    enable_reference: bool = Field(default=False, description="${ref:path.to.key} 참조 치환")
+    encoding: str = Field(default="utf-8", description="파일 인코딩")
+    on_error: str = Field(default="raise", description="에러 처리: 'raise' | 'ignore' | 'warn'")
+    safe_mode: bool = Field(default=True, description="YAML: SafeLoader 사용 여부 / JSON: 의미 없음")
 
     class Config:
         extra = "ignore"

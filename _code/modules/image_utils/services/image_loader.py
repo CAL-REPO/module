@@ -42,19 +42,27 @@ class ImageLoader:
         log: Optional[LogManager] = None,
         **overrides: Any
     ):
-        """Initialize ImageLoader with flexible config input.
-        
-        ConfigLoader와 동일한 인자 패턴:
-        - BaseModel (ImageLoaderPolicy) 직접 전달
-        - YAML 파일 경로 (str/Path)
-        - Dictionary
-        - None (기본 설정 파일 사용)
+        """ConfigLoader와 동일한 인자 패턴으로 초기화.
         
         Args:
-            cfg_like: Policy 인스턴스, YAML 경로, dict, 또는 None
-            policy_overrides: ConfigPolicy 필드 개별 오버라이드
+            cfg_like: BaseModel, YAML 경로, dict, 또는 None
+                - BaseModel: ImageLoaderPolicy 인스턴스 직접 전달
+                - str/Path: YAML 파일 경로
+                - dict: 설정 딕셔너리
+                - None: 기본 설정 파일 사용
+            policy_overrides: ConfigPolicy 필드 개별 오버라이드 (merge_mode, yaml.source_paths 등)
             log: 외부 LogManager (없으면 policy.log로 생성)
-            **overrides: 런타임 데이터 오버라이드
+            **overrides: 런타임 오버라이드 값 (source__path, save__directory 등)
+        
+        Example:
+            >>> # YAML 파일에서 로드
+            >>> loader = ImageLoader("configs/image.yaml")
+            
+            >>> # dict로 직접 설정
+            >>> loader = ImageLoader({"source": {"path": "test.jpg"}})
+            
+            >>> # 런타임 오버라이드 (KeyPath 형식)
+            >>> loader = ImageLoader("config.yaml", source__path="image.jpg", save__directory="output")
         """
         self.policy = self._load_config(cfg_like, policy_overrides=policy_overrides, **overrides)
         
@@ -77,38 +85,41 @@ class ImageLoader:
         policy_overrides: Optional[Dict[str, Any]] = None,
         **overrides: Any
     ) -> ImageLoaderPolicy:
-        """설정 로드 (간소화 버전)
+        """ImageLoaderPolicy 로드 (BaseWebDriver 패턴 준수)
         
         Args:
-            cfg_like: 설정 소스
-            policy_overrides: ConfigPolicy 필드 개별 오버라이드
-            **overrides: 런타임 데이터 오버라이드
+            cfg_like: 설정 소스 (ImageLoaderPolicy, YAML 경로, dict 등)
+            policy_overrides: ConfigPolicy 필드 개별 오버라이드 (merge_mode, yaml.source_paths 등)
+            **overrides: 런타임 오버라이드 (source__path, save__directory 등)
+                - KeyPath 형식: source__path → source.path
         
         Returns:
-            ImageLoaderPolicy 인스턴스
+            로드된 ImageLoaderPolicy 인스턴스
         """
-        # cfg_like가 None이면 기본 파일 경로 + 섹션을 policy_overrides로 지정
         if cfg_like is None:
-            default_path = Path(__file__).parent.parent / "configs" / "image.yaml"
+            # cfg_like를 None이 아닌 YAML 파일로 지정해야 section이 자동 추출됨
+            cfg_like = Path(__file__).parent.parent / "configs" / "image.yaml"
+            
             if policy_overrides is None:
                 policy_overrides = {}
             
-            # ImageLoader 전용 ConfigLoader 정책 파일 지정
-            policy_overrides.setdefault("config_loader_path", 
-                str(Path(__file__).parent.parent / "configs" / "config_loader_image.yaml")
-            )
-            
-            # yaml.source_paths에 dict 형태로 전달 (Pydantic이 자동 변환)
-            policy_overrides.setdefault("yaml.source_paths", {
-                "path": str(default_path),
-                "section": "image"
-            })
+            # ConfigLoader 정책 파일 지정
+            policy_overrides.setdefault("config_loader_path",
+                str(Path(__file__).parent.parent / "configs" / "config_loader_image.yaml"))
+        
+        # Overrides를 KeyPath 형식에서 dot notation으로 변환
+        # ConfigLoader.load()는 KeyPath를 지원하지만, __는 .로 변환해야 함
+        converted_overrides = {}
+        for key, value in overrides.items():
+            # '__'를 '.'로 변환 (예: source__path → source.path)
+            dotted_key = key.replace('__', '.')
+            converted_overrides[dotted_key] = value
         
         return ConfigLoader.load(
             cfg_like,
             model=ImageLoaderPolicy,
             policy_overrides=policy_overrides,
-            **overrides
+            **converted_overrides
         )
     
     # ==========================================================================
@@ -164,6 +175,10 @@ class ImageLoader:
             
             img = Image.open(source_path)
             
+            # Original 정보 저장 (변환 전)
+            original_mode = img.mode
+            original_format = img.format
+            
             # EXIF orientation 처리
             from PIL import ImageOps
             img = ImageOps.exif_transpose(img)
@@ -173,6 +188,8 @@ class ImageLoader:
                 img = img.convert(self.policy.source.convert_mode)
             
             result["original_size"] = img.size
+            result["original_mode"] = original_mode
+            result["original_format"] = original_format
             
             self.log.info(f"Loaded image: {img.size} {img.mode}")
             
@@ -208,6 +225,8 @@ class ImageLoader:
             meta_data = {
                 "original_path": str(source_path),
                 "original_size": result["original_size"],
+                "original_mode": result.get("original_mode"),
+                "original_format": result.get("original_format"),
                 "processed_size": result["processed_size"],
                 "saved_path": str(result["saved_path"]) if result["saved_path"] else None,
                 "processing": {
@@ -217,7 +236,13 @@ class ImageLoader:
                 }
             }
             
-            meta_path = self.writer.save_meta(meta_data, source_path)
+            # Meta 파일명에도 suffix_counter 반영 (이미지와 동일한 번호)
+            meta_source_path = source_path
+            if result.get("saved_path"):
+                # 저장된 이미지 파일명 기준으로 메타 파일명 생성
+                meta_source_path = Path(result["saved_path"]).with_suffix('.jpg')  # 확장자는 임시
+            
+            meta_path = self.writer.save_meta(meta_data, meta_source_path)
             if meta_path:
                 result["meta_path"] = meta_path
                 self.log.success(f"Metadata saved to: {meta_path}")

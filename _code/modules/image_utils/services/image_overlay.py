@@ -159,13 +159,17 @@ class ImageOverlay:
             # 1. 이미지 로드 (제공되지 않은 경우)
             if image is None:
                 self.log.info(f"Loading image from: {result['source_path']}")
-                from ..services.io import ImageReader
-                reader = ImageReader()
-                img = reader.read(
-                    path=result['source_path'],
-                    must_exist=self.policy.source.must_exist,
-                    convert_mode=self.policy.source.convert_mode,
-                )
+                
+                # PIL Image로 직접 로드
+                img = Image.open(result['source_path'])
+                
+                # EXIF orientation 처리
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
+                
+                # convert_mode 처리
+                if self.policy.source.convert_mode:
+                    img = img.convert(self.policy.source.convert_mode)
             else:
                 self.log.info(f"Using provided image object")
                 img = image

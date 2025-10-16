@@ -4,20 +4,17 @@
 # -------------------------------------------------------------------------
 # Base Paths
 # -------------------------------------------------------------------------
+root: "M:/CALife/CAShop - 구매대행"
 base_path: "M:/CALife/CAShop - 구매대행/_code"
 
-root: "M:/CALife/CAShop - 구매대행"
+scripts_dir: "${base_path}/scripts"
+modules_dir: "${base_path}/modules"
+db_dir: "${base_path}/data/db"
+fonts_dir: "${base_path}/data/fonts"
 
-code_dir: "${root}/_code"
-scripts_dir: "${code_dir}/scripts"
-modules_dir: "${code_dir}/modules"
-db_dir: "${code_dir}/data/db"
-fonts_dir: "${code_dir}/data/fonts"
-
-configs_dir: "${code_dir}/configs"
+configs_dir: "${base_path}/configs"
 configs_loader_dir: "${configs_dir}/loader"
-configs_loader_file_path:
-  configs_loader_oto: "${configs_loader_dir}/config_loader_oto.yaml"
+configs_loader_file_oto: "${configs_loader_dir}/config_loader_oto.yaml"
 
 
 temp_input_dir: "${base_path}/input"

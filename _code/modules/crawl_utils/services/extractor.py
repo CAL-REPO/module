@@ -15,7 +15,9 @@ except Exception:  # pragma: no cover - optional dependency
     BeautifulSoup = None  # type: ignore
 
 
-class DOMExtractor:
+class AsyncDOMExtractor:
+    """Asynchronous DOM-based data extractor using BeautifulSoup."""
+    
     def __init__(self, navigator: Navigator, policy: CrawlPolicy):
         self.navigator = navigator
         self.policy = policy
@@ -39,7 +41,9 @@ class DOMExtractor:
         return [{"kind": "dom", "html": html, "selector": selector}]
 
 
-class JSExtractor:
+class AsyncJSExtractor:
+    """Asynchronous JavaScript-based data extractor."""
+    
     def __init__(self, navigator: Navigator, policy: CrawlPolicy):
         self.navigator = navigator
         self.policy = policy
@@ -52,7 +56,9 @@ class JSExtractor:
         return [{"kind": "js", "payload": item} for item in result]
 
 
-class APIExtractor:
+class AsyncAPIExtractor:
+    """Asynchronous API-based data extractor."""
+    
     def __init__(self, fetcher: ResourceFetcher, policy: CrawlPolicy):
         self.fetcher = fetcher
         self.policy = policy
@@ -69,7 +75,9 @@ class APIExtractor:
         return [{"kind": "api", "payload": payload}]
 
 
-class ExtractorFactory:
+class AsyncExtractorFactory:
+    """Factory for creating async extractors based on policy."""
+    
     def __init__(self, policy: CrawlPolicy, navigator: Navigator, fetcher: Optional[ResourceFetcher] = None):
         self.policy = policy
         self.navigator = navigator
@@ -78,11 +86,20 @@ class ExtractorFactory:
     def create(self):
         etype = self.policy.extractor.type
         if etype == ExtractorType.DOM:
-            return DOMExtractor(self.navigator, self.policy)
+            return AsyncDOMExtractor(self.navigator, self.policy)
         if etype == ExtractorType.JS:
-            return JSExtractor(self.navigator, self.policy)
+            return AsyncJSExtractor(self.navigator, self.policy)
         if etype == ExtractorType.API:
             if not self.fetcher:
                 raise ValueError("API extractor requires a ResourceFetcher instance.")
-            return APIExtractor(self.fetcher, self.policy)
+            return AsyncAPIExtractor(self.fetcher, self.policy)
         raise ValueError(f"Unsupported extractor type: {etype}")
+
+
+# ============================================================================
+# Backward compatibility aliases
+# ============================================================================
+DOMExtractor = AsyncDOMExtractor       # Old name
+JSExtractor = AsyncJSExtractor         # Old name
+APIExtractor = AsyncAPIExtractor       # Old name
+ExtractorFactory = AsyncExtractorFactory  # Old name

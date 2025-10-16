@@ -12,7 +12,9 @@ import requests
 from ..core.interfaces import ResourceFetcher
 
 
-class DummyFetcher(ResourceFetcher):
+class AsyncDummyFetcher(ResourceFetcher):
+    """Async dummy fetcher for testing."""
+    
     async def fetch_json(
         self,
         url: str,
@@ -27,8 +29,8 @@ class DummyFetcher(ResourceFetcher):
         return f"dummy:{method}:{url}".encode("utf-8")
 
 
-class HTTPFetcher(ResourceFetcher):
-    """Reusable aiohttp-based fetcher."""
+class AsyncHTTPFetcher(ResourceFetcher):
+    """Asynchronous aiohttp-based HTTP fetcher."""
 
     def __init__(self, *, timeout: Optional[int] = None, session: Optional[aiohttp.ClientSession] = None, default_headers: Optional[Dict[str, str]] = None):
         self._timeout = timeout or 30
@@ -74,7 +76,7 @@ class HTTPFetcher(ResourceFetcher):
             await self._session.close()
         self._session = self._external_session
 
-    async def __aenter__(self) -> "HTTPFetcher":
+    async def __aenter__(self) -> "AsyncHTTPFetcher":
         await self._get_session()
         return self
 
@@ -153,3 +155,10 @@ class SyncHTTPFetcher:
     def __exit__(self, exc_type, exc, tb) -> None:
         """Context manager cleanup."""
         self.close()
+
+
+# ============================================================================
+# Backward compatibility aliases
+# ============================================================================
+DummyFetcher = AsyncDummyFetcher  # Old name
+HTTPFetcher = AsyncHTTPFetcher    # Old name

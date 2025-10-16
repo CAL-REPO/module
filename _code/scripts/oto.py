@@ -27,6 +27,7 @@ from typing import List, Dict, Any, Optional
 from cfg_utils import ConfigLoader
 from logs_utils import LogManager
 from path_utils import resolve
+from script_utils import EnvBasedConfigInitializer
 
 from image_utils.services.image_loader import ImageLoader
 from image_utils.services.image_ocr import ImageOCR
@@ -87,9 +88,12 @@ class OTO:
         else:
             self.log = log.logger if isinstance(log, LogManager) else log
         
-        # 설정 로드
+        # 설정 로드 (간소화된 3줄)
         self.log.info(f"OTO Pipeline 초기화 중...")
-        self._load_paths()
+        self.paths_dict = EnvBasedConfigInitializer.load_paths_from_env(self.paths_env_key)
+        self.loader = EnvBasedConfigInitializer.create_config_loader(
+            "configs_loader_file_oto", self.paths_dict
+        )
         self._load_policies()
         self.log.success("OTO Pipeline 초기화 완료")
     
@@ -97,48 +101,6 @@ class OTO:
     # 설정 로드
     # ==========================================================================
     
-    def _load_paths(self):
-        """ENV → paths.local.yaml 로드 (yaml_parser만 사용)
-        
-        Architecture:
-            1. ENV 환경변수에서 paths.local.yaml 경로 가져오기
-            2. yaml_parser로 paths.local.yaml 읽기 (placeholder 해석)
-            3. configs_loader_oto.yaml 경로 추출
-            4. paths_dict를 환경변수로 export (ConfigLoader가 사용)
-        
-        Note:
-            이 단계는 언제든지 제거 가능한 임시 레이어입니다.
-            향후 ENV에서 직접 configs_loader_oto.yaml 경로를 받을 수 있습니다.
-        """
-        # 1. 환경변수에서 paths.local.yaml 경로 가져오기
-        paths_yaml = os.getenv(self.paths_env_key)
-        if not paths_yaml:
-            raise EnvironmentError(
-                f"환경변수 '{self.paths_env_key}'가 설정되지 않았습니다.\n"
-                f"설정 방법 (PowerShell):\n"
-                f'  $env:{self.paths_env_key} = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\paths.local.yaml"'
-            )
-        
-        paths_yaml = Path(paths_yaml)
-        if not paths_yaml.exists():
-            raise FileNotFoundError(f"paths.local.yaml이 없습니다: {paths_yaml}")
-        
-        self.log.info(f"paths.local.yaml 로드: {paths_yaml}")
-        
-        # 2. ConfigLoader.load()로 paths.local.yaml 읽기
-        # ConfigLoader.load()는 내부적으로 yaml_parser를 사용하며
-        # placeholder를 자동으로 해석합니다
-        self.paths_dict = ConfigLoader.load(paths_yaml)
-        
-        # 3. configs_loader_oto.yaml 경로 추출
-        loader_paths = self.paths_dict.get("configs_loader_file_path", {})
-        
-        if not loader_paths:
-            raise KeyError(
-                "paths.local.yaml에 'configs_loader_file_path' 키가 없습니다.\n"
-                f"사용 가능한 키: {list(self.paths_dict.keys())}"
-            )
-        
     def _load_policies(self):
         """configs_loader_oto.yaml을 통해 모듈별 정책 로드
 
@@ -149,7 +111,7 @@ class OTO:
         
         # 1. ImageLoader 정책
         try:
-            self.image_loader_policy = loader._as_model_internal(
+            self.image_loader_policy = self.loader._as_model_internal(
                 ImageLoaderPolicy, 
                 section="image"
             )
@@ -160,7 +122,7 @@ class OTO:
         
         # 2. ImageOCR 정책
         try:
-            self.image_ocr_policy = loader._as_model_internal(
+            self.image_ocr_policy = self.loader._as_model_internal(
                 ImageOCRPolicy, 
                 section="ocr"
             )
@@ -171,7 +133,7 @@ class OTO:
         
         # 3. Translator 정책
         try:
-            self.translator_config = loader._as_dict_internal(section="translate")
+            self.translator_config = self.loader._as_dict_internal(section="translate")
             self.log.info("  ✅ Translator 정책 로드 완료")
         except Exception as e:
             self.log.warning(f"  ⚠️  Translator 정책 로드 실패: {e}")
@@ -179,7 +141,7 @@ class OTO:
         
         # 4. ImageOverlay 정책
         try:
-            self.image_overlay_policy = loader._as_model_internal(
+            self.image_overlay_policy = self.loader._as_model_internal(
                 ImageOverlayPolicy, 
                 section="overlay"
             )
@@ -222,7 +184,7 @@ class OTO:
                 'error': Optional[str]
             }
         """
-        image_path = Path(image_path)
+        image_path = resolve(image_path)  # 절대 경로로 변환
         result = {
             'success': False,
             'image_path': image_path,
@@ -250,9 +212,9 @@ class OTO:
             if self.image_loader_policy:
                 loader = ImageLoader(
                     cfg_like=self.image_loader_policy,
-                    **{'source.path': str(image_path), **overrides}
+                    **overrides
                 )
-                loader_result = loader.run()
+                loader_result = loader.run(source_override=str(image_path))
                 
                 if not loader_result.get('success'):
                     result['error'] = f"ImageLoader 실패: {loader_result.get('error')}"
@@ -277,7 +239,7 @@ class OTO:
             
             ocr = ImageOCR(
                 cfg_like=self.image_ocr_policy,
-                **{'source.path': str(image_path), **overrides}
+                **overrides
             )
             ocr_result = ocr.run(
                 source_override=str(image_path),
@@ -349,7 +311,7 @@ class OTO:
             
             overlay = ImageOverlay(
                 cfg_like=self.image_overlay_policy,
-                **{'source.path': str(image_path), **overrides}
+                **overrides
             )
             overlay_result = overlay.run(
                 source_path=str(image_path),
