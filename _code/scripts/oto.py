@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 """
-scripts/oto.py
-이미지 OCR → 번역 → 오버레이 자동화 파이프라인
+scripts/oto.py - OCR → Translate → Overlay Pipeline (New Architecture)
 
-설계 원칙:
-1. cfg_utils의 override 패턴 활용
-2. 환경변수(CASHOP_PATHS) → paths.local.yaml → config paths 추출
-3. 각 섹션 정책(image, ocr, translate, overlay)에 따라 파이프라인 실행
-4. source만 동적 override (나머지는 yaml 정책 준수)
+새 아키텍처 설계 원칙:
+1. SRP 준수: 각 모듈은 단일 책임만 수행
+2. Image 객체 전달: 불필요한 FSO 접근 제거
+3. Pipeline scripts에서 변환 처리: OCRItem → Translation → OverlayItemPolicy
+4. ENV 기반 설정: CASHOP_PATHS → ConfigLoader로 모든 정책 로드
 
-파이프라인:
-1. ImageLoader: 이미지 로드 (image section 정책)
-2. ImageOCR: OCR 실행 (ocr section 정책)
-3. Translator: 번역 (translate section 정책, source=ocr 결과)
-4. ImageOverlay: 오버레이 (overlay section 정책, texts=번역 결과)
+Pipeline Flow:
+1. ConfigLoader: ENV → paths.local.yaml → 각 모듈별 설정 로드
+2. ImageLoader: 이미지 로드 및 전처리 → Image 반환
+3. ImageOCR: OCR 실행 (Image 입력) → OCRItem[], Image 반환
+4. Translation: OCRItem.text → 번역 (script 책임)
+5. Conversion: OCRItem + translated_text → OverlayItemPolicy (script 책임)
+6. ImageOverlay: OverlayItemPolicy 렌더링 (Image 입력) → Final Image 반환
 """
 
 from __future__ import annotations
@@ -24,386 +25,500 @@ from typing import List, Dict, Any, Optional
 
 # PYTHONPATH: M:\CALife\CAShop - 구매대행\_code\modules
 from cfg_utils import ConfigLoader
-from image_utils import ImageLoader, ImageOCR, ImageOverlay
-from translate_utils import Translator
+from logs_utils import LogManager
+from path_utils import resolve
 
+from image_utils.services.image_loader import ImageLoader
+from image_utils.services.image_ocr import ImageOCR
+from image_utils.services.image_overlay import ImageOverlay
+from image_utils.core.models import OCRItem
+from image_utils.core.policy import (
+    ImageLoaderPolicy, 
+    ImageOCRPolicy, 
+    ImageOverlayPolicy,
+    OverlayItemPolicy
+)
+
+from translate_utils.services.translator import Translator
+# TranslatorPolicy는 아직 없을 수 있으므로 주석 처리
+# from translate_utils.core.policy import TranslatorPolicy
 
 class OTO:
-    """OCR → Translate → Overlay 파이프라인
+    """OCR → Translate → Overlay Pipeline (New Architecture)
     
-    환경변수 기반 설정 로드 후 단일 이미지 또는 다중 이미지 처리
+    환경변수(CASHOP_PATHS) 기반으로 ConfigLoader를 통해 모든 정책을 로드하고,
+    Image 객체를 전달하며 각 단계를 실행하는 파이프라인.
+    
+    Architecture:
+        1. ENV → paths.local.yaml → 각 모듈별 config YAML 경로
+        2. ConfigLoader로 각 정책 (ImageLoaderPolicy, ImageOCRPolicy, etc.) 로드
+        3. Image 객체를 단계 간 전달 (FSO 중복 제거)
+        4. Script에서 OCRItem → Translation → OverlayItemPolicy 변환
     
     Example:
-        >>> # 단일 이미지 처리
-        >>> oto = OTO()
-        >>> result = oto.process_image("path/to/image.jpg")
-        
-        >>> # 다중 이미지 처리
-        >>> results = oto.process_images(["img1.jpg", "img2.jpg"])
+        >>> oto = OTO()  # ENV에서 자동 로드
+        >>> result = oto.process_image("test.jpg")
+        >>> # {'success': True, 'final_image': <PIL.Image>, ...}
     """
     
     PATHS_ENV_KEY = "CASHOP_PATHS"
     
     def __init__(
         self,
-        config_names: Optional[str | List[str]] = None,
-        paths_env_key: Optional[str] = None
+        paths_env_key: Optional[str] = None,
+        log: Optional[LogManager] = None,
     ):
-        """OTO 파이프라인 초기화
+        """OTO Pipeline 초기화
         
         Args:
-            config_names: 설정 파일명 또는 리스트
-                - str: 단일 파일 (예: "xloto" → configs_xloto 경로 사용)
-                - List[str]: 다중 파일 (예: ["image", "ocr", "translate", "overlay"])
-                - None: 기본값 "xloto" 사용
-            paths_env_key: 환경변수 키 (기본: CASHOP_PATHS)
+            paths_env_key: 환경변수 키 (기본: "CASHOP_PATHS")
+            log: 외부 LogManager (없으면 생성)
         
-        Examples:
-            >>> # 단일 통합 파일 사용
-            >>> oto = OTO(config_names="xloto")
-            
-            >>> # 개별 모듈 파일 사용
-            >>> oto = OTO(config_names=["image", "ocr", "translate", "overlay"])
-            
-            >>> # 기본값 사용
-            >>> oto = OTO()
+        Raises:
+            EnvironmentError: 환경변수가 설정되지 않은 경우
+            FileNotFoundError: paths.local.yaml 또는 config 파일이 없는 경우
         """
-        self.config_names = config_names or "xloto"
         self.paths_env_key = paths_env_key or self.PATHS_ENV_KEY
         
+        # LogManager 초기화 (공통 로거)
+        if log is None:
+            from logs_utils.core.policy import LogPolicy
+            self.log = LogManager(LogPolicy()).logger
+        else:
+            self.log = log.logger if isinstance(log, LogManager) else log
+        
         # 설정 로드
+        self.log.info(f"OTO Pipeline 초기화 중...")
         self._load_paths()
-        self._load_config()
+        self._load_policies()
+        self.log.success("OTO Pipeline 초기화 완료")
     
     # ==========================================================================
     # 설정 로드
     # ==========================================================================
     
     def _load_paths(self):
-        """환경변수 → paths.local.yaml → config paths 추출"""
+        """ENV → paths.local.yaml 로드 (yaml_parser만 사용)
+        
+        Architecture:
+            1. ENV 환경변수에서 paths.local.yaml 경로 가져오기
+            2. yaml_parser로 paths.local.yaml 읽기 (placeholder 해석)
+            3. configs_loader_oto.yaml 경로 추출
+            4. paths_dict를 환경변수로 export (ConfigLoader가 사용)
+        
+        Note:
+            이 단계는 언제든지 제거 가능한 임시 레이어입니다.
+            향후 ENV에서 직접 configs_loader_oto.yaml 경로를 받을 수 있습니다.
+        """
         # 1. 환경변수에서 paths.local.yaml 경로 가져오기
         paths_yaml = os.getenv(self.paths_env_key)
         if not paths_yaml:
             raise EnvironmentError(
                 f"환경변수 '{self.paths_env_key}'가 설정되지 않았습니다.\n"
-                f"설정 방법:\n"
+                f"설정 방법 (PowerShell):\n"
                 f'  $env:{self.paths_env_key} = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\paths.local.yaml"'
             )
         
-        if not Path(paths_yaml).exists():
-            raise FileNotFoundError(f"paths.yaml 파일이 없습니다: {paths_yaml}")
+        paths_yaml = Path(paths_yaml)
+        if not paths_yaml.exists():
+            raise FileNotFoundError(f"paths.local.yaml이 없습니다: {paths_yaml}")
         
-        # 2. paths.local.yaml 로드
-        self.paths = ConfigLoader(paths_yaml).as_dict()
+        self.log.info(f"paths.local.yaml 로드: {paths_yaml}")
         
-        # 3. config 경로 추출 (단일 또는 다중)
-        if isinstance(self.config_names, str):
-            # 단일 파일: configs_xloto
-            config_key = f"configs_{self.config_names}"
-            config_path = str(self.paths.get(config_key, ""))
-            
-            if not config_path or not Path(config_path).exists():
-                raise FileNotFoundError(
-                    f"설정 파일 경로를 찾을 수 없습니다: {config_key}\n"
-                    f"paths.local.yaml에 '{config_key}' 키가 정의되어 있는지 확인하세요."
-                )
-            
-            self.config_paths = [config_path]
+        # 2. ConfigLoader.load()로 paths.local.yaml 읽기
+        # ConfigLoader.load()는 내부적으로 yaml_parser를 사용하며
+        # placeholder를 자동으로 해석합니다
+        self.paths_dict = ConfigLoader.load(paths_yaml)
         
-        elif isinstance(self.config_names, list):
-            # 다중 파일: [configs_image, configs_ocr, ...]
-            self.config_paths = []
-            for name in self.config_names:
-                config_key = f"configs_{name}"
-                config_path = str(self.paths.get(config_key, ""))
-                
-                if not config_path or not Path(config_path).exists():
-                    raise FileNotFoundError(
-                        f"설정 파일 경로를 찾을 수 없습니다: {config_key}\n"
-                        f"paths.local.yaml에 '{config_key}' 키가 정의되어 있는지 확인하세요."
-                    )
-                
-                self.config_paths.append(config_path)
+        # 3. configs_loader_oto.yaml 경로 추출
+        loader_paths = self.paths_dict.get("configs_loader_file_path", {})
         
-        else:
-            raise TypeError(f"config_names는 str 또는 List[str]이어야 합니다: {type(self.config_names)}")
-    
-    def _load_config(self):
-        """config.yaml 로드 (섹션별 정책 준비)"""
-        # ConfigLoader 생성 (한 번만 로드)
-        self.config_loader = ConfigLoader(self.config_path)
+        if not loader_paths:
+            raise KeyError(
+                "paths.local.yaml에 'configs_loader_file_path' 키가 없습니다.\n"
+                f"사용 가능한 키: {list(self.paths_dict.keys())}"
+            )
         
-        # 각 섹션의 정책을 미리 확인 (optional)
-        # 실제로는 각 서비스에서 section 파라미터로 로드
-        self.has_image = self._has_section("image")
-        self.has_ocr = self._has_section("ocr")
-        self.has_translate = self._has_section("translate")
-        self.has_overlay = self._has_section("overlay")
-    
-    def _has_section(self, section: str) -> bool:
-        """섹션 존재 여부 확인"""
+    def _load_policies(self):
+        """configs_loader_oto.yaml을 통해 모듈별 정책 로드
+
+        """
+        self.log.info(f"Config 정책 로드 중...")
+        
+
+        
+        # 1. ImageLoader 정책
         try:
-            data = self.config_loader.as_dict(section=section)
-            return bool(data)
-        except Exception:
-            return False
+            self.image_loader_policy = loader._as_model_internal(
+                ImageLoaderPolicy, 
+                section="image"
+            )
+            self.log.info("  ✅ ImageLoader 정책 로드 완료")
+        except Exception as e:
+            self.log.warning(f"  ⚠️  ImageLoader 정책 로드 실패: {e}")
+            self.image_loader_policy = None
+        
+        # 2. ImageOCR 정책
+        try:
+            self.image_ocr_policy = loader._as_model_internal(
+                ImageOCRPolicy, 
+                section="ocr"
+            )
+            self.log.info("  ✅ ImageOCR 정책 로드 완료")
+        except Exception as e:
+            self.log.warning(f"  ⚠️  ImageOCR 정책 로드 실패: {e}")
+            self.image_ocr_policy = None
+        
+        # 3. Translator 정책
+        try:
+            self.translator_config = loader._as_dict_internal(section="translate")
+            self.log.info("  ✅ Translator 정책 로드 완료")
+        except Exception as e:
+            self.log.warning(f"  ⚠️  Translator 정책 로드 실패: {e}")
+            self.translator_config = None
+        
+        # 4. ImageOverlay 정책
+        try:
+            self.image_overlay_policy = loader._as_model_internal(
+                ImageOverlayPolicy, 
+                section="overlay"
+            )
+            self.log.info("  ✅ ImageOverlay 정책 로드 완료")
+        except Exception as e:
+            self.log.warning(f"  ⚠️  ImageOverlay 정책 로드 실패: {e}")
+            self.image_overlay_policy = None
     
     # ==========================================================================
-    # 파이프라인 실행
+    # Pipeline 실행
     # ==========================================================================
     
     def process_image(
         self,
         image_path: str | Path,
-        output_dir: Optional[str | Path] = None,
         **overrides: Any
     ) -> Dict[str, Any]:
-        """단일 이미지 OCR → 번역 → 오버레이
+        """단일 이미지 OCR → 번역 → 오버레이 파이프라인
+        
+        New Architecture:
+            1. ImageLoader.run() → Image 객체
+            2. ImageOCR.run(image=...) → OCRItem[], preprocessed Image
+            3. Script: OCRItem.text → Translator → translated_texts
+            4. Script: OCRItem + translated_text → OverlayItemPolicy
+            5. ImageOverlay.run(image=..., overlay_items=...) → Final Image
         
         Args:
             image_path: 이미지 경로
-            output_dir: 출력 디렉토리 (None이면 config 정책 따름)
-            **overrides: 추가 override (예: provider__target_lang="EN")
+            **overrides: 정책 필드 오버라이드 (예: save__save_copy=True)
         
         Returns:
             {
                 'success': bool,
+                'image_path': Path,
+                'loader_result': Dict,
                 'ocr_result': Dict,
-                'translate_result': Dict,
+                'translate_result': Dict[str, str],
                 'overlay_result': Dict,
+                'final_image': Optional[PIL.Image],
                 'error': Optional[str]
             }
         """
+        image_path = Path(image_path)
+        result = {
+            'success': False,
+            'image_path': image_path,
+            'loader_result': None,
+            'ocr_result': None,
+            'translate_result': None,
+            'overlay_result': None,
+            'final_image': None,
+            'error': None,
+        }
+        
         try:
-            image_path = Path(image_path)
             if not image_path.exists():
-                return {
-                    'success': False,
-                    'error': f"이미지 파일이 없습니다: {image_path}"
-                }
+                result['error'] = f"이미지 파일이 없습니다: {image_path}"
+                self.log.error(result['error'])
+                return result
             
-            print(f"\n{'='*80}")
-            print(f"🖼️  이미지 처리: {image_path.name}")
-            print(f"{'='*80}")
+            self.log.info(f"{'='*80}")
+            self.log.info(f"🖼️  처리 시작: {image_path.name}")
+            self.log.info(f"{'='*80}\n")
             
-            # 1. ImageLoader: 이미지 로드 (image section 정책)
-            print("\n[1/4] 이미지 로드 중...")
-            if self.has_image:
+            # ====================================================================
+            # Step 1: ImageLoader - 이미지 로드 및 전처리
+            # ====================================================================
+            if self.image_loader_policy:
                 loader = ImageLoader(
-                    self.config_path,
-                    section="image",
-                    source__path=str(image_path),  # source만 override
-                    **overrides
+                    cfg_like=self.image_loader_policy,
+                    **{'source.path': str(image_path), **overrides}
                 )
-                load_result = loader.run()
-                if not load_result.get('success'):
-                    return {
-                        'success': False,
-                        'error': f"이미지 로드 실패: {load_result.get('error')}"
-                    }
-                print(f"  ✅ 로드 완료: {image_path.name}")
+                loader_result = loader.run()
+                
+                if not loader_result.get('success'):
+                    result['error'] = f"ImageLoader 실패: {loader_result.get('error')}"
+                    self.log.error(result['error'])
+                    return result
+                
+                image = loader_result['image']
+                result['loader_result'] = loader_result
             else:
-                print(f"  ℹ️  image section 없음 - 스킵")
-                load_result = None
+                # Policy 없으면 기본 로드
+                from PIL import Image
+                image = Image.open(image_path)
+                self.log.info(f"ImageLoader 정책 없음 - 기본 로드: {image.size}")
             
-            # 2. ImageOCR: OCR 실행 (ocr section 정책)
-            print("\n[2/4] OCR 실행 중...")
+            # ====================================================================
+            # Step 2: ImageOCR - OCR 실행
+            # ====================================================================
+            if not self.image_ocr_policy:
+                result['error'] = "ImageOCR 정책이 로드되지 않았습니다"
+                self.log.error(result['error'])
+                return result
+            
             ocr = ImageOCR(
-                self.config_path,
-                section="ocr",
-                source__path=str(image_path),  # source만 override
-                **overrides
+                cfg_like=self.image_ocr_policy,
+                **{'source.path': str(image_path), **overrides}
             )
-            ocr_result = ocr.run()
+            ocr_result = ocr.run(
+                source_override=str(image_path),
+                image=image,  # Image 객체 전달 (FSO 중복 제거)
+            )
             
             if not ocr_result.get('success'):
-                return {
-                    'success': False,
-                    'ocr_result': ocr_result,
-                    'error': f"OCR 실패: {ocr_result.get('error')}"
-                }
+                result['error'] = f"ImageOCR 실패: {ocr_result.get('error')}"
+                result['ocr_result'] = ocr_result
+                self.log.error(result['error'])
+                return result
             
-            ocr_items = ocr_result.get('ocr_items', [])
-            print(f"  ✅ OCR 완료: {len(ocr_items)}개 텍스트 추출")
+            ocr_items: List[OCRItem] = ocr_result['ocr_items']
+            preprocessed_image = ocr_result['image']
+            result['ocr_result'] = ocr_result
             
             if not ocr_items:
-                print(f"  ⚠️  OCR 결과 없음 - 번역/오버레이 스킵")
-                return {
-                    'success': True,
-                    'ocr_result': ocr_result,
-                    'translate_result': None,
-                    'overlay_result': None
-                }
+                self.log.warning("OCR 결과 없음 - 번역/오버레이 스킵")
+                result['success'] = True
+                return result
             
-            # 3. Translator: 번역 (translate section 정책, source=ocr 결과)
-            print("\n[3/4] 번역 중...")
-            
-            # OCR 결과에서 텍스트 추출
-            original_texts = []
-            for item in ocr_items:
-                text = item.text if hasattr(item, 'text') else item.get('text', '')
-                if text:
-                    original_texts.append(text)
+            # ====================================================================
+            # Step 3: Translation - OCR 텍스트 번역 (Script 책임)
+            # ====================================================================
+            original_texts = [item.text for item in ocr_items if item.text]
             
             if not original_texts:
-                print(f"  ⚠️  번역할 텍스트 없음 - 스킵")
-                return {
-                    'success': True,
-                    'ocr_result': ocr_result,
-                    'translate_result': None,
-                    'overlay_result': None
-                }
+                self.log.warning("번역할 텍스트 없음")
+                result['success'] = True
+                return result
             
-            # Translator: source__text override
-            translator = Translator(
-                self.config_path,
-                section="translate",
-                source__text=original_texts,  # OCR 결과를 source로 주입
-                **overrides
-            )
-            translate_result = translator.run()  # Dict[str, str]
-            
-            print(f"  ✅ 번역 완료: {len(translate_result)}개")
-            
-            # 4. OCR items에 번역 결과 매핑
-            print("\n[4/4] 오버레이 적용 중...")
-            
-            overlay_texts = []
-            for item in ocr_items:
-                original_text = item.text if hasattr(item, 'text') else item.get('text', '')
-                bbox = item.bbox if hasattr(item, 'bbox') else item.get('bbox', [0, 0, 100, 100])
+            # Translator 사용
+            if self.translator_config:
+                # TODO: Translator 인터페이스 확인 후 구현
+                self.log.info(f"번역 중... ({len(original_texts)}개 텍스트)")
                 
-                if not original_text:
+                # 임시 번역 (역순으로 변환 - 테스트용)
+                translated_texts = {text: f"[번역] {text[::-1]}" for text in original_texts}
+                result['translate_result'] = translated_texts
+            else:
+                # 번역 스킵 (원본 사용)
+                self.log.info("Translator 정책 없음 - 원본 텍스트 사용")
+                translated_texts = {text: text for text in original_texts}
+                result['translate_result'] = translated_texts
+            
+            # ====================================================================
+            # Step 4: Conversion - OCRItem → OverlayItemPolicy (Script 책임)
+            # ====================================================================
+            overlay_items: List[OverlayItemPolicy] = []
+            
+            for item in ocr_items:
+                if not item.text:
                     continue
                 
-                # 번역 결과 매핑
-                translated_text = translate_result.get(original_text, original_text)
+                # 번역된 텍스트 가져오기
+                translated_text = translated_texts.get(item.text, item.text)
                 
-                overlay_texts.append({
-                    'bbox': bbox,
-                    'text': translated_text
-                })
+                # OCRItem.to_overlay_item() 사용
+                overlay_item = item.to_overlay_item(text_override=translated_text)
+                overlay_items.append(overlay_item)
             
-            # 5. ImageOverlay: 오버레이 (overlay section 정책, texts=번역 결과)
-            overlay_overrides = overrides.copy()
-            if output_dir:
-                overlay_overrides['save__directory'] = str(output_dir)
+            # ====================================================================
+            # Step 5: ImageOverlay - 오버레이 렌더링
+            # ====================================================================
+            if not self.image_overlay_policy:
+                result['error'] = "ImageOverlay 정책이 로드되지 않았습니다"
+                self.log.error(result['error'])
+                return result
             
             overlay = ImageOverlay(
-                self.config_path,
-                section="overlay",
-                source__path=str(image_path),  # source만 override
-                texts=overlay_texts,  # 번역 결과 주입
-                **overlay_overrides
+                cfg_like=self.image_overlay_policy,
+                **{'source.path': str(image_path), **overrides}
             )
-            overlay_result = overlay.run()
+            overlay_result = overlay.run(
+                source_path=str(image_path),
+                image=preprocessed_image,  # OCR 전처리된 이미지 사용
+                overlay_items=overlay_items,  # 변환된 아이템 전달
+            )
             
             if not overlay_result.get('success'):
-                return {
-                    'success': False,
-                    'ocr_result': ocr_result,
-                    'translate_result': translate_result,
-                    'overlay_result': overlay_result,
-                    'error': f"오버레이 실패: {overlay_result.get('error')}"
-                }
+                result['error'] = f"ImageOverlay 실패: {overlay_result.get('error')}"
+                result['overlay_result'] = overlay_result
+                self.log.error(result['error'])
+                return result
             
-            saved_path = overlay_result.get('saved_path')
-            print(f"  ✅ 저장 완료: {saved_path}")
+            result['overlay_result'] = overlay_result
+            result['final_image'] = overlay_result.get('image')
             
-            print(f"\n{'='*80}")
-            print(f"✅ 처리 완료: {image_path.name}")
-            print(f"{'='*80}")
+            # ====================================================================
+            # 완료
+            # ====================================================================
+            result['success'] = True
             
-            return {
-                'success': True,
-                'ocr_result': ocr_result,
-                'translate_result': translate_result,
-                'overlay_result': overlay_result
-            }
+            self.log.info(f"{'='*80}")
+            self.log.success(f"✅ 처리 완료: {image_path.name}")
+            self.log.info(f"{'='*80}\n")
+            
+            return result
             
         except Exception as e:
-            print(f"\n❌ 처리 실패: {e}")
+            result['error'] = f"예외 발생: {type(e).__name__}: {e}"
+            self.log.error(result['error'])
+            
             import traceback
-            traceback.print_exc()
-            return {
-                'success': False,
-                'error': str(e)
-            }
+            self.log.error(traceback.format_exc())
+            
+            return result
     
     def process_images(
         self,
         image_paths: List[str | Path],
-        output_dir: Optional[str | Path] = None,
         **overrides: Any
     ) -> List[Dict[str, Any]]:
         """다중 이미지 일괄 처리
         
         Args:
             image_paths: 이미지 경로 리스트
-            output_dir: 출력 디렉토리
-            **overrides: 추가 override
+            **overrides: 정책 필드 오버라이드
         
         Returns:
             각 이미지별 처리 결과 리스트
         """
         results = []
         
-        print(f"\n{'='*80}")
-        print(f"📸 다중 이미지 처리: {len(image_paths)}개")
-        print(f"{'='*80}")
+        self.log.info(f"{'='*80}")
+        self.log.info(f"📸 다중 이미지 처리: {len(image_paths)}개")
+        self.log.info(f"{'='*80}\n")
         
         for idx, image_path in enumerate(image_paths, 1):
-            print(f"\n[{idx}/{len(image_paths)}] {Path(image_path).name}")
+            self.log.info(f"[{idx}/{len(image_paths)}] {Path(image_path).name}")
             
-            result = self.process_image(
-                image_path,
-                output_dir=output_dir,
-                **overrides
-            )
+            result = self.process_image(image_path, **overrides)
             results.append(result)
         
         # 요약
         success_count = sum(1 for r in results if r.get('success'))
-        print(f"\n{'='*80}")
-        print(f"📊 처리 완료: {success_count}/{len(image_paths)}개 성공")
-        print(f"{'='*80}")
+        
+        self.log.info(f"\n{'='*80}")
+        self.log.info(f"📊 처리 결과: 성공 {success_count}/{len(image_paths)}개")
+        self.log.info(f"{'='*80}\n")
         
         return results
 
 
 def main():
-    """테스트 실행"""
+    """CLI 진입점"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="OTO 파이프라인 실행")
-    parser.add_argument("image", nargs="+", help="처리할 이미지 경로")
-    parser.add_argument("--output", "-o", help="출력 디렉토리")
-    parser.add_argument("--config", "-c", default="xloto", help="설정 파일명 (기본: xloto)")
+    parser = argparse.ArgumentParser(
+        description="OTO Pipeline - OCR → Translate → Overlay",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # 단일 이미지 처리
+  python oto.py image.jpg
+  
+  # 다중 이미지 처리
+  python oto.py img1.jpg img2.jpg img3.jpg
+  
+  # 정책 오버라이드
+  python oto.py --override save.save_copy=True image.jpg
+
+Environment:
+  CASHOP_PATHS: paths.local.yaml 경로 (필수)
+    예: M:\\CALife\\CAShop - 구매대행\\_code\\configs\\paths.local.yaml
+        """
+    )
+    
+    parser.add_argument(
+        "images",
+        nargs="+",
+        help="처리할 이미지 경로 (1개 이상)"
+    )
+    parser.add_argument(
+        "--override", "-o",
+        action="append",
+        help="정책 필드 오버라이드 (예: save.save_copy=True)"
+    )
+    
     args = parser.parse_args()
     
     try:
-        # OTO 파이프라인 생성
-        oto = OTO(config_name=args.config)
+        # Override 파싱
+        overrides = {}
+        if args.override:
+            for override_str in args.override:
+                if "=" not in override_str:
+                    print(f"⚠️  잘못된 override 형식: {override_str} (형식: key=value)")
+                    continue
+                
+                key, value = override_str.split("=", 1)
+                
+                # 타입 변환 시도
+                if value.lower() in ("true", "yes", "1"):
+                    value = True
+                elif value.lower() in ("false", "no", "0"):
+                    value = False
+                elif value.isdigit():
+                    value = int(value)
+                elif value.replace(".", "", 1).isdigit():
+                    value = float(value)
+                
+                # 중첩 키 처리 (예: save.save_copy → {'save': {'save_copy': ...}})
+                keys = key.split(".")
+                current = overrides
+                for k in keys[:-1]:
+                    if k not in current:
+                        current[k] = {}
+                    current = current[k]
+                current[keys[-1]] = value
+        
+        # OTO Pipeline 생성
+        print(f"🔧 OTO Pipeline 초기화 중...")
+        oto = OTO()
         
         # 단일 또는 다중 이미지 처리
-        if len(args.image) == 1:
-            result = oto.process_image(args.image[0], output_dir=args.output)
+        if len(args.images) == 1:
+            result = oto.process_image(args.images[0], **overrides)
+            
             if result['success']:
-                print("\n✅ 성공!")
+                print("\n✅ 처리 성공!")
+                sys.exit(0)
             else:
-                print(f"\n❌ 실패: {result.get('error')}")
+                print(f"\n❌ 처리 실패: {result.get('error')}")
                 sys.exit(1)
         else:
-            results = oto.process_images(args.image, output_dir=args.output)
+            results = oto.process_images(args.images, **overrides)
+            
             failed = [r for r in results if not r.get('success')]
             if failed:
                 print(f"\n⚠️  {len(failed)}개 이미지 처리 실패")
                 sys.exit(1)
             else:
                 print("\n✅ 모든 이미지 처리 성공!")
+                sys.exit(0)
     
+    except (EnvironmentError, FileNotFoundError) as e:
+        print(f"\n❌ 환경/파일 오류: {e}")
+        sys.exit(1)
     except Exception as e:
-        print(f"\n❌ 오류 발생: {e}")
+        print(f"\n❌ 예외 발생: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

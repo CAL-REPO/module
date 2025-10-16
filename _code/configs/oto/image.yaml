@@ -1,0 +1,130 @@
+# ============================================================================
+# ImageLoader - OTO Configuration
+# ============================================================================
+# OTO 파이프라인에서 사용하는 ImageLoader 설정
+# 필수 항목만 활성화, 고급 옵션은 주석 처리
+
+image:
+  # --------------------------------------------------------------------------
+  # 1. Source - 소스 이미지 설정 (런타임에서 지정)
+  # --------------------------------------------------------------------------
+  source:
+    path: "${temp_input_dir}/01.jpg"           # 소스 이미지 경로 (런타임 오버라이드)
+    # must_exist: false                 # 파일 존재 여부 확인
+    # convert_mode: "RGB"               # PIL 모드 변환
+  
+  # --------------------------------------------------------------------------
+  # 2. Save - 이미지 저장 설정
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true                     # 이미지 복사본 저장 여부
+    directory: "${temp_input_dir}"      # 저장 디렉토리
+    
+    # FSO Name Policy - 파일 이름 생성 정책
+    name:
+      # as_type: "file"
+      # prefix: null
+      # name: ""
+      suffix: "_processed"              # 파일명 접미사
+      # tail: null
+      # extension: null
+      
+      # Tail 자동 생성 옵션
+      # delimiter: "_"
+      # tail_mode: "counter"
+      # date_format: "%Y-%m-%d"
+      # counter_width: 3
+      # auto_expand: true
+      # tail_suffix: null
+      
+      # 파일명 정규화 옵션
+      # sanitize: true
+      # case: "keep"
+      # ensure_unique: true
+    
+    # FSO Ops Policy - 파일 존재/확장자 처리 정책
+    # ops:
+    #   as_type: "file"
+    #   exist:
+    #     must_exist: false
+    #     create_if_missing: true
+    #     overwrite: false
+    #   ext:
+    #     require_ext: false
+    #     default_ext: null
+    #     allowed_exts: null
+    
+    # 이미지 포맷 설정
+    # format: null
+    quality: 95                         # JPEG/WebP 품질
+  
+  # --------------------------------------------------------------------------
+  # 3. Meta - 메타데이터 저장 설정
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true                     # 메타 저장 활성화
+    directory: "${temp_input_dir}"      # 메타 저장 디렉토리
+    # name:
+    #   as_type: "file"
+    #   prefix: null
+    #   name: ""
+    #   suffix: "_meta"
+    #   tail: null
+    #   extension: ".json"
+    #   delimiter: "_"
+    #   tail_mode: null
+    #   date_format: "%Y-%m-%d"
+    #   counter_width: 3
+    #   auto_expand: true
+    #   tail_suffix: null
+    #   sanitize: true
+    #   case: "keep"
+    #   ensure_unique: false
+    # ops:
+    #   as_type: "file"
+    #   exist:
+    #     must_exist: false
+    #     create_if_missing: true
+    #     overwrite: true
+    #   ext:
+    #     require_ext: false
+    #     default_ext: ".json"
+    #     allowed_exts: null
+  
+  # --------------------------------------------------------------------------
+  # 4. Process - 이미지 처리 설정
+  # --------------------------------------------------------------------------
+  # process:
+  #   resize_to: null
+  #   blur_radius: null
+  #   convert_mode: null
+  
+  # --------------------------------------------------------------------------
+  # 5. Log - 로그 설정
+  # --------------------------------------------------------------------------
+  log:
+    name: "image_loader"                # 서비스 이름 (필수)
+    level: "INFO"                       # 로그 레벨
+    # format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    # colorize: true
+    # serialize: false
+    # backtrace: false
+    # diagnose: false
+    # enqueue: false
+    # catch: true
+    
+    # 파일 출력 설정
+    handlers:
+      - sink: "output/logs/image_loader_{time:YYYY-MM-DD}.log"
+        # level: "DEBUG"
+        # format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
+        rotation: "1 day"
+        retention: "7 days"
+        # compression: "zip"
+        # encoding: "utf-8"
+        # colorize: false
+        # serialize: false
+        # backtrace: true
+        # diagnose: false
+        # enqueue: false
+        # catch: true

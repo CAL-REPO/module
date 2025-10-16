@@ -128,6 +128,7 @@ class ImageLoader:
             결과 딕셔너리:
             {
                 "success": bool,
+                "image": PIL.Image.Image,
                 "original_path": Path,
                 "saved_path": Optional[Path],
                 "meta_path": Optional[Path],
@@ -138,6 +139,7 @@ class ImageLoader:
         """
         result = {
             "success": False,
+            "image": None,
             "original_path": None,
             "saved_path": None,
             "meta_path": None,
@@ -220,6 +222,8 @@ class ImageLoader:
                 result["meta_path"] = meta_path
                 self.log.success(f"Metadata saved to: {meta_path}")
             
+            # 6. Image 객체 반환에 추가
+            result["image"] = processed_img
             result["success"] = True
             self.log.success("ImageLoader completed successfully")
             

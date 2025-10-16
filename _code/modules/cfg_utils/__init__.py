@@ -6,9 +6,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Type, Any
-from pydantic import BaseModel
-
 # Re-export core types (keep imports local and lightweight)
 from .core.policy import ConfigPolicy
 from .services.normalizer import ConfigNormalizer

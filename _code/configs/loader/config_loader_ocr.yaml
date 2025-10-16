@@ -1,10 +1,11 @@
-# Configuration for ConfigLoader 
+# Configuration for ConfigLoader (ImageOCR)
+# ImageOCR의 기본 섹션 및 정책을 정의합니다.
 
 config_loader:
   yaml:
     source_paths:
-      - path: ""
-        section: ""  
+      path: "../oto/ocr.yaml"  # 상대 경로
+      section: "ocr"  # ImageOCR가 사용할 섹션
     enable_env: true
     enable_include: true
     enable_placeholder: true

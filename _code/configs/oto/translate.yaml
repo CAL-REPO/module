@@ -1,0 +1,75 @@
+# ============================================================================
+# Translation Configuration - OTO
+# ============================================================================
+# OTO 파이프라인에서 사용하는 Translator 설정
+# 필수 항목만 활성화, 고급 옵션은 주석 처리
+
+translate:
+  # --------------------------------------------------------------------------
+  # 1. Source - 번역할 텍스트 (런타임에서 지정)
+  # --------------------------------------------------------------------------
+  source:
+    text: []                            # 런타임에서 OCR 결과 전달
+    # file_path: ""
+
+  # --------------------------------------------------------------------------
+  # 2. Provider - 번역 API 설정
+  # --------------------------------------------------------------------------
+  provider:
+    provider: "deepl"                   # Provider: "deepl" | "google" | "mock"
+    # source_lang: "AUTO"
+    target_lang: "KO"                   # 목표 언어
+    # model_type: "prefer_quality_optimized"
+    # timeout: 30
+
+  # --------------------------------------------------------------------------
+  # 3. Chinese Text Preprocessing
+  # --------------------------------------------------------------------------
+  zh:
+    mode: "clause"                      # Chunking: "off" | "clause"
+    # max_len: 48
+    # min_len: 80
+    # phrase_map: []
+
+  # --------------------------------------------------------------------------
+  # 4. Storage - 번역 캐시 저장
+  # --------------------------------------------------------------------------
+  store:
+    save_db: true                       # SQLite 캐시 사용
+    db_dir: "${temp_input_dir}"         # DB 저장 디렉토리
+    db_name: "translate_cache.sqlite3"
+    save_tr: true                       # JSON 저장 활성화
+    tr_dir: "${temp_input_dir}"         # JSON 저장 디렉토리
+    tr_name: "translated_text.json"
+
+  # --------------------------------------------------------------------------
+  # 5. Log - 로그 설정
+  # --------------------------------------------------------------------------
+  log:
+    name: "translator"                  # 서비스 이름 (필수)
+    level: "INFO"                       # 로그 레벨
+    # format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    # colorize: true
+    # serialize: false
+    # backtrace: false
+    # diagnose: false
+    # enqueue: false
+    # catch: true
+    
+    handlers:
+      - sink: "output/logs/translator_{time:YYYY-MM-DD}.log"
+        # level: "DEBUG"
+        # format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
+        rotation: "1 day"
+        retention: "7 days"
+        # compression: "zip"
+        # encoding: "utf-8"
+        # colorize: false
+        # serialize: false
+        # backtrace: true
+        # diagnose: false
+        # enqueue: false
+        # catch: true
+
+# Debug mode
+# debug: false

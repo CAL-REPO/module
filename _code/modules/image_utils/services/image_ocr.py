@@ -132,12 +132,7 @@ class ImageOCR:
                 ocr_kwargs = {
                     "use_angle_cls": self.policy.provider.paddle_use_angle_cls,
                     "lang": self.policy.provider.langs[0] if self.policy.provider.langs else "ch",
-                    "show_log": False,
                 }
-                
-                # GPU 설정
-                if self.policy.provider.paddle_use_gpu is not None:
-                    ocr_kwargs["use_gpu"] = self.policy.provider.paddle_use_gpu
                 
                 self._ocr_engine = PaddleOCR(**ocr_kwargs)
                 self.log.success("PaddleOCR initialized successfully")
@@ -155,48 +150,78 @@ class ImageOCR:
     def _normalize_ocr_result(self, raw_result: List) -> List[OCRItem]:
         """PaddleOCR 결과를 OCRItem으로 정규화.
         
+        PaddleX/PaddleOCR 최신 버전 형식:
+        - raw_result: list[dict]
+        - 각 dict: {"rec_boxes": [[x1,y1,x2,y2], ...], "rec_texts": [...], "rec_scores": [...]}
+        
         Args:
-            raw_result: PaddleOCR raw result
+            raw_result: PaddleOCR predict() 결과
             
         Returns:
             OCRItem 리스트
         """
         items = []
         
-        if not raw_result or not raw_result[0]:
+        if not raw_result:
             return items
         
-        for idx, line in enumerate(raw_result[0]):
-            quad, (text, conf) = line
+        order = 0
+        for item_dict in raw_result:
+            # 최신 PaddleOCR 형식
+            boxes = item_dict.get("rec_boxes")
+            texts = item_dict.get("rec_texts")
+            scores = item_dict.get("rec_scores")
             
-            # GeometryOps로 bbox 계산
-            x_min, y_min, x_max, y_max = GeometryOps.polygon_bbox(quad)
-            bbox = {
-                "x_min": x_min,
-                "y_min": y_min,
-                "x_max": x_max,
-                "y_max": y_max,
-            }
+            # numpy.ndarray → list 변환
+            if hasattr(boxes, "tolist"):
+                boxes = boxes.tolist()
             
-            # 각도 계산 (간단한 추정)
-            angle_deg = 0.0
-            if len(quad) >= 2:
+            if not (isinstance(boxes, list) and isinstance(texts, list)):
+                continue
+            
+            if not isinstance(scores, list):
+                scores = [1.0] * len(texts)
+            
+            # 각 텍스트 항목 처리
+            for box, text, score in zip(boxes, texts, scores):
+                if not (isinstance(box, (list, tuple)) and len(box) == 4):
+                    continue
+                
+                # rec_boxes: [x_min, y_min, x_max, y_max]
+                x1, y1, x2, y2 = map(float, box)
+                
+                # quad 구성 (좌상→우상→우하→좌하)
+                quad = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]]
+                
+                try:
+                    conf = float(score)
+                except Exception:
+                    conf = 0.0
+                
+                # bbox 계산
+                bbox = {
+                    "x_min": x1,
+                    "y_min": y1,
+                    "x_max": x2,
+                    "y_max": y2,
+                }
+                
+                # 각도 계산 (상단 변 기준)
                 import math
-                dx = quad[1][0] - quad[0][0]
-                dy = quad[1][1] - quad[0][1]
-                angle_deg = math.degrees(math.atan2(dy, dx))
-            
-            item = OCRItem(
-                text=text,
-                conf=conf,
-                quad=quad,
-                bbox=bbox,
-                angle_deg=angle_deg,
-                lang=self.policy.provider.langs[0] if self.policy.provider.langs else "unknown",
-                order=idx,
-            )
-            
-            items.append(item)
+                angle_deg = math.degrees(math.atan2(y1 - y1, x2 - x1))  # 수평이므로 0도
+                
+                item = OCRItem(
+                    text=str(text),
+                    conf=conf,
+                    quad=quad,
+                    bbox=bbox,
+                    angle_deg=angle_deg,
+                    lang=self.policy.provider.langs[0] if self.policy.provider.langs else "unknown",
+                    order=order,
+                )
+                
+                items.append(item)
+                order += 1
         
         return items
     
@@ -254,7 +279,12 @@ class ImageOCR:
         return processed
     
     def _deduplicate_by_iou(self, items: List[OCRItem], threshold: float) -> List[OCRItem]:
-        """IoU 기반 중복 제거 (GeometryOps 활용)."""
+        """IoU 기반 중복 제거 (언어 우선순위 + 신뢰도 기반).
+        
+        백업 파일 로직:
+        - 정렬 우선순위: 신뢰도 내림차순 → 언어 선호도
+        - 이미 채택된 박스와 IoU >= threshold면 스킵
+        """
         if not items:
             return items
         
@@ -267,8 +297,13 @@ class ImageOCR:
                 "y1": bbox["y_max"],
             }
         
-        # 신뢰도 내림차순 정렬
-        sorted_items = sorted(items, key=lambda x: x.conf, reverse=True)
+        # 언어 우선순위 함수
+        prefer_lang_order = self.policy.postprocess.prefer_lang_order or ["ch", "en"]
+        def lang_rank(lang: str) -> int:
+            return prefer_lang_order.index(lang) if lang in prefer_lang_order else len(prefer_lang_order)
+        
+        # 신뢰도 내림차순 → 언어 우선순위 정렬
+        sorted_items = sorted(items, key=lambda x: (-x.conf, lang_rank(x.lang)))
         keep = []
         
         for item in sorted_items:
@@ -299,17 +334,20 @@ class ImageOCR:
     def run(
         self,
         source_override: Optional[Union[str, Path]] = None,
+        image: Optional[Image.Image] = None,
     ) -> Dict[str, Any]:
         """OCR 실행 및 결과 처리.
         
         Args:
-            source_override: 소스 경로 오버라이드 (policy.source.path 대신 사용)
+            source_override: 소스 경로 오버라이드 (image가 None일 때만 사용)
+            image: PIL Image 객체 (제공되면 파일 로딩 없이 바로 사용)
         
         Returns:
             결과 딕셔너리:
             {
                 "success": bool,
-                "original_path": Path,
+                "image": PIL.Image.Image,
+                "original_path": Optional[Path],
                 "ocr_items": List[OCRItem],
                 "saved_path": Optional[Path],
                 "meta_path": Optional[Path],
@@ -320,6 +358,7 @@ class ImageOCR:
         """
         result = {
             "success": False,
+            "image": None,
             "original_path": None,
             "ocr_items": [],
             "saved_path": None,
@@ -330,22 +369,30 @@ class ImageOCR:
         }
         
         try:
-            # 1. 소스 경로 결정
-            source_path = source_override or self.policy.source.path
-            source_path = resolve(source_path)
+            # 1. 이미지 소스 결정
+            if image is not None:
+                # 제공된 이미지 객체 사용
+                img = image
+                source_path = None
+                self.log.info(f"Using provided image object: {img.size} {img.mode}")
+            else:
+                # 파일에서 로드
+                source_path = source_override or self.policy.source.path
+                source_path = resolve(source_path)
+                result["original_path"] = source_path
+                
+                self.log.info(f"Loading image for OCR: {source_path}")
+                
+                img = self.reader.read(
+                    path=source_path,
+                    must_exist=self.policy.source.must_exist,
+                    convert_mode=self.policy.source.convert_mode,
+                )
+            
             result["original_path"] = source_path
-            
-            self.log.info(f"Loading image for OCR: {source_path}")
-            
-            # 2. 이미지 로드
-            img = self.reader.read(
-                path=source_path,
-                must_exist=self.policy.source.must_exist,
-                convert_mode=self.policy.source.convert_mode,
-            )
             result["original_size"] = img.size
             
-            self.log.info(f"Loaded image: {img.size} {img.mode}")
+            self.log.info(f"Image ready for OCR: {img.size} {img.mode}")
             
             # 3. 전처리 (리사이즈)
             preprocessed_img = img
@@ -368,7 +415,8 @@ class ImageOCR:
             import numpy as np
             img_array = np.array(preprocessed_img)
             
-            raw_result = self.ocr_engine.ocr(img_array, cls=True)
+            # PaddleOCR predict (최신 버전은 cls 인자 미지원)
+            raw_result = self.ocr_engine.predict(img_array)
             
             # 5. 결과 정규화
             ocr_items = self._normalize_ocr_result(raw_result)
@@ -381,7 +429,7 @@ class ImageOCR:
             self.log.success(f"OCR completed: {len(ocr_items)} items after postprocessing")
             
             # 7. 결과 이미지 저장 (선택)
-            if self.policy.save.save_copy:
+            if self.policy.save.save_copy and source_path:
                 self.log.info("Saving OCR result image...")
                 
                 saved_path = self.writer.write(
@@ -393,11 +441,11 @@ class ImageOCR:
                 self.log.success(f"Saved to: {saved_path}")
             
             # 8. 메타데이터 저장
-            if self.policy.meta.save_meta:
+            if self.policy.meta.save_meta and source_path:
                 self.log.info("Saving OCR metadata...")
                 
                 meta_data = {
-                    "original_path": str(source_path),
+                    "original_path": str(source_path) if source_path else None,
                     "original_size": result["original_size"],
                     "preprocessed_size": result["preprocessed_size"],
                     "saved_path": str(result["saved_path"]) if result["saved_path"] else None,
@@ -415,6 +463,8 @@ class ImageOCR:
                     result["meta_path"] = meta_path
                     self.log.success(f"Metadata saved to: {meta_path}")
             
+            # 9. Image 객체 반환에 추가
+            result["image"] = preprocessed_img
             result["success"] = True
             self.log.success("ImageOCR completed successfully")
             

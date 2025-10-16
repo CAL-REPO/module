@@ -45,18 +45,29 @@ class PlaceholderResolver(ResolverBase):
         return text
 
     # ------------------------------------------------------------------
-    # ${VAR[:default]} → 환경 변수 치환
+    # ${VAR[:default]} → context dict 또는 환경 변수 치환
     # ------------------------------------------------------------------
-    @classmethod
-    def _resolve_env(cls, text: str) -> str:
+    def _resolve_env(self, text: str) -> str:
         def replacer(match: re.Match) -> str:
             expr = match.group(1)
             if ":" in expr:
                 var, default = expr.split(":", 1)
             else:
                 var, default = expr, ""
-            return os.getenv(var, default)
-        return cls.ENV_PATTERN.sub(replacer, text)
+            
+            # 1. context에서 먼저 찾기
+            if var in self.context:
+                return str(self.context[var])
+            
+            # 2. 환경변수에서 찾기
+            env_val = os.getenv(var)
+            if env_val is not None:
+                return env_val
+            
+            # 3. default 값 사용
+            return default
+        
+        return self.ENV_PATTERN.sub(replacer, text)
 
     # ------------------------------------------------------------------
     # {{VAR}} → context dict 치환

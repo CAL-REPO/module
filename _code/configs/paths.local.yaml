@@ -10,20 +10,17 @@ root: "M:/CALife/CAShop - 구매대행"
 
 code_dir: "${root}/_code"
 scripts_dir: "${code_dir}/scripts"
-modules_dir: "{code_dir}/modules"
-db_dir: "{code_dir}/data/db"
-fonts_dir: "{code_dir}/data/fonts"
+modules_dir: "${code_dir}/modules"
+db_dir: "${code_dir}/data/db"
+fonts_dir: "${code_dir}/data/fonts"
 
-configs_dir: "{code_dir}/configs"
-
-configs_loader_paths:
-  excel: "${configs_dir}/config_loader_excel.yaml"
-  firefox: "${configs_dir}/config_loader_firefox.yaml"
-  crawl: "${configs_dir}/config_loader_crawl.yaml"
-  image: "${configs_dir}/config_loader_image.yaml"
-  ocr: "${configs_dir}/config_loader_ocr.yaml"
-  overlay: "${configs_dir}/config_loader_overlay.yaml"
+configs_dir: "${code_dir}/configs"
+configs_loader_dir: "${configs_dir}/loader"
+configs_loader_file_path:
+  configs_loader_oto: "${configs_loader_dir}/config_loader_oto.yaml"
 
 
+temp_input_dir: "${base_path}/input"
+temp_output_dir: "${base_path}/output/temp"
 output_data_dir: "${root}/_data"
 public_dir: "${root}/_public"

@@ -1,0 +1,139 @@
+# ============================================================================
+# ImageOCR - OTO Configuration
+# ============================================================================
+# OTO 파이프라인에서 사용하는 ImageOCR 설정
+# 필수 항목만 활성화, 고급 옵션은 주석 처리
+
+ocr:
+  # --------------------------------------------------------------------------
+  # 1. Source - 소스 이미지 설정 (런타임에서 Image 객체 전달)
+  # --------------------------------------------------------------------------
+  source:
+    path: ""          # 기본값 (런타임 오버라이드)
+    # must_exist: false
+    # convert_mode: "RGB"
+  
+  # --------------------------------------------------------------------------
+  # 2. Provider - OCR 제공자 설정
+  # --------------------------------------------------------------------------
+  provider:
+    provider: "paddle"                  # OCR 제공자: paddle, tesseract
+    langs: ["ch", "en"]                 # 언어 코드 목록
+    min_conf: 0.5                       # 최소 신뢰도 (0.0-1.0)
+    
+    # PaddleOCR 전용 설정
+    # paddle_device: "cpu"
+    # paddle_use_angle_cls: true
+    # paddle_instance: null
+  
+  # --------------------------------------------------------------------------
+  # 3. Preprocess - OCR 전처리 설정
+  # --------------------------------------------------------------------------
+  # preprocess:
+  #   max_width: null
+  
+  # --------------------------------------------------------------------------
+  # 4. Postprocess - OCR 후처리 설정
+  # --------------------------------------------------------------------------
+  postprocess:
+    strip_special_chars: true           # 특수문자 제거
+    filter_alphanumeric: true           # 영숫자만 있는 텍스트 필터링
+    deduplicate_iou_threshold: 0.7      # 중복 제거 IoU 임계값
+    prefer_lang_order: ["ch", "en"]     # 언어 우선순위
+  
+  # --------------------------------------------------------------------------
+  # 5. Save - 이미지 저장 설정
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true                     # OCR 결과 이미지 저장 활성화
+    directory: "${temp_input_dir}"      # 저장 디렉토리
+    # name:
+    #   as_type: "file"
+    #   prefix: null
+    #   name: ""
+    #   suffix: "_ocr"
+    #   tail: null
+    #   extension: null
+    #   delimiter: "_"
+    #   tail_mode: "counter"
+    #   date_format: "%Y-%m-%d"
+    #   counter_width: 3
+    #   auto_expand: true
+    #   tail_suffix: null
+    #   sanitize: true
+    #   case: "keep"
+    #   ensure_unique: true
+    # ops:
+    #   as_type: "file"
+    #   exist:
+    #     must_exist: false
+    #     create_if_missing: true
+    #     overwrite: false
+    #   ext:
+    #     require_ext: false
+    #     default_ext: null
+    #     allowed_exts: null
+    # format: null
+    # quality: 95
+  
+  # --------------------------------------------------------------------------
+  # 6. Meta - 메타데이터 저장 설정
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true                     # OCR 메타 저장 활성화
+    directory: "${temp_input_dir}"      # 메타 저장 디렉토리
+    # name:
+    #   as_type: "file"
+    #   prefix: null
+    #   name: ""
+    #   suffix: "_ocr"
+    #   tail: null
+    #   extension: ".json"
+    #   delimiter: "_"
+    #   tail_mode: null
+    #   date_format: "%Y-%m-%d"
+    #   counter_width: 3
+    #   auto_expand: true
+    #   tail_suffix: null
+    #   sanitize: true
+    #   case: "keep"
+    #   ensure_unique: false
+    # ops:
+    #   as_type: "file"
+    #   exist:
+    #     must_exist: false
+    #     create_if_missing: true
+    #     overwrite: true
+    #   ext:
+    #     require_ext: false
+    #     default_ext: ".json"
+    #     allowed_exts: null
+  
+  # --------------------------------------------------------------------------
+  # 7. Log - 로그 설정
+  # --------------------------------------------------------------------------
+  log:
+    name: "image_ocr"                   # 서비스 이름 (필수)
+    level: "INFO"                       # 로그 레벨
+    # format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    # colorize: true
+    # serialize: false
+    # backtrace: false
+    # diagnose: false
+    # enqueue: false
+    # catch: true
+    
+    handlers:
+      - sink: "output/logs/image_ocr_{time:YYYY-MM-DD}.log"
+        # level: "DEBUG"
+        # format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
+        rotation: "1 day"
+        retention: "7 days"
+        # compression: "zip"
+        # encoding: "utf-8"
+        # colorize: false
+        # serialize: false
+        # backtrace: true
+        # diagnose: false
+        # enqueue: false
+        # catch: true

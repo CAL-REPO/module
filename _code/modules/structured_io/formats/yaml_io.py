@@ -37,24 +37,29 @@ class YamlParser(BaseParser):
 
     def parse(self, text: str, base_path: Path | None = None) -> dict:
         try:
-            # 1) Placeholder/Env
-            if self.policy.enable_placeholder or self.policy.enable_env:
-                placeholder = PlaceholderResolver(context=self.context)
-                text = placeholder.apply(text)
-
-            # 2) YAML load (base_path 유지해서 !include 상대경로 대응)
+            # 1) First pass: Load raw YAML to get initial values
             loader_cls = SafeLoader if self.policy.is_safe_loader() else FullLoader
             stream: Any
             if base_path is not None:
                 stream_io = io.StringIO(text)
-                setattr(stream_io, "name", str(base_path))  # include 기준 경로 제공
+                setattr(stream_io, "name", str(base_path))
                 stream = stream_io
             else:
                 stream = text
+            
+            raw_data = yaml.load(stream, Loader=loader_cls) or {}
+            
+            # 2) Build context from raw data + user context
+            combined_context = {**raw_data, **(self.context or {})}
+            
+            # 3) Placeholder/Env resolution with context (recursive)
+            if self.policy.enable_placeholder or self.policy.enable_env:
+                placeholder = PlaceholderResolver(context=combined_context, recursive=True)
+                data = placeholder.apply(raw_data)
+            else:
+                data = raw_data
 
-            data = yaml.load(stream, Loader=loader_cls) or {}
-
-            # 3) Reference
+            # 4) Reference resolution
             if self.policy.enable_reference and isinstance(data, dict):
                 data = ReferenceResolver(data, recursive=True).apply(data)
 

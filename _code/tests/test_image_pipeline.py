@@ -1,139 +1,209 @@
 # -*- coding: utf-8 -*-
-"""Test script for 3-entrypoint image pipeline.
+"""Image Processing Pipeline Test - Updated for New Architecture
 
-Demonstrates the complete workflow:
-1. ImageLoader - Load and optionally resize image
-2. ImageOCR - Run OCR and get results dict with resize_ratio
-3. ImageOverlay - Overlay OCR results on original image
+Tests the complete pipeline with SRP compliance:
+ImageLoader → ImageOCR → [Translation in script] → ImageOverlay
+
+Key Design Principles:
+1. Each module does only its job (SRP)
+2. Pipeline coordination happens in script
+3. OCRItem → OverlayItemPolicy conversion in script
+4. Image objects passed between modules (no redundant FSO access)
 """
 
 from pathlib import Path
-from PIL import Image
+from typing import List
 import sys
 
 # Add modules to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "modules"))
 
-from image_utils import ImageLoader, ImageLoaderPolicy, ImageOverlay, ImageOverlayPolicy, ImageSourcePolicy, ImagePolicy, OverlayFontPolicy
-from image_utils.services.ocr import ImageOCR, OcrPolicy
+from image_utils.services.image_loader import ImageLoader
+from image_utils.services.image_ocr import ImageOCR
+from image_utils.services.image_overlay import ImageOverlay
+from image_utils.core.models import OCRItem
+from image_utils.core.policy import OverlayItemPolicy
 
 
 def test_pipeline(image_path: Path):
-    """Test complete pipeline: load → ocr → overlay."""
+    """Test complete image processing pipeline.
     
-    print("=" * 70)
-    print("3-Entrypoint Image Pipeline Test")
-    print("=" * 70)
+    Args:
+        image_path: Path to test image
+    """
+    print("=" * 80)
+    print("Image Processing Pipeline Test - New Architecture")
+    print("=" * 80)
+    print(f"Test image: {image_path}")
     
-    # ========================================================================
-    # Entrypoint 1: ImageLoader
-    # ========================================================================
-    print("\n[1/3] ImageLoader - Loading image")
-    print("-" * 70)
+    # =========================================================================
+    # Step 1: Load Image
+    # =========================================================================
+    print("\n[Step 1/5] ImageLoader: Load and preprocess image")
+    print("-" * 80)
     
-    loader_policy = ImageLoaderPolicy(
-        src_path=image_path,
-        # Optional: save copy, resize, etc.
-    )
-    loader = ImageLoader(loader_policy)
-    result = loader.run()
+    loader = ImageLoader()
+    loader_result = loader.run(source_override=str(image_path))
     
-    print(f"✅ Loaded: {result['image'].size} {result['image'].mode}")
-    print(f"   Metadata: {result['metadata']}")
-    
-    # ========================================================================
-    # Entrypoint 2: ImageOCR
-    # ========================================================================
-    print("\n[2/3] ImageOCR - Running OCR")
-    print("-" * 70)
-    
-    ocr_policy = OcrPolicy(
-        file={"file_path": str(image_path), "save_img": False, "save_ocr_meta": True},
-        preprocess={"max_width": 1024},  # Resize for OCR
-        provider={"langs": ["ch", "en"], "min_conf": 0.3},
-    )
-    
-    try:
-        ocr = ImageOCR(ocr_policy)
-        ocr_result = ocr.run()
-        
-        print(f"✅ OCR Complete:")
-        print(f"   Image: {ocr_result['image_meta']['width']}x{ocr_result['image_meta']['height']}")
-        print(f"   Resize ratio: {ocr_result['resize_ratio']}")
-        print(f"   OCR items: {len(ocr_result['ocr_results'])}")
-        
-        # Print first few OCR results
-        for idx, item in enumerate(ocr_result['ocr_results'][:3], 1):
-            print(f"   [{idx}] '{item['text']}' (conf: {item['conf']:.2f})")
-        
-    except Exception as e:
-        print(f"❌ OCR failed: {e}")
-        print("   Skipping overlay test")
+    if not loader_result["success"]:
+        print(f"❌ ImageLoader failed: {loader_result['error']}")
         return
     
-    # ========================================================================
-    # Entrypoint 3: ImageOverlay
-    # ========================================================================
-    print("\n[3/3] ImageOverlay - Overlaying OCR results")
-    print("-" * 70)
+    image = loader_result["image"]
+    print(f"✅ Image loaded: {image.size} {image.mode}")
+    print(f"   Source: {loader_result['original_path']}")
+    if loader_result.get("saved_path"):
+        print(f"   Saved to: {loader_result['saved_path']}")
     
-    overlay_policy = ImageOverlayPolicy(
-        source=ImageSourcePolicy(path=image_path),  # pyright: ignore
-        output=ImagePolicy(  # pyright: ignore
-            directory=image_path.parent / "output",
-            suffix="_overlay",
-        ),
-        ocr_results=ocr_result['ocr_results'],
-        resize_ratio=ocr_result['resize_ratio'],  # Apply coordinate transformation
-        font=OverlayFontPolicy(  # pyright: ignore
-            family="arial.ttf",
-            size=20,
-            fill="#FF0000",
-        ),
-        background_opacity=0.3,
+    # =========================================================================
+    # Step 2: OCR (Optical Character Recognition)
+    # =========================================================================
+    print("\n[Step 2/5] ImageOCR: Detect text in image")
+    print("-" * 80)
+    
+    ocr = ImageOCR()
+    ocr_result = ocr.run(
+        source_override=str(image_path),
+        image=image,  # Pass Image object from Step 1 (no redundant FSO)
     )
     
-    try:
-        overlay = ImageOverlay(overlay_policy)
-        output_path, output_meta = overlay.run()
-        
-        print(f"✅ Overlay Complete:")
-        print(f"   Output: {output_path}")
-        print(f"   Size: {output_meta.width}x{output_meta.height} if output_meta else 'N/A'}")
-        
-    except Exception as e:
-        print(f"❌ Overlay failed: {e}")
-        import traceback
-        traceback.print_exc()
+    if not ocr_result["success"]:
+        print(f"❌ ImageOCR failed: {ocr_result['error']}")
+        return
     
-    print("\n" + "=" * 70)
-    print("Pipeline test complete!")
-    print("=" * 70)
+    ocr_items: List[OCRItem] = ocr_result["ocr_items"]
+    preprocessed_image = ocr_result["image"]
+    
+    print(f"✅ OCR completed: {len(ocr_items)} text items detected")
+    for idx, item in enumerate(ocr_items[:5]):  # Show first 5
+        print(f"   [{idx+1}] '{item.text}' (conf={item.conf:.2f}, lang={item.lang})")
+    if len(ocr_items) > 5:
+        print(f"   ... and {len(ocr_items) - 5} more items")
+    
+    if not ocr_items:
+        print("⚠️  No text detected, skipping overlay")
+        return
+    
+    # =========================================================================
+    # Step 3: Translation (Optional - script responsibility)
+    # =========================================================================
+    print("\n[Step 3/5] Translation: Translate OCR results (script responsibility)")
+    print("-" * 80)
+    
+    # Here you would call TranslateUtils or similar
+    # For this test, we'll simulate translation by reversing text
+    translated_texts = {}
+    for item in ocr_items:
+        # Simulate translation: reverse the text for demo
+        translated_texts[item.text] = f"[TR] {item.text[::-1]}"
+    
+    print(f"✅ Translation completed: {len(translated_texts)} texts translated")
+    for original, translated in list(translated_texts.items())[:3]:
+        print(f"   '{original}' → '{translated}'")
+    
+    # =========================================================================
+    # Step 4: Convert OCRItem → OverlayItemPolicy (script responsibility)
+    # =========================================================================
+    print("\n[Step 4/5] Conversion: OCRItem → OverlayItemPolicy (script responsibility)")
+    print("-" * 80)
+    
+    overlay_items: List[OverlayItemPolicy] = []
+    for item in ocr_items:
+        # Use OCRItem.to_overlay_item() method
+        translated_text = translated_texts.get(item.text, item.text)
+        overlay_item = item.to_overlay_item(text_override=translated_text)
+        overlay_items.append(overlay_item)
+    
+    print(f"✅ Conversion completed: {len(overlay_items)} overlay items created")
+    for idx, item in enumerate(overlay_items[:3]):
+        print(f"   [{idx+1}] '{item.text[:30]}...' polygon={len(item.polygon)} points")
+    
+    # =========================================================================
+    # Step 5: Image Overlay
+    # =========================================================================
+    print("\n[Step 5/5] ImageOverlay: Render overlay items on image")
+    print("-" * 80)
+    
+    overlay = ImageOverlay()
+    overlay_result = overlay.run(
+        source_path=str(image_path),
+        image=preprocessed_image,  # Pass preprocessed image from Step 2
+        overlay_items=overlay_items,  # Pass converted items from Step 4
+    )
+    
+    if not overlay_result["success"]:
+        print(f"❌ ImageOverlay failed: {overlay_result['error']}")
+        return
+    
+    final_image = overlay_result["image"]
+    print(f"✅ Overlay completed: {overlay_result['overlaid_items']} items rendered")
+    print(f"   Image size: {overlay_result['image_size']}")
+    if overlay_result.get("saved_path"):
+        print(f"   Saved to: {overlay_result['saved_path']}")
+    if overlay_result.get("meta_path"):
+        print(f"   Metadata: {overlay_result['meta_path']}")
+    
+    # =========================================================================
+    # Summary
+    # =========================================================================
+    print("\n" + "=" * 80)
+    print("Pipeline Test Summary")
+    print("=" * 80)
+    print(f"✅ All steps completed successfully!")
+    print(f"   1. Loaded image: {image.size} {image.mode}")
+    print(f"   2. Detected texts: {len(ocr_items)}")
+    print(f"   3. Translated texts: {len(translated_texts)}")
+    print(f"   4. Converted items: {len(overlay_items)}")
+    print(f"   5. Overlaid items: {overlay_result['overlaid_items']}")
+    print(f"   → Final image: {final_image.size} {final_image.mode}")
+    print("=" * 80)
+    print("\n✨ Pipeline architecture validated:")
+    print("   - SRP compliance: Each module does one thing")
+    print("   - Image objects passed (no redundant FSO)")
+    print("   - Conversion logic in script (not in modules)")
+    print("=" * 80)
 
 
 if __name__ == "__main__":
-    # Test with first available image in _public/01.IMAGES/
-    images_dir = Path(__file__).parent.parent.parent / "_public" / "01.IMAGES"
+    # Test with first available image
+    images_dir = Path(__file__).parent.parent.parent / "_public" / "01.IMAGE"
     
-    # Find first JPG/PNG
-    for category_dir in images_dir.iterdir():
-        if not category_dir.is_dir():
-            continue
-        
-        for img_file in category_dir.glob("*.[jJ][pP][gG]"):
-            print(f"Testing with: {img_file}")
-            test_pipeline(img_file)
-            break
-        else:
-            # Try PNG
-            for img_file in category_dir.glob("*.[pP][nN][gG]"):
-                print(f"Testing with: {img_file}")
-                test_pipeline(img_file)
+    test_image = None
+    
+    # Find first image
+    if images_dir.exists():
+        for category_dir in images_dir.iterdir():
+            if not category_dir.is_dir():
+                continue
+            
+            # Try JPG
+            for img_file in list(category_dir.glob("*.[jJ][pP][gG]"))[:1]:
+                test_image = img_file
                 break
-        
-        # Found image, stop searching
-        if img_file:
-            break
+            
+            # Try PNG
+            if not test_image:
+                for img_file in list(category_dir.glob("*.[pP][nN][gG]"))[:1]:
+                    test_image = img_file
+                    break
+            
+            if test_image:
+                break
+    
+    # Fallback to test_images
+    if not test_image:
+        test_dir = Path(__file__).parent.parent / "output" / "test_images"
+        if test_dir.exists():
+            for img_file in list(test_dir.glob("*.png"))[:1] + list(test_dir.glob("*.jpg"))[:1]:
+                test_image = img_file
+                break
+    
+    if test_image and test_image.exists():
+        print(f"Using test image: {test_image}\n")
+        test_pipeline(test_image)
     else:
-        print("No test images found in _public/01.IMAGES/")
-        print("Please provide an image path manually.")
+        print("❌ No test images found!")
+        print("   Please provide an image in:")
+        print(f"   - {images_dir}")
+        print(f"   - {Path(__file__).parent.parent / 'output' / 'test_images'}")
+

@@ -1,50 +1,71 @@
 # -*- coding: utf-8 -*-
-# crawl_utils/services/entry_points/detail.py
 """
-DetailEntryPoint - 상세페이지 크롤링 전용 엔트리포인트
+CrawlProductDetail - 상세페이지 크롤링 전용 어댑터 엔트리포인트
 
-단일 상품의 상세 URL을 입력받아:
-1. 상세페이지 접근
-2. JS 실행으로 데이터 추출
-3. SmartNormalizer로 자동 타입 추론 정규화
-4. FileSaver로 저장
+단일 상품 상세 URL을 대상으로 다음을 수행:
+1) 페이지 로드 → 2) 대기 → 3) JS 실행으로 데이터 추출 → 4) SmartNormalizer 정규화 → 5) FileSaver 저장
 
-사용 예시:
-    >>> from crawl_utils.services.entry_points import DetailEntryPoint
+예시:
+    >>> from crawl_utils.adapter.crawl_product_detail import CrawlProductDetail, CrawlProductDetailPolicy
     >>> from crawl_utils.services import SeleniumNavigator, SeleniumAdapter
+    >>> from crawl_utils.core.policy import StoragePolicy, StorageTargetPolicy
     >>> from crawl_utils.provider import create_webdriver
-    >>> 
-    >>> # 브라우저 생성
     >>> driver = create_webdriver("firefox", "configs/firefox.yaml")
     >>> adapter = SeleniumAdapter(driver)
-    >>> navigator = SeleniumNavigator(adapter, policy)
-    >>> 
-    >>> # 상세페이지 크롤링
-    >>> entry_point = DetailEntryPoint(navigator, policy)
-    >>> summary = await entry_point.run(
-    ...     url="https://item.taobao.com/item.htm?id=123456",
-    ...     product_id="nike_air_max"
+    >>> policy = CrawlProductDetailPolicy(
+    ...     storage=StoragePolicy(
+    ...         image=StorageTargetPolicy(base_dir="_output/detail/images"),
+    ...         text=StorageTargetPolicy(base_dir="_output/detail/text"),
+    ...     )
     ... )
-    >>> 
-    >>> print(f"이미지: {len(summary['image'])}개")
-    >>> print(f"텍스트: {len(summary['text'])}개")
+    >>> navigator = SeleniumNavigator(adapter, policy)
+    >>> entry = CrawlProductDetail(navigator, policy)
+    >>> summary = await entry.run("https://item.taobao.com/item.htm?id=123456")
 """
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse, parse_qs
 
-from ...core.interfaces import Navigator, ResourceFetcher
-from ...core.models import SaveSummary
-from ...core.policy import CrawlPolicy, ExtractorType
-from ..smart_normalizer import SmartNormalizer
-from ..saver import FileSaver
-from ..fetcher import HTTPFetcher
+from ..core.interfaces import Navigator, ResourceFetcher
+from ..core.models import SaveSummary
+from ..core.policy import (
+    WaitPolicy,
+    ExtractorPolicy,
+    StoragePolicy,
+    HttpSessionPolicy,
+    ExtractorType,
+)
+from ..services.smart_normalizer import SmartNormalizer
+from ..services.saver import FileSaver
+from ..services.fetcher import HTTPFetcher
+from pydantic import BaseModel, Field
 
 
-class DetailEntryPoint:
+class CrawlProductDetailPolicy(BaseModel):
+    """상세페이지 전용 정책 (중복 최소화)
+
+    기존 공용 정책 모델(WaitPolicy, ExtractorPolicy, StoragePolicy, HttpSessionPolicy)을 조합하여
+    상세 크롤링에 필요한 설정만 담습니다. SmartNormalizer 사용으로 정규화 규칙은 불필요합니다.
+
+    Fields:
+        wait: 콘텐츠 로딩 대기 정책
+        extractor: 추출 정책 (기본은 DOM, 권장: JS로 변경)
+        storage: 저장 정책 (image/text/file 대상으로 경로/이름 정책)
+        http_session: HTTP 페칭에 사용할 헤더/세션 정책
+    """
+
+    wait: WaitPolicy = Field(default_factory=WaitPolicy)
+    extractor: ExtractorPolicy = Field(default_factory=ExtractorPolicy)
+    storage: StoragePolicy
+    http_session: HttpSessionPolicy = Field(default_factory=HttpSessionPolicy)
+
+
+class CrawlProductDetail:
     """
     상세페이지 크롤링 엔트리포인트
     
@@ -65,20 +86,20 @@ class DetailEntryPoint:
     def __init__(
         self,
         navigator: Navigator,
-        policy: CrawlPolicy,
+        policy: CrawlProductDetailPolicy,
         fetcher: Optional[ResourceFetcher] = None,
     ):
         """
-        DetailEntryPoint 초기화
+        CrawlProductDetail 초기화
         
         Args:
             navigator: SeleniumNavigator 등 페이지 탐색 담당 객체
-            policy: CrawlPolicy (wait, extractor, storage 설정)
+            policy: CrawlProductDetailPolicy (wait, extractor, storage, http_session)
             fetcher: HTTPFetcher 등 리소스 다운로드 담당 (None이면 기본 HTTPFetcher 생성)
         """
         self.navigator = navigator
         self.policy = policy
-        self.fetcher = fetcher or HTTPFetcher()
+        self.fetcher = fetcher or self._create_fetcher()
         
         # SmartNormalizer 사용 (자동 타입 추론)
         self.normalizer = SmartNormalizer()
@@ -255,3 +276,29 @@ class DetailEntryPoint:
         
         # 3. 기본값
         return "unknown"
+
+    # ---------------------------------------------------------------------
+    # Internal helpers
+    # ---------------------------------------------------------------------
+    def _create_fetcher(self) -> HTTPFetcher:
+        """정책의 http_session 설정을 반영하여 HTTPFetcher 생성"""
+        headers = self._load_session_headers()
+        return HTTPFetcher(default_headers=headers)
+
+    def _load_session_headers(self) -> Dict[str, str]:
+        """HttpSessionPolicy 기반으로 헤더 로드/병합"""
+        http_policy = self.policy.http_session
+        headers: Dict[str, str] = dict(http_policy.headers)
+        path = http_policy.session_json_path
+        if http_policy.use_browser_headers and path:
+            try:
+                data = json.loads(Path(path).read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    source = data.get("headers") if isinstance(data.get("headers"), dict) else data
+                    if isinstance(source, dict):
+                        headers = {**{k: v for k, v in source.items() if isinstance(v, str)}, **headers}
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
+        return headers

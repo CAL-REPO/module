@@ -20,9 +20,9 @@ from logs_utils import LogManager
 from data_utils import GeometryOps
 from path_utils import resolve
 
-from ..core.policy import ImageOverlayPolicy, OverlayTextPolicy
-from ..core.models import OCRItem
+from ..core.policy import ImageOverlayPolicy, OverlayItemPolicy
 from ..services.io import ImageWriter
+from ..services.renderer import OverlayTextRenderer
 
 
 class ImageOverlay:
@@ -63,7 +63,10 @@ class ImageOverlay:
         # ImageWriter 초기화 (FSO 기반)
         self.writer = ImageWriter(self.policy.save, self.policy.meta)
         
-        self.log.info(f"ImageOverlay initialized: source={self.policy.source.path}, texts={len(self.policy.texts)}")
+        # OverlayTextRenderer는 나중에 이미지와 함께 초기화
+        self.renderer = None
+        
+        self.log.info(f"ImageOverlay initialized: source={self.policy.source.path}, items={len(self.policy.items)}")
     
     def _load_config(
         self,
@@ -107,147 +110,108 @@ class ImageOverlay:
         )
     
     # ==========================================================================
-    # Factory Methods
+    # Pipeline Integration
     # ==========================================================================
-    
-    @classmethod
-    def from_ocr_items(
-        cls,
-        source_path: Union[str, Path],
-        ocr_items: List[OCRItem],
-        background_opacity: float = 0.7,
-        save_policy: Optional[Dict[str, Any]] = None,
-        log: Optional[LogManager] = None,
-    ) -> "ImageOverlay":
-        """OCR 결과에서 ImageOverlay 생성.
-        
-        Args:
-            source_path: 소스 이미지 경로
-            ocr_items: OCRItem 리스트
-            background_opacity: 배경 투명도 (0.0-1.0)
-            save_policy: 저장 정책 딕셔너리
-            log: 외부 LogManager
-        
-        Returns:
-            ImageOverlay 인스턴스
-        """
-        # OCRItem → OverlayTextPolicy 변환
-        texts = []
-        for item in ocr_items:
-            text_policy = OverlayTextPolicy(
-                text=item.text,
-                polygon=item.quad,
-            )
-            texts.append(text_policy)
-        
-        # ImageOverlayPolicy 생성
-        config_dict = {
-            "source": {"path": str(source_path)},
-            "texts": [t.model_dump() for t in texts],
-            "background_opacity": background_opacity,
-        }
-        
-        if save_policy:
-            config_dict["save"] = save_policy
-        
-        policy = ImageOverlayPolicy(**config_dict)
-        return cls(policy=policy, log=log)
+    # Note: OCR → OverlayItem 변환은 pipeline scripts에서 수행
+    # OCRItem.to_overlay_item()을 사용하여 변환
     
     def run(
         self,
-        source_override: Optional[Union[str, Path]] = None,
-        texts_override: Optional[List[OverlayTextPolicy]] = None,
+        source_path: Union[str, Path],
+        image: Optional[Image.Image] = None,
+        overlay_items: Optional[List[OverlayItemPolicy]] = None,
     ) -> Dict[str, Any]:
         """텍스트 오버레이 실행.
         
+        SRP: ImageOverlay는 주어진 overlay_items를 이미지에 렌더링하는 것만 담당.
+        OCR → Translation → OverlayItem 변환은 pipeline scripts에서 처리.
+        
         Args:
-            source_override: 소스 경로 오버라이드 (policy.source.path 대신 사용)
-            texts_override: 텍스트 정책 오버라이드 (policy.texts 대신 사용)
+            source_path: 소스 경로 (메타데이터 저장용)
+            image: PIL Image 객체 (None이면 source_path에서 로드)
+            overlay_items: OverlayItemPolicy 리스트 (None이면 policy.items 사용)
         
         Returns:
             결과 딕셔너리:
             {
                 "success": bool,
-                "original_path": Path,
+                "source_path": Path,
                 "saved_path": Optional[Path],
                 "meta_path": Optional[Path],
-                "overlaid_texts": int,
-                "original_size": Tuple[int, int],
+                "overlaid_items": int,
+                "image_size": Tuple[int, int],
+                "image": Optional[Image.Image],  # 오버레이된 이미지
                 "error": Optional[str]
             }
         """
         result = {
             "success": False,
-            "original_path": None,
+            "source_path": resolve(source_path),
             "saved_path": None,
             "meta_path": None,
-            "overlaid_texts": 0,
-            "original_size": None,
+            "overlaid_items": 0,
+            "image_size": None,
+            "image": None,
             "error": None,
         }
         
         try:
-            # 1. 소스 경로 결정
-            source_path = source_override or self.policy.source.path
-            source_path = resolve(source_path)
-            result["original_path"] = source_path
+            # 1. 이미지 로드 (제공되지 않은 경우)
+            if image is None:
+                self.log.info(f"Loading image from: {result['source_path']}")
+                from ..services.io import ImageReader
+                reader = ImageReader()
+                img = reader.read(
+                    path=result['source_path'],
+                    must_exist=self.policy.source.must_exist,
+                    convert_mode=self.policy.source.convert_mode,
+                )
+            else:
+                self.log.info(f"Using provided image object")
+                img = image
             
-            self.log.info(f"Loading image for overlay: {source_path}")
+            result["image_size"] = img.size
+            self.log.info(f"Image size: {img.size} {img.mode}")
             
-            # 2. 이미지 로드
-            img = self.reader.read(
-                path=source_path,
-                must_exist=self.policy.source.must_exist,
-                convert_mode=self.policy.source.convert_mode,
-            )
-            result["original_size"] = img.size
+            # 2. overlay_items 결정
+            items = overlay_items or self.policy.items
             
-            self.log.info(f"Loaded image: {img.size} {img.mode}")
-            
-            # 3. 텍스트 정책 결정
-            texts = texts_override or self.policy.texts
-            
-            if not texts:
-                self.log.warning("No texts to overlay")
+            if not items:
+                self.log.warning("No overlay items to render")
                 result["success"] = True
+                result["image"] = img
                 return result
             
-            self.log.info(f"Overlaying {len(texts)} text items...")
+            self.log.info(f"Overlaying {len(items)} items...")
             
-            # 4. RGBA 변환 (투명도 처리를 위해)
+            # 3. RGBA 변환 (투명도 처리를 위해)
             if img.mode != "RGBA":
                 img = img.convert("RGBA")
             
-            # 5. 오버레이 레이어 생성
+            # 4. 오버레이 레이어 생성
             overlay_layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
             
-            # 6. 각 텍스트 렌더링
+            # 5. 각 아이템 렌더링
             from PIL import ImageDraw
-            draw = ImageDraw.Draw(overlay_layer)
+            from ..services.renderer import OverlayTextRenderer
             
-            for idx, text_policy in enumerate(texts):
+            draw = ImageDraw.Draw(overlay_layer)
+            renderer = OverlayTextRenderer(draw)  # draw 객체와 함께 초기화
+            
+            for idx, item in enumerate(items):
                 try:
-                    self.log.debug(f"Rendering text {idx+1}/{len(texts)}: '{text_policy.text}'")
+                    self.log.debug(f"Rendering item {idx+1}/{len(items)}: '{item.text}'")
                     
-                    # OverlayTextRenderer 사용
-                    self.renderer.render_text_on_polygon(
-                        draw=draw,
-                        text=text_policy.text,
-                        polygon=text_policy.polygon,
-                        font_policy=text_policy.font,
-                        anchor=text_policy.anchor,
-                        offset=text_policy.offset,
-                        max_width_ratio=text_policy.max_width_ratio,
-                        background_opacity=self.policy.background_opacity,
-                    )
+                    # OverlayItemPolicy를 OverlayTextRenderer에 전달
+                    renderer.render_text(item)
                     
-                    result["overlaid_texts"] += 1
+                    result["overlaid_items"] += 1
                     
                 except Exception as e:
-                    self.log.warning(f"Failed to render text {idx+1}: {e}")
+                    self.log.warning(f"Failed to render item {idx+1}: {e}")
                     continue
             
-            # 7. 레이어 합성
+            # 6. 레이어 합성
             self.log.info("Compositing layers...")
             
             # 배경 투명도 적용
@@ -265,42 +229,46 @@ class ImageOverlay:
                 rgb_img.paste(result_img, mask=result_img.split()[3])
                 result_img = rgb_img
             
-            self.log.success(f"Overlay completed: {result['overlaid_texts']} texts rendered")
+            result["image"] = result_img
+            self.log.success(f"Overlay completed: {result['overlaid_items']} items rendered")
             
-            # 8. 이미지 저장
+            # 7. 이미지 저장
             if self.policy.save.save_copy:
                 self.log.info("Saving overlaid image...")
                 
-                saved_path = self.writer.write(
+                base_path = Path(result['source_path'])
+                saved_path = self.writer.save_image(
                     image=result_img,
-                    policy=self.policy.save,
-                    source_path=source_path,
+                    base_path=base_path,
                 )
                 result["saved_path"] = saved_path
                 self.log.success(f"Saved to: {saved_path}")
             
-            # 9. 메타데이터 저장
+            # 8. 메타데이터 저장
             if self.policy.meta.save_meta:
                 self.log.info("Saving overlay metadata...")
                 
                 meta_data = {
-                    "original_path": str(source_path),
-                    "original_size": result["original_size"],
+                    "source_path": str(result['source_path']),
+                    "image_size": result["image_size"],
                     "saved_path": str(result["saved_path"]) if result["saved_path"] else None,
-                    "overlaid_texts": result["overlaid_texts"],
+                    "overlaid_items": result["overlaid_items"],
                     "background_opacity": self.policy.background_opacity,
-                    "texts": [
+                    "items": [
                         {
-                            "text": t.text,
-                            "polygon": t.polygon,
-                            "font": t.font.model_dump() if t.font else None,
+                            "text": item.text,
+                            "polygon": item.polygon,
+                            "font": item.font.model_dump() if item.font else None,
+                            "conf": item.conf,
+                            "lang": item.lang,
                         }
-                        for t in texts
+                        for item in items
                     ]
                 }
                 
                 # Use ImageWriter for metadata with FSO
-                meta_path = self.writer.save_meta(meta_data, source_path)
+                base_path = Path(result['source_path'])
+                meta_path = self.writer.save_meta(meta_data, base_path)
                 if meta_path:
                     result["meta_path"] = meta_path
                     self.log.success(f"Metadata saved to: {meta_path}")
@@ -321,4 +289,4 @@ class ImageOverlay:
         return result
     
     def __repr__(self) -> str:
-        return f"ImageOverlay(source={self.policy.source.path}, texts={len(self.policy.texts)})"
+        return f"ImageOverlay(source={self.policy.source.path}, items={len(self.policy.items)})"

@@ -273,26 +273,30 @@ class ImageOCRPolicy(BaseModel):
 # 3rd EntryPoint: ImageOverlay
 # ==============================================================================
 
-class OverlayTextPolicy(BaseModel):
-    """Individual text overlay configuration.
+class OverlayItemPolicy(BaseModel):
+    """Individual overlay item configuration.
     
-    Supports:
-    - YAML-based configuration
-    - Dict-based runtime override via **kwargs
-    - Manual coordinate specification via polygon field
+    Compatible with OCRItem structure for seamless integration.
+    OCRItem can be converted to OverlayItemPolicy via to_overlay_item() method.
     
     Attributes:
         text: Text to overlay
-        polygon: Polygon coordinates for text placement
+        polygon: Polygon coordinates for text placement (same as OCRItem.quad)
         font: Font configuration
         anchor: PIL anchor point (e.g., 'mm', 'lt')
         offset: Position offset (dx, dy)
         max_width_ratio: Max text width ratio in bbox
+        
+        # OCRItem compatible fields (optional)
+        conf: Confidence score from OCR
+        bbox: Bounding box from OCR
+        angle_deg: Text rotation angle from OCR
+        lang: Language code from OCR
     """
     text: str = Field(..., description="Text to overlay")
     polygon: List[Tuple[float, float]] = Field(
         ...,
-        description="Polygon coordinates [(x,y), ...]"
+        description="Polygon coordinates [(x,y), ...] (compatible with OCRItem.quad)"
     )
     font: FontPolicy = Field(default_factory=FontPolicy)  # type: ignore
     anchor: str = Field("mm", description="PIL anchor point")
@@ -302,23 +306,26 @@ class OverlayTextPolicy(BaseModel):
         gt=0.0, 
         description="Max text width ratio"
     )
+    
+    # OCRItem compatible fields (optional, for metadata/debugging)
+    conf: Optional[float] = Field(None, description="OCR confidence score")
+    bbox: Optional[Dict[str, float]] = Field(None, description="OCR bounding box")
+    angle_deg: Optional[float] = Field(None, description="OCR text angle")
+    lang: Optional[str] = Field(None, description="OCR language code")
 
 
 class ImageOverlayPolicy(BaseModel):
     """Complete policy for ImageOverlay (3rd entrypoint).
     
-    Combines source, overlay text specifications, save, metadata,
+    Combines source, overlay item specifications, save, metadata,
     and logging policies.
     
-    All overlay data (coordinates, text) must be provided through:
-    - YAML configuration
-    - Runtime dict override via **kwargs
-    
-    Note: OCR results integration is handled separately.
+    Note: ImageOverlay follows SRP - it only overlays provided items.
+    OCR → Translation → OverlayItem conversion is handled in pipeline scripts.
     
     Attributes:
         source: Source image configuration
-        texts: Text overlay configurations
+        items: Overlay item configurations
         background_opacity: Background opacity (0.0-1.0)
         save: Image save configuration
         meta: Metadata save configuration
@@ -332,8 +339,8 @@ class ImageOverlayPolicy(BaseModel):
         # Runtime override
         policy = ImageOverlayPolicy(
             source=ImageSourcePolicy(path=Path('image.jpg')),
-            texts=[
-                OverlayTextPolicy(
+            items=[
+                OverlayItemPolicy(
                     text="Hello",
                     polygon=[(10,10), (100,10), (100,50), (10,50)]
                 )
@@ -341,9 +348,9 @@ class ImageOverlayPolicy(BaseModel):
         )
     """
     source: ImageSourcePolicy
-    texts: List[OverlayTextPolicy] = Field(
+    items: List[OverlayItemPolicy] = Field(
         default_factory=list,
-        description="Text overlay configurations"
+        description="Overlay item configurations"
     )
     background_opacity: float = Field(
         0.0, 
@@ -363,3 +370,4 @@ class ImageOverlayPolicy(BaseModel):
 # Keep old names for backward compatibility (will be removed in future)
 ImagePolicy = ImageSavePolicy  # Updated alias
 ImageProcessorPolicy = ImageProcessPolicy
+OverlayTextPolicy = OverlayItemPolicy  # Deprecated: use OverlayItemPolicy
