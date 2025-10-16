@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import Any, Dict, List, Type, Union, Optional, overload
+from typing import Any, Dict, List, Type, Union, Optional, overload, Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -62,58 +62,105 @@ class ConfigLoader:
     @overload
     @staticmethod
     def load(
-            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any], None],
+            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any]],
         *,
         model: Type[T],
-        policy_overrides: Optional[Dict[str, Any]] = None,
+        policy: Optional[ConfigPolicy] = None,
+        drop_blanks: Optional[bool] = None,
+        resolve_reference: Optional[bool] = None,
+        merge_mode: Optional[Literal["deep", "shallow"]] = None,
         **overrides: Any
     ) -> T: ...
     
     @overload
     @staticmethod
     def load(
-            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any], None],
+            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any]],
         *,
         model: None = None,
-        policy_overrides: Optional[Dict[str, Any]] = None,
+        policy: Optional[ConfigPolicy] = None,
+        drop_blanks: Optional[bool] = None,
+        resolve_reference: Optional[bool] = None,
+        merge_mode: Optional[Literal["deep", "shallow"]] = None,
         **overrides: Any
     ) -> dict: ...
     
     @staticmethod
     def load(
-            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any], None],
+            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any]],
         *,
         model: Optional[Type[T]] = None,
-        policy_overrides: Optional[Dict[str, Any]] = None,
+        policy: Optional[ConfigPolicy] = None,
+        drop_blanks: Optional[bool] = None,
+        resolve_reference: Optional[bool] = None,
+        merge_mode: Optional[Literal["deep", "shallow"]] = None,
         **overrides: Any
     ) -> Union[dict[str, Any], T]:
         """설정을 로드하여 dict 또는 Pydantic 모델로 반환.
         
         Args:
-            cfg_like: 설정 소스 (BaseModel/Path/list[Path]/dict/None)
+            cfg_like: 설정 소스 (BaseModel/Path/list[Path]/dict)
             model: Pydantic 모델 클래스 (있으면 모델 반환, 없으면 dict 반환)
-            policy_overrides: ConfigPolicy 필드 개별 오버라이드
+            policy: ConfigPolicy 객체 (전체 Policy 교체 시)
+            drop_blanks: 공백 값 제거 여부 (기본: True)
+            resolve_reference: Reference 해석 여부 (기본: True)
+            merge_mode: 병합 모드 - "deep" 또는 "shallow" (기본: "deep")
             **overrides: 최종 데이터 오버라이드 (deep merge)
         
         Returns:
             model이 있으면 Pydantic 모델 인스턴스, 없으면 dict
         
+        Raises:
+            TypeError: cfg_like가 None인 경우
+        
         Examples:
-            Dict 반환: config = ConfigLoader.load("config.yaml")
-            Pydantic 모델: policy = ConfigLoader.load("config.yaml", model=MyPolicy)
-            여러 YAML 병합: config = ConfigLoader.load(["base.yaml", "prod.yaml"])
-            Policy override: config = ConfigLoader.load("cfg.yaml", policy_overrides={"yaml.source_paths": [...]})
-            Data override: config = ConfigLoader.load("cfg.yaml", image__max_width=1024)
+            # 기본 사용
+            config = ConfigLoader.load("config.yaml", model=MyPolicy)
+            
+            # 개별 파라미터로 Policy 오버라이드
+            config = ConfigLoader.load(
+                "config.yaml",
+                model=MyPolicy,
+                drop_blanks=False,
+                merge_mode="shallow"
+            )
+            
+            # Policy 객체 전달
+            policy = ConfigPolicy(drop_blanks=False)
+            config = ConfigLoader.load("config.yaml", policy=policy)
+            
+            # 여러 YAML 병합
+            config = ConfigLoader.load(["base.yaml", "prod.yaml"], model=MyPolicy)
+            
+            # 데이터 오버라이드
+            config = ConfigLoader.load("config.yaml", image__max_width=1024)
         
         Notes:
-            - ConfigPolicy는 config_loader.yaml에서 자동 로드됩니다.
-            - policy_overrides로 개별 필드만 변경 가능합니다.
-            - 전체 ConfigPolicy를 교체하려면 ConfigLoader 인스턴스를 직접 생성하세요.
+            - 파라미터 우선순위: 개별 파라미터 > policy > ConfigPolicy 기본값
+            - None 케이스는 load_from_source_paths() 또는 load_from_policy() 사용
         """
-        # policy 생성 (policy_overrides 반영)
-        temp_policy = ConfigPolicy(**(policy_overrides or {})) if policy_overrides else ConfigPolicy()
+        # 🔴 None 케이스 금지
+        if cfg_like is None:
+            raise TypeError(
+                "cfg_like cannot be None. "
+                "Use ConfigLoader.load_from_source_paths() or load_from_policy() instead."
+            )
         
-        # 1. 이미 모델 인스턴스인 경우
+        # 1. Policy 생성 (우선순위: 개별 파라미터 > policy > 기본값)
+        if policy is not None:
+            temp_policy = policy
+        else:
+            temp_policy = ConfigPolicy()
+        
+        # 2. 개별 파라미터로 오버라이드 (policy보다 우선)
+        if drop_blanks is not None:
+            temp_policy = temp_policy.model_copy(update={"drop_blanks": drop_blanks})
+        if resolve_reference is not None:
+            temp_policy = temp_policy.model_copy(update={"resolve_reference": resolve_reference})
+        if merge_mode is not None:
+            temp_policy = temp_policy.model_copy(update={"merge_mode": merge_mode})
+        
+        # 3. 이미 모델 인스턴스인 경우
         if model and isinstance(cfg_like, model):
             if not overrides:
                 return cfg_like
@@ -122,24 +169,7 @@ class ConfigLoader:
             config_dict = apply_overrides(config_dict, overrides, policy=temp_policy)
             return model(**config_dict)
         
-        # 2. None인 경우 처리
-        if cfg_like is None:
-            # policy_overrides가 있으면 ConfigLoader 생성
-            # (yaml.source_paths 또는 config_loader_path 사용)
-            if policy_overrides and (
-                "yaml.source_paths" in policy_overrides or 
-                "config_loader_path" in policy_overrides
-            ):
-                # ✅ CRITICAL: config_loader_path는 cfg_like가 아니라 policy_overrides에 유지!
-                # ConfigLoader.__init__이 자동으로 config_loader_path를 읽어서 정책을 로드함
-                loader = ConfigLoader({}, policy_overrides=policy_overrides)
-                if model:
-                    return loader._as_model_internal(model, **overrides)
-                return loader._as_dict_internal(**overrides)
-            # policy_overrides도 없으면 빈 dict로 처리
-            cfg_like = {}
-        
-        # 3. Dict인 경우 직접 처리
+        # 4. Dict인 경우 직접 처리
         if isinstance(cfg_like, dict):     
             if overrides:
                 cfg_like = apply_overrides(copy.deepcopy(cfg_like), overrides, policy=temp_policy)
@@ -149,12 +179,10 @@ class ConfigLoader:
                 return model(**cfg_like)
             return cfg_like
         
-        # 4. List인 경우 여러 파일 병합 (항상 deep merge)
+        # 5. List인 경우 여러 파일 병합 (항상 deep merge)
         if isinstance(cfg_like, (list, tuple)) and not isinstance(cfg_like, (str, bytes)):
-            # ✅ FIX: static method이므로 임시 parser 생성
-            yaml_policy = policy_overrides.get("yaml") if policy_overrides else None
-            if yaml_policy is None:
-                yaml_policy = ConfigPolicy().yaml
+            # temp_policy에서 yaml policy 가져오기
+            yaml_policy = temp_policy.yaml if temp_policy.yaml else BaseParserPolicy()
             temp_parser = YamlParser(policy=yaml_policy)
             
             # helpers.merge_sequence 호출 (separator 제거)
@@ -167,9 +195,9 @@ class ConfigLoader:
             # 결과 모델/딕셔너리 반환
             return model(**merged_dict) if model else merged_dict
         
-        # 5. Path/str인 경우 ConfigLoader로 로드
+        # 6. Path/str인 경우 ConfigLoader로 로드
         if isinstance(cfg_like, (str, Path)):
-            loader = ConfigLoader(cfg_like, policy_overrides=policy_overrides)
+            loader = ConfigLoader(cfg_like, policy=temp_policy)
             
             # Model이 있으면 모델로 변환
             if model:
@@ -181,31 +209,89 @@ class ConfigLoader:
         # 6. 지원하지 않는 타입
         raise TypeError(f"Unsupported config type: {type(cfg_like)}")
     
+    @staticmethod
+    def load_from_source_paths(
+        source_paths: List[PathLike],
+        *,
+        model: Optional[Type[T]] = None,
+        **overrides: Any
+    ) -> Union[dict, T]:
+        """source_paths에서 직접 로드 (cfg_like=None 케이스 대체).
+        
+        Args:
+            source_paths: 로드할 YAML 파일 경로 리스트
+            model: Pydantic 모델 클래스
+            **overrides: 최종 데이터 오버라이드
+        
+        Returns:
+            model이 있으면 Pydantic 모델, 없으면 dict
+        
+        Examples:
+            # ✅ 명시적
+            config = ConfigLoader.load_from_source_paths(
+                ["base.yaml", "prod.yaml"],
+                model=MyPolicy
+            )
+        """
+        # source_paths를 list로 변환하여 load() 호출
+        return ConfigLoader.load(source_paths, model=model, **overrides)
+    
+    @staticmethod
+    def load_from_policy(
+        policy: ConfigPolicy,
+        *,
+        model: Optional[Type[T]] = None,
+        **overrides: Any
+    ) -> Union[dict, T]:
+        """Policy 객체에서 직접 로드.
+        
+        Args:
+            policy: ConfigPolicy 인스턴스
+            model: Pydantic 모델 클래스
+            **overrides: 최종 데이터 오버라이드
+        
+        Returns:
+            model이 있으면 Pydantic 모델, 없으면 dict
+        
+        Examples:
+            # ✅ 명시적
+            policy = ConfigPolicy(
+                yaml=BaseParserPolicy(source_paths=["config.yaml"])
+            )
+            config = ConfigLoader.load_from_policy(policy, model=MyPolicy)
+        """
+        # 빈 dict에 policy 적용
+        loader = ConfigLoader({}, policy=policy)
+        
+        if model:
+            return loader._as_model_internal(model, **overrides)
+        return loader._as_dict_internal(**overrides)
+    
     # ==========================================================================
     # Internal: 기존 로직 유지 (private)
     # ==========================================================================
     
     def __init__(
         self,
-        cfg_like: Union[BaseModel, PathLike, PathsLike, dict],
+        cfg_like: Optional[Union[BaseModel, PathLike, PathsLike, dict]] = None,
         *,
-        policy_overrides: Optional[Dict[str, Any]] = None
+        policy: Optional[ConfigPolicy] = None
     ) -> None:
         """ConfigLoader 초기화.
         
         Override 우선순위:
         1. ConfigPolicy 기본값 (Pydantic defaults)
         2. config_loader.yaml 로드
-        3. policy_overrides 파라미터
+        3. policy 파라미터
+        
+        Args:
+            cfg_like: 설정 소스 (None이면 policy.yaml.source_paths만 사용)
+            policy: ConfigPolicy 객체
         """
         self.cfg_like = cfg_like
         
-        # policy_overrides 저장 (정책 로드 시 사용)
-        self.policy_overrides = policy_overrides or {}
-        
-        # ConfigLoader 자신의 정책 로드 (KeyPathState 사용)
-        # policy_overrides의 reference_context를 ConfigPolicy에 병합
-        self.policy: ConfigPolicy = self._load_loader_policy(policy_overrides=policy_overrides)
+        # policy 저장
+        self.policy: ConfigPolicy = policy if policy else self._load_loader_policy()
         
         # YamlParser 초기화 (사용자 데이터 파싱용, policy.reference_context 사용)
         self.parser: YamlParser = YamlParser(policy=self.policy.yaml, context=self.policy.reference_context)
@@ -216,94 +302,36 @@ class ConfigLoader:
         self._data: KeyPathDict = KeyPathDict()
         self._load_and_merge()
     
-    def _load_loader_policy(
-        self,
-        *,
-        policy_overrides: Optional[Dict[str, Any]] = None
-    ) -> ConfigPolicy:
-        """ConfigLoader 자신의 정책을 로드 (KeyPathState 사용).
-        
-        Override 순서:
-        1. ConfigPolicy 기본값
-        2. config_loader_path에서 지정한 파일 (또는 기본 config_loader.yaml)
-        3. policy_overrides 파라미터
-        
-        Args:
-            policy_overrides: ConfigPolicy 필드 개별 오버라이드
-                - config_loader_path: ConfigLoader 정책 파일 경로 지정 가능
+    def _load_loader_policy(self) -> ConfigPolicy:
+        """ConfigLoader 자신의 정책을 로드 (config_loader.yaml에서).
         
         Returns:
             최종 ConfigPolicy 인스턴스
         """
-        # 1. KeyPathState 초기화 (ConfigPolicy 기본값)
-        policy_state = KeyPathState(
-            name="config_policy",
-            store=KeyPathDict(ConfigPolicy().model_dump())
-        )
+        # 기본 Policy 생성
+        base_policy = ConfigPolicy()
         
-        # 2. config_loader_path 결정
-        # policy_overrides에서 먼저 확인
-        config_loader_path = None
-        if policy_overrides and "config_loader_path" in policy_overrides:
-            config_loader_path = Path(policy_overrides["config_loader_path"])
+        # 기본 경로
+        config_loader_path = Path(__file__).parent.parent / "configs" / "config_loader.yaml"
         
-        # 기본 경로 사용
-        if config_loader_path is None:
-            config_loader_path = Path(__file__).parent.parent / "configs" / "config_loader.yaml"
-        
-        # 3. config_loader.yaml 병합
+        # config_loader.yaml이 있으면 로드하여 병합
         if config_loader_path.exists():
-            # 단순 YamlParser로 로드 (재귀 없음 - policy만 읽음)
-            from modules.structured_io.formats.yaml_io import YamlParser
-            # NOTE: BaseParserPolicy 기본값 사용 (encoding="utf-8", on_error="raise", safe_mode=True)
-            parser = YamlParser(policy=BaseParserPolicy(
-                source_paths=None,
-                enable_env=False,
-                enable_include=False,
-                enable_placeholder=False,
-                enable_reference=False
-            ))
-            text = config_loader_path.read_text()
-            parsed = parser.parse(text, base_path=config_loader_path)
-            
-            # "config_loader" 섹션 추출
-            config_section = None
-            if isinstance(parsed, dict) and "config_loader" in parsed:
-                config_section = parsed["config_loader"]
-            
-            # ReferenceResolver로 ${key} 치환 (재귀 안전 - policy 데이터만 처리)
-            if config_section and isinstance(config_section, dict):
-                from unify_utils.normalizers.resolver_reference import ReferenceResolver
+            try:
+                # 단순 YamlParser로 로드
+                parser = YamlParser(policy=BaseParserPolicy())
+                text = config_loader_path.read_text(encoding="utf-8")
+                parsed = parser.parse(text)
                 
-                # policy_overrides에서 reference_context(paths_dict)를 context로 사용
-                context = {}
-                if policy_overrides and "reference_context" in policy_overrides:
-                    reference_ctx = policy_overrides["reference_context"]
-                    if isinstance(reference_ctx, dict):
-                        context = reference_ctx
-                
-                # context가 있으면 ReferenceResolver 적용
-                if context:
-                    resolver = ReferenceResolver(context, recursive=True, strict=False)
-                    config_section = resolver.apply(config_section)
-                
-                # policy_state에 병합
-                policy_state.merge(config_section, deep=True)
+                # "config_loader" 섹션 추출
+                if isinstance(parsed, dict) and "config_loader" in parsed:
+                    config_data = parsed["config_loader"]
+                    # ConfigPolicy로 변환
+                    return ConfigPolicy(**config_data)
+            except Exception:
+                # 파일 로드 실패 시 기본값 사용
+                pass
         
-        # 4. policy_overrides 병합 (reference_context 포함)
-        if policy_overrides:
-            for key, value in policy_overrides.items():
-                # Pydantic BaseModel이면 dict로 변환
-                if isinstance(value, BaseModel):
-                    value = value.model_dump()
-                elif isinstance(value, list):
-                    # 리스트 내 BaseModel도 변환
-                    value = [item.model_dump() if isinstance(item, BaseModel) else item for item in value]
-                # KeyPathState.override로 중첩 키 지원 (예: "yaml.source_paths")
-                policy_state.override(key, value)
-        
-        # 5. 최종 ConfigPolicy 생성
-        return ConfigPolicy(**policy_state.to_dict())
+        return base_policy
 
     # ------------------------------------------------------------------
     # Loading & merging helpers
@@ -314,25 +342,39 @@ class ConfigLoader:
         ✅ IMPROVED: 중복 제거 - load_source 직접 사용으로 PathMerger와 중복 제거
         """
         deep = self.policy.merge_mode == "deep"
+        has_source = False  # 유효한 소스가 있는지 추적
 
-        # 1) Merge sources defined in policy.yaml.source_paths
-        for src_cfg in self._normalize_source_paths(self.policy.yaml.source_paths or []):
-            src_path = Path(src_cfg.path)
-            if not src_path.is_absolute() and self.policy_overrides.get("config_loader_path"):
-                src_path = Path(self.policy_overrides["config_loader_path"]).parent / src_path
-            
-            # ✅ FIX: load_source 직접 사용 (PathMerger와 중복 제거)
-            data = load_source(src_path, self.parser)
-            if src_cfg.section and isinstance(data, dict):
-                data = data.get(src_cfg.section, {})
-            self._data.merge(data, deep=deep)
+        # 1) Merge sources defined in policy.yaml.source_paths (if yaml policy exists)
+        if self.policy.yaml and hasattr(self.policy.yaml, 'source_paths') and self.policy.yaml.source_paths:
+            for src_cfg in self._normalize_source_paths(self.policy.yaml.source_paths):
+                src_path = Path(src_cfg.path)
+                
+                # ✅ FIX: load_source 직접 사용 (PathMerger와 중복 제거)
+                data = load_source(src_path, self.parser)
+                if src_cfg.section and isinstance(data, dict):
+                    data = data.get(src_cfg.section, {})
+                
+                if data:  # 데이터가 있으면 소스로 인정
+                    self._data.merge(data, deep=deep)
+                    has_source = True
 
         # 2) Merge cfg_like input if provided
         if self.cfg_like is not None:
             merger = MergerFactory.get(self.cfg_like, self)
             merger.merge(self.cfg_like, self._data, deep)
+            has_source = True
 
-        # 3) Final normalization step (references, placeholders, drop blanks, etc.)
+        # 3) 유효한 소스가 없으면 경고 로그 (빈 dict 반환)
+        if not has_source:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "No valid configuration source provided. "
+                "Returning empty dict. "
+                "Consider providing cfg_like parameter or setting policy.yaml.source_paths."
+            )
+
+        # 4) Final normalization step (references, placeholders, drop blanks, etc.)
         self._apply_normalization()
 
     def _normalize_source_paths(

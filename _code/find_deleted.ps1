@@ -1,5 +1,5 @@
 # 6시간 이내 삭제된 modules 파일 검색 스크립트
-$cutoffTime = (Get-Date).AddHours(-6)
+$cutoffTime = (Get-Date).AddHours(-48)
 $deleted = @()
 
 Get-ChildItem "$env:APPDATA\Code\User\History" -Directory | ForEach-Object {
@@ -8,15 +8,15 @@ Get-ChildItem "$env:APPDATA\Code\User\History" -Directory | ForEach-Object {
     if (Test-Path $entries) {
         try {
             $json = Get-Content $entries -Raw | ConvertFrom-Json
-            if ($json.resource -match "modules/.*\.py") {
-                $pyFiles = Get-ChildItem $dir.FullName -Filter "*.py" -ErrorAction SilentlyContinue | 
+            if ($json.resource -match "docs/.*\.md") {
+                $mdFiles = Get-ChildItem $dir.FullName -Filter "*.md" -ErrorAction SilentlyContinue | 
                           Where-Object { $_.LastWriteTime -gt $cutoffTime }
                 
-                if ($pyFiles) {
+                if ($mdFiles) {
                     $path = [System.Uri]::UnescapeDataString($json.resource) -replace "^file:///", "" -replace "/", "\"
                     
                     if (!(Test-Path $path)) {
-                        $deleted += "$($path -replace '.*\\modules\\', 'modules\') | $($pyFiles[0].LastWriteTime.ToString('HH:mm:ss')) | $($pyFiles[0].FullName)"
+                        $deleted += "$($path -replace '.*\\docs\\', 'docs\') | $($mdFiles[0].LastWriteTime.ToString('HH:mm:ss')) | $($mdFiles[0].FullName)"
                     }
                 }
             }

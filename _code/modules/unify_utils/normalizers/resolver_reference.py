@@ -50,6 +50,9 @@ class ReferenceResolver(ResolverBase):
             keypath, default = match.group(1), match.group(2) or ""
             try:
                 resolved = self._resolve_keypath(keypath)
+                # None 값 처리: None → default 사용 (빈 문자열 방지)
+                if resolved is None:
+                    return default if default else ""
                 return str(resolved)
             except KeyError:
                 if self.strict:
@@ -67,9 +70,9 @@ class ReferenceResolver(ResolverBase):
             if isinstance(ref, dict) and key in ref:
                 ref = ref[key]
             else:
-                if self.strict:
-                    raise KeyError(f"[ReferenceResolver] Invalid keypath: {'.'.join(keys)}")
-                return None
+                # 키가 존재하지 않으면 항상 KeyError raise
+                # strict 모드는 _resolve_placeholders에서 처리
+                raise KeyError(f"[ReferenceResolver] Invalid keypath: {'.'.join(keys)}")
         
         # 참조된 값이 또 다른 ${} 패턴을 포함하면 재귀적으로 치환
         if isinstance(ref, str) and self.PATTERN.search(ref):

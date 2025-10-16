@@ -45,14 +45,6 @@ class ConfigPolicy(BaseModel):
     The default policy performs deep merges, resolves references and
     drops blank entries.
     """
-
-    # ------------------------------------------------------------------
-    # ConfigLoader 자신의 설정 파일 경로
-    # ------------------------------------------------------------------
-    config_loader_cfg_path: Optional[Union[str, Path]] = Field(
-        default=None,
-        description="ConfigLoader 정책 파일 경로 (None이면 cfg_utils/configs/config_loader.yaml 사용)"
-    )
     
     yaml: Optional[BaseParserPolicy] = Field(
         default=None,

@@ -1,18 +1,6 @@
 # Configuration for ConfigLoader 
 
 config_loader:
-  yaml:
-    source_paths: []  # 기본 config_loader는 source_paths 없음 (테스트용)
-    enable_env: false  # ${} 패턴이 환경 변수로 오해되는 것 방지
-    enable_include: true
-    enable_placeholder: false  # PlaceholderResolver가 ${} reference를 침범하지 않도록
-    enable_reference: true  # paths.local.yaml 내부 reference 해석 필요
-    safe_mode: true
-    encoding: "utf-8"
-    on_error: "ignore"
-    sort_keys: false
-    default_flow_style: false
-    indent: 2
   
   # Normalizer options
   drop_blanks: true

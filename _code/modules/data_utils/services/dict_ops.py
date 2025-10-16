@@ -122,13 +122,20 @@ class DictOps:
         return remap(data, visit=visit)
     
     @staticmethod
-    def drop_blanks(data: Dict[str, Any], *, deep: bool = True) -> Dict[str, Any]:
-        """Remove all keys with blank values (None or empty strings).
+    def drop_blanks(
+        data: Dict[str, Any], 
+        *, 
+        deep: bool = True, 
+        include_empty_containers: bool = True
+    ) -> Dict[str, Any]:
+        """Remove all keys with blank values (None, empty strings, and optionally empty containers).
 
         Args:
             data: The dictionary to filter.
             deep: If ``True``, remove blank values recursively in nested dicts.
                 If ``False``, only filter top-level keys.
+            include_empty_containers: If ``True``, also remove empty lists and dicts.
+                If ``False``, only remove None and empty strings.
 
         Returns:
             A new dictionary with blank values removed.
@@ -138,19 +145,38 @@ class DictOps:
             {'a': 1, 'd': 'ok'}
             >>> DictOps.drop_blanks({"a": {"b": "", "c": 2}}, deep=True)
             {'a': {'c': 2}}
+            >>> DictOps.drop_blanks({"a": 1, "b": [], "c": {}}, include_empty_containers=True)
+            {'a': 1}
+            >>> DictOps.drop_blanks({"a": 1, "b": [], "c": {}}, include_empty_containers=False)
+            {'a': 1, 'b': [], 'c': {}}
         """
         def visit(path, key, value):
-            # Drop if value is None or empty string
-            if value is None or (isinstance(value, str) and not value.strip()):
-                return False  # Drop this key-value pair
+            # Drop if value is None
+            if value is None:
+                return False
+            # Drop if value is empty string
+            if isinstance(value, str) and not value.strip():
+                return False
+            # Drop if value is empty container (optional)
+            if include_empty_containers and isinstance(value, (list, dict)) and len(value) == 0:
+                return False
             return key, value
 
         if not deep:
             # Shallow filter
-            return {
-                k: v for k, v in data.items() 
-                if v is not None and not (isinstance(v, str) and not v.strip())
-            }
+            result = {}
+            for k, v in data.items():
+                # Skip None
+                if v is None:
+                    continue
+                # Skip empty strings
+                if isinstance(v, str) and not v.strip():
+                    continue
+                # Skip empty containers (optional)
+                if include_empty_containers and isinstance(v, (list, dict)) and len(v) == 0:
+                    continue
+                result[k] = v
+            return result
 
         return remap(data, visit=visit)
 
