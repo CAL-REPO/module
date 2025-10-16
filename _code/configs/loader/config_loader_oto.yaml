@@ -4,6 +4,7 @@
 config_loader:
   yaml:
     source_paths:
+      - path: "${configs_dir}/paths.local.yaml"
       - path: "${configs_dir}/oto/image.yaml"
       - path: "${configs_dir}/oto/ocr.yaml"
       - path: "${configs_dir}/oto/overlay.yaml"

@@ -74,6 +74,15 @@ class ListNormalizePolicy(NormalizePolicyBase):
 class KeyPathNormalizePolicy(NormalizePolicyBase):
     """KeyPathNormalizer 전용 정책
 
-    - sep: 문자열 분리자 (기본: ".")
+    Attributes:
+        sep: 구분자 (기본값: ".")
+        collapse: 연속 구분자 병합 여부 (빈 세그먼트 제거)
+        accept_dot: sep 없을 때 "." fallback 허용 여부
+        escape_char: 이스케이프 문자 (구분자를 리터럴로 처리)
+        enable_list_index: [0], [1] 형태 배열 인덱스 지원 (향후 확장용)
     """
-    sep: str = "."
+    sep: str = Field(default=".", description="경로 구분자")
+    collapse: bool = Field(default=True, description="빈 세그먼트 제거 여부")
+    accept_dot: bool = Field(default=True, description="구분자 실패 시 '.' fallback 허용")
+    escape_char: Optional[str] = Field(default="\\", description="이스케이프 문자")
+    enable_list_index: bool = Field(default=False, description="배열 인덱스 지원 [0], [1]")

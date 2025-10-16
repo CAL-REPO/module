@@ -146,7 +146,11 @@ class Translator:
             default_path = Path(__file__).parent.parent / "configs" / "translate.yaml"
             if policy_overrides is None:
                 policy_overrides = {}
-            
+
+            # ConfigLoader 정책 파일 지정
+            policy_overrides.setdefault("config_loader_path",
+                str(Path(__file__).parent.parent / "configs" / "config_loader_translate.yaml"))
+
             # 데이터 파일 + 섹션 지정
             policy_overrides.setdefault("yaml.source_paths", {
                 "path": str(default_path),

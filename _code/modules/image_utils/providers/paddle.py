@@ -59,7 +59,6 @@ def build_paddle_instances(langs, device=None, use_angle_cls=True, existing=None
     
     return insts
 
-
 def predict_with_paddle(img, langs, insts: Dict[str, Any], min_conf: float = 0.5) -> Tuple[List[OCRItem], Dict[str, int]]:
     """Run OCR with Paddle instances and return normalized OCRItem list."""
     arr = np.array(img)

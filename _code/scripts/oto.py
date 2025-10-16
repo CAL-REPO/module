@@ -107,11 +107,9 @@ class OTO:
         """
         self.log.info(f"Config 정책 로드 중...")
         
-
-        
         # 1. ImageLoader 정책
         try:
-            self.image_loader_policy = self.loader._as_model_internal(
+            self.image_loader_policy = self.loader.load(
                 ImageLoaderPolicy, 
                 section="image"
             )
@@ -122,7 +120,7 @@ class OTO:
         
         # 2. ImageOCR 정책
         try:
-            self.image_ocr_policy = self.loader._as_model_internal(
+            self.image_ocr_policy = self.loader.load(
                 ImageOCRPolicy, 
                 section="ocr"
             )
@@ -133,7 +131,7 @@ class OTO:
         
         # 3. Translator 정책
         try:
-            self.translator_config = self.loader._as_dict_internal(section="translate")
+            self.translator_config = self.loader.load()
             self.log.info("  ✅ Translator 정책 로드 완료")
         except Exception as e:
             self.log.warning(f"  ⚠️  Translator 정책 로드 실패: {e}")
@@ -141,7 +139,7 @@ class OTO:
         
         # 4. ImageOverlay 정책
         try:
-            self.image_overlay_policy = self.loader._as_model_internal(
+            self.image_overlay_policy = self.loader.load(
                 ImageOverlayPolicy, 
                 section="overlay"
             )

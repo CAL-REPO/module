@@ -10,7 +10,7 @@ processed.
 
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, model_validator
 # Import the base parser policy from structured_io.  This replaces the
 # older YamlParserPolicy used in previous versions of cfg_utils.
 from structured_io.core.base_policy import BaseParserPolicy
+from unify_utils.core.policy import KeyPathNormalizePolicy
 
 
 class ConfigPolicy(BaseModel):
@@ -48,20 +49,9 @@ class ConfigPolicy(BaseModel):
     # ------------------------------------------------------------------
     # ConfigLoader 자신의 설정 파일 경로
     # ------------------------------------------------------------------
-    config_loader_path: Optional[Union[str, Path]] = Field(
+    config_loader_cfg_path: Optional[Union[str, Path]] = Field(
         default=None,
         description="ConfigLoader 정책 파일 경로 (None이면 cfg_utils/configs/config_loader.yaml 사용)"
-    )
-
-    # ------------------------------------------------------------------
-    # YAML parsing options (delegated)
-    # ------------------------------------------------------------------
-    loader_config_path: Optional[Union[str, Path]] = Field(
-        default=None,
-        description=(
-            "ConfigLoader 자신의 정책 파일 경로. "
-            "None이면 cfg_utils/configs/config_loader.yaml 사용"
-        )
     )
     
     yaml: Optional[BaseParserPolicy] = Field(
@@ -101,6 +91,24 @@ class ConfigPolicy(BaseModel):
     merge_mode: Literal["deep", "shallow"] = Field(
         default="deep",
         description="Dictionary merge strategy: 'deep' for recursive merging, 'shallow' for one‑level merges."
+    )
+
+    keypath: KeyPathNormalizePolicy = Field(
+        default_factory=lambda: KeyPathNormalizePolicy(
+            sep="__",  # ✅ FIX: 프로젝트 관례에 맞춰 "__"로 변경 (source__path → source.path)
+            collapse=True,
+            accept_dot=True,
+            escape_char="\\",
+            enable_list_index=False,
+            recursive=False,
+            strict=False
+        ),
+        description="KeyPath 해석 정책 (구분자, 이스케이프, 배열 인덱스 등)"
+    )
+
+    reference_context: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Reference 해석용 컨텍스트 (paths_dict 등)"
     )
 
     class Config:

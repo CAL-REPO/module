@@ -97,8 +97,13 @@ class ImageLoader:
             로드된 ImageLoaderPolicy 인스턴스
         """
         if cfg_like is None:
-            # cfg_like를 None이 아닌 YAML 파일로 지정해야 section이 자동 추출됨
-            cfg_like = Path(__file__).parent.parent / "configs" / "image.yaml"
+            # ✅ CRITICAL FIX: ConfigLoader의 역할 명확화
+            # - cfg_like: 데이터 파일 (None이면 policy.yaml.source_paths만 사용)
+            # - policy_overrides["config_loader_path"]: 정책 파일
+            # 
+            # config_loader_image.yaml을 정책으로 사용하되, cfg_like는 None 유지
+            # → ConfigLoader가 config_loader_image.yaml에 정의된 yaml.source_paths를 따라
+            #    image.yaml의 "image" 섹션을 자동으로 로드
             
             if policy_overrides is None:
                 policy_overrides = {}
@@ -107,19 +112,11 @@ class ImageLoader:
             policy_overrides.setdefault("config_loader_path",
                 str(Path(__file__).parent.parent / "configs" / "config_loader_image.yaml"))
         
-        # Overrides를 KeyPath 형식에서 dot notation으로 변환
-        # ConfigLoader.load()는 KeyPath를 지원하지만, __는 .로 변환해야 함
-        converted_overrides = {}
-        for key, value in overrides.items():
-            # '__'를 '.'로 변환 (예: source__path → source.path)
-            dotted_key = key.replace('__', '.')
-            converted_overrides[dotted_key] = value
-        
         return ConfigLoader.load(
             cfg_like,
             model=ImageLoaderPolicy,
             policy_overrides=policy_overrides,
-            **converted_overrides
+            **overrides
         )
     
     # ==========================================================================

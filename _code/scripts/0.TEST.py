@@ -63,8 +63,8 @@
 # print("Home Directory:", home())
 # print("Downloads Directory:", downloads())
 
-from image_utils.adapter.loader import ImageLoader
-cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\pillow.yaml"
 
-ImageLoader(cfg_path).run()
+from scripts.oto import OTO
+cfg_loader_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\config_loader_oto.yaml"
+OTO()
 

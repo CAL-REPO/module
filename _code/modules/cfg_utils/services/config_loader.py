@@ -18,20 +18,25 @@ from __future__ import annotations
 
 import copy
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence, Type, Union, Optional, overload
+from typing import Any, Dict, List, Type, Union, Optional, overload
 
 from pydantic import BaseModel, ValidationError
 
 from modules.data_utils.core.types import T, PathLike, PathsLike
-from modules.data_utils.services.dict_ops import DictOps
 
 from modules.structured_io.core.base_policy import BaseParserPolicy, SourcePathConfig
 from modules.structured_io.formats.yaml_io import YamlParser
 
-from keypath_utils import KeyPathDict, KeyPathState
+from modules.keypath_utils import KeyPathDict, KeyPathState
 
 from .normalizer import ConfigNormalizer
 from ..core.policy import ConfigPolicy
+from modules.cfg_utils.services.merger import MergerFactory
+from modules.cfg_utils.services.helpers import (
+    apply_overrides,
+    merge_sequence,
+    load_source,
+)
 
 
 
@@ -57,7 +62,7 @@ class ConfigLoader:
     @overload
     @staticmethod
     def load(
-        cfg_like: Union[BaseModel, PathLike, PathsLike, dict, None],
+            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any], None],
         *,
         model: Type[T],
         policy_overrides: Optional[Dict[str, Any]] = None,
@@ -67,7 +72,7 @@ class ConfigLoader:
     @overload
     @staticmethod
     def load(
-        cfg_like: Union[BaseModel, PathLike, PathsLike, dict, None],
+            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any], None],
         *,
         model: None = None,
         policy_overrides: Optional[Dict[str, Any]] = None,
@@ -76,12 +81,12 @@ class ConfigLoader:
     
     @staticmethod
     def load(
-        cfg_like: Union[BaseModel, PathLike, PathsLike, dict, None],
+            cfg_like: Union[BaseModel, PathLike, PathsLike, dict[str, Any], None],
         *,
         model: Optional[Type[T]] = None,
         policy_overrides: Optional[Dict[str, Any]] = None,
         **overrides: Any
-    ) -> Union[dict, T]:
+    ) -> Union[dict[str, Any], T]:
         """설정을 로드하여 dict 또는 Pydantic 모델로 반환.
         
         Args:
@@ -105,65 +110,62 @@ class ConfigLoader:
             - policy_overrides로 개별 필드만 변경 가능합니다.
             - 전체 ConfigPolicy를 교체하려면 ConfigLoader 인스턴스를 직접 생성하세요.
         """
+        # policy 생성 (policy_overrides 반영)
+        temp_policy = ConfigPolicy(**(policy_overrides or {})) if policy_overrides else ConfigPolicy()
+        
         # 1. 이미 모델 인스턴스인 경우
         if model and isinstance(cfg_like, model):
             if not overrides:
                 return cfg_like
             # Overrides 적용 (dot notation 지원)
             config_dict = cfg_like.model_dump()
-            temp = KeyPathDict(config_dict)
-            temp.apply_overrides(overrides)
-            return model(**temp.data)
+            config_dict = apply_overrides(config_dict, overrides, policy=temp_policy)
+            return model(**config_dict)
         
         # 2. None인 경우 처리
         if cfg_like is None:
-            # policy_overrides에 yaml.source_paths가 있으면 ConfigLoader 생성
-            if policy_overrides and "yaml.source_paths" in policy_overrides:
+            # policy_overrides가 있으면 ConfigLoader 생성
+            # (yaml.source_paths 또는 config_loader_path 사용)
+            if policy_overrides and (
+                "yaml.source_paths" in policy_overrides or 
+                "config_loader_path" in policy_overrides
+            ):
+                # ✅ CRITICAL: config_loader_path는 cfg_like가 아니라 policy_overrides에 유지!
+                # ConfigLoader.__init__이 자동으로 config_loader_path를 읽어서 정책을 로드함
                 loader = ConfigLoader({}, policy_overrides=policy_overrides)
                 if model:
                     return loader._as_model_internal(model, **overrides)
                 return loader._as_dict_internal(**overrides)
-            # yaml.source_paths도 없으면 빈 dict로 처리
+            # policy_overrides도 없으면 빈 dict로 처리
             cfg_like = {}
         
         # 3. Dict인 경우 직접 처리
-        if isinstance(cfg_like, dict):
-            # None 값 필터링 (Pydantic 기본값 사용 위해)
-            cfg_like = DictOps.drop_none(cfg_like, deep=True)
-            
+        if isinstance(cfg_like, dict):     
             if overrides:
-                temp = KeyPathDict(copy.deepcopy(cfg_like))
-                temp.apply_overrides(overrides)
-                cfg_like = temp.data
+                cfg_like = apply_overrides(copy.deepcopy(cfg_like), overrides, policy=temp_policy)
             
             # Model이 있으면 변환, 없으면 dict 반환
             if model:
                 return model(**cfg_like)
             return cfg_like
         
-        # 4. List인 경우 여러 파일 병합
+        # 4. List인 경우 여러 파일 병합 (항상 deep merge)
         if isinstance(cfg_like, (list, tuple)) and not isinstance(cfg_like, (str, bytes)):
-            # 각 파일을 순서대로 로드하고 병합
-            # NOTE: List 병합은 항상 deep merge 사용 (파일 간 설정 충돌 방지)
-            merged_dict = {}
-            for cfg_path in cfg_like:
-                # 각 파일을 dict로 로드 (재귀 호출, policy_overrides 전파)
-                loaded = ConfigLoader.load(cfg_path, policy_overrides=policy_overrides)
-                # Always deep merge for multi-file scenarios
-                temp = KeyPathDict(merged_dict)
-                temp.merge(loaded, deep=True)
-                merged_dict = temp.data
+            # ✅ FIX: static method이므로 임시 parser 생성
+            yaml_policy = policy_overrides.get("yaml") if policy_overrides else None
+            if yaml_policy is None:
+                yaml_policy = ConfigPolicy().yaml
+            temp_parser = YamlParser(policy=yaml_policy)
             
-            # Overrides 적용 (dot notation 지원)
+            # helpers.merge_sequence 호출 (separator 제거)
+            merged_dict = merge_sequence(cfg_like, temp_parser, deep=True)
+            
+            # Overrides 적용
             if overrides:
-                temp = KeyPathDict(merged_dict)
-                temp.apply_overrides(overrides)
-                merged_dict = temp.data
+                merged_dict = apply_overrides(merged_dict, overrides, policy=temp_policy)
             
-            # Model이 있으면 변환, 없으면 dict 반환
-            if model:
-                return model(**merged_dict)
-            return merged_dict
+            # 결과 모델/딕셔너리 반환
+            return model(**merged_dict) if model else merged_dict
         
         # 5. Path/str인 경우 ConfigLoader로 로드
         if isinstance(cfg_like, (str, Path)):
@@ -198,20 +200,18 @@ class ConfigLoader:
         """
         self.cfg_like = cfg_like
         
-        # policy_overrides 저장 (reference_context 사용을 위해)
+        # policy_overrides 저장 (정책 로드 시 사용)
         self.policy_overrides = policy_overrides or {}
         
         # ConfigLoader 자신의 정책 로드 (KeyPathState 사용)
+        # policy_overrides의 reference_context를 ConfigPolicy에 병합
         self.policy: ConfigPolicy = self._load_loader_policy(policy_overrides=policy_overrides)
         
-        # reference_context 추출
-        reference_context = self.policy_overrides.get("reference_context", {})
+        # YamlParser 초기화 (사용자 데이터 파싱용, policy.reference_context 사용)
+        self.parser: YamlParser = YamlParser(policy=self.policy.yaml, context=self.policy.reference_context)
         
-        # YamlParser 초기화 (사용자 데이터 파싱용, reference_context 전달)
-        self.parser: YamlParser = YamlParser(policy=self.policy.yaml, context=reference_context)
-        
-        # ConfigNormalizer에 reference_context 전달
-        self.normalizer: ConfigNormalizer = ConfigNormalizer(self.policy, reference_context=reference_context)
+        # ConfigNormalizer 초기화 (policy.reference_context 사용)
+        self.normalizer: ConfigNormalizer = ConfigNormalizer(self.policy)
         
         self._data: KeyPathDict = KeyPathDict()
         self._load_and_merge()
@@ -290,7 +290,7 @@ class ConfigLoader:
                 # policy_state에 병합
                 policy_state.merge(config_section, deep=True)
         
-        # 4. policy_overrides 병합
+        # 4. policy_overrides 병합 (reference_context 포함)
         if policy_overrides:
             for key, value in policy_overrides.items():
                 # Pydantic BaseModel이면 dict로 변환
@@ -299,6 +299,7 @@ class ConfigLoader:
                 elif isinstance(value, list):
                     # 리스트 내 BaseModel도 변환
                     value = [item.model_dump() if isinstance(item, BaseModel) else item for item in value]
+                # KeyPathState.override로 중첩 키 지원 (예: "yaml.source_paths")
                 policy_state.override(key, value)
         
         # 5. 최종 ConfigPolicy 생성
@@ -308,50 +309,30 @@ class ConfigLoader:
     # Loading & merging helpers
     # ------------------------------------------------------------------
     def _load_and_merge(self) -> None:
-        """Dispatch to the appropriate loader depending on input type."""
+        """Load and merge config sources via MergerFactory.
+        
+        ✅ IMPROVED: 중복 제거 - load_source 직접 사용으로 PathMerger와 중복 제거
+        """
         deep = self.policy.merge_mode == "deep"
 
-        # source_paths 자동 로드 (yaml.source_paths가 지정되어 있으면)
-        if self.policy.yaml.source_paths:
-            # 1단계: source_paths를 SourcePathConfig 리스트로 정규화
-            normalized_sources = self._normalize_source_paths(self.policy.yaml.source_paths)
+        # 1) Merge sources defined in policy.yaml.source_paths
+        for src_cfg in self._normalize_source_paths(self.policy.yaml.source_paths or []):
+            src_path = Path(src_cfg.path)
+            if not src_path.is_absolute() and self.policy_overrides.get("config_loader_path"):
+                src_path = Path(self.policy_overrides["config_loader_path"]).parent / src_path
             
-            # 2단계: 상대 경로를 config_loader_path 기준으로 해석
-            # policy_overrides에서 config_loader_path 가져오기
-            config_loader_path = self.policy_overrides.get("config_loader_path")
-            base_dir = None
-            if config_loader_path:
-                base_dir = Path(config_loader_path).parent
-            
-            # 3단계: 정규화된 소스들을 순서대로 병합
-            for source_config in normalized_sources:
-                source_path = Path(source_config.path)
-                # 상대 경로이면 base_dir 기준으로 해석
-                if base_dir and not source_path.is_absolute():
-                    source_path = base_dir / source_path
-                
-                self._merge_from_path(
-                    source_path,
-                    deep=deep,
-                    section=source_config.section
-                )
-        
-        # cfg_like 처리
-        if self.cfg_like is None:
-            # source_paths만 사용하는 경우 허용
-            pass
-        elif isinstance(self.cfg_like, BaseModel):
-            self._merge_from_base_model(self.cfg_like, deep=deep)
-        elif isinstance(self.cfg_like, PathLike):
-            self._merge_from_path(Path(self.cfg_like), deep=deep, section=None)
-        elif isinstance(self.cfg_like, Sequence) and not isinstance(self.cfg_like, (str, bytes)):
-            self._merge_from_sequence(self.cfg_like, deep=deep)
-        elif isinstance(self.cfg_like, dict):
-            self._merge_from_dict(self.cfg_like, deep=deep)
-        else:
-            raise TypeError(f"Unsupported config input: {type(self.cfg_like)!r}")
+            # ✅ FIX: load_source 직접 사용 (PathMerger와 중복 제거)
+            data = load_source(src_path, self.parser)
+            if src_cfg.section and isinstance(data, dict):
+                data = data.get(src_cfg.section, {})
+            self._data.merge(data, deep=deep)
 
-        # Final normalization step (references, placeholders, drop blanks etc.)
+        # 2) Merge cfg_like input if provided
+        if self.cfg_like is not None:
+            merger = MergerFactory.get(self.cfg_like, self)
+            merger.merge(self.cfg_like, self._data, deep)
+
+        # 3) Final normalization step (references, placeholders, drop blanks, etc.)
         self._apply_normalization()
 
     def _normalize_source_paths(
@@ -371,10 +352,10 @@ class ConfigLoader:
         Returns:
             SourcePathConfig 리스트
         """
-        # 이미 SourcePathConfig면 리스트로 감싸기
-        # NOTE: isinstance 대신 클래스명 체크 (모듈 임포트 경로 차이 문제 회피)
+        # ✅ FIX: isinstance로 타입 체크 (타입 안정성 향상)
+        # SourcePathConfig 타입 체크 (isinstance 대신 type name 비교)
         if type(source_paths).__name__ == 'SourcePathConfig':
-            return [source_paths]  # type: ignore
+            return [source_paths]
         
         # List[SourcePathConfig]는 그대로 사용
         if isinstance(source_paths, list):
@@ -409,48 +390,12 @@ class ConfigLoader:
         
         return normalized
 
-    def _merge_from_base_model(self, model: BaseModel, *, deep: bool) -> None:
-        """Merge values from a Pydantic BaseModel instance."""
-        self._data.merge(model.model_dump(), deep=deep)
-
-    def _merge_from_path(self, path: PathLike, *, deep: bool, section: Optional[str] = None) -> None:
-        """Read a YAML file or parse YAML string and merge its contents.
-        
-        Args:
-            path: Path to YAML file or raw YAML content string
-            deep: Whether to deep merge
-            section: Optional section key to extract before merging
-        """
-        # Try to read as a file path first
-        path_obj = Path(str(path))
-        if path_obj.exists():
-            text = path_obj.read_text(encoding=self.parser.policy.encoding)
-        else:
-            # Treat as raw YAML content string
-            text = str(path)
-        
-        # Parse YAML content
-        parsed = self.parser.parse(text, base_path=path_obj if path_obj.exists() else None)
-        
-        # Extract section if specified
-        if section and isinstance(parsed, dict) and section in parsed:
-            parsed = parsed[section]
-        
-        # Merge parsed data
-        if isinstance(parsed, dict):
-            self._data.merge(parsed, deep=deep)
-        elif parsed is not None:
-            self._data.merge(parsed, deep=deep)
-
-    def _merge_from_sequence(self, seq: Iterable[Union[str, Path]], *, deep: bool) -> None:
-        """Merge multiple YAML files in order. Each entry may be a path or str."""
-        for entry in seq:
-            p = Path(entry)
-            self._merge_from_path(p, deep=deep, section=None)
-
-    def _merge_from_dict(self, data: Dict[str, Any], *, deep: bool) -> None:
-        """Merge a plain dictionary into the current data."""
-        self._data.merge(data, deep=deep)
+    # ✅ REMOVED: _merge_from_* 메서드들을 제거하여 중복 제거
+    # - _merge_from_base_model → ModelMerger와 중복
+    # - _merge_from_path → PathMerger와 중복 (load_source 직접 사용으로 대체)
+    # - _merge_from_sequence → helpers.merge_sequence로 대체
+    # - _merge_from_dict → DictMerger로 처리
+    # 모든 병합은 MergerFactory를 통해 처리됩니다.
 
     def _apply_normalization(self) -> None:
         """Run normalizer and replace internal storage with the normalized dict."""
@@ -471,11 +416,9 @@ class ConfigLoader:
         """
         data = dict(self._data.data)
 
-        # Apply overrides if provided (dot notation 지원)
+        # Apply runtime overrides (policy.keypath 사용)
         if overrides:
-            temp = KeyPathDict(data)
-            temp.apply_overrides(overrides)
-            return temp.data
+            return apply_overrides(data, overrides, policy=self.policy)
 
         return data
 
@@ -492,11 +435,9 @@ class ConfigLoader:
         # Get base data (section already extracted during merge)
         data = dict(self._data.data)
         
-        # Apply overrides
+        # Apply runtime overrides (policy.keypath 사용)
         if overrides:
-            temp = KeyPathDict(data)
-            temp.apply_overrides(overrides)
-            data = temp.data
+            data = apply_overrides(data, overrides, policy=self.policy)
         
         # Ensure keys are strings
         data = {str(k): v for k, v in data.items()}
