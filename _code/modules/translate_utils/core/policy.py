@@ -18,7 +18,6 @@ from typing import List, Tuple, Optional, Dict, Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from cfg_utils import ConfigLoader, ConfigPolicy
 from logs_utils import LogPolicy
 
 
@@ -60,6 +59,7 @@ class TranslatePolicy(BaseModel):
     - store: 캐싱 및 결과 저장 설정
     - log: 로깅 설정 (Optional, config_loader에서 주입 가능)
     """
+    name: str = Field(default="translate", description="Section name in YAML config")
     provider: ProviderPolicy = Field(default_factory=ProviderPolicy)
     zh: ZhChunkPolicy = Field(default_factory=ZhChunkPolicy)
     store: StorePolicy = Field(default_factory=StorePolicy)
@@ -95,21 +95,9 @@ class TranslatorPolicy(BaseModel):
     - source: 소스 텍스트 로딩 설정 (YAML 파일 또는 직접 텍스트)
     - translate: Translate 내부 Policy (TranslatePolicy 포함, log도 여기 포함)
     """
+    name: str = Field(default="translator", description="Section name in YAML config")
     source: SourcePolicy = Field(default_factory=SourcePolicy)
     translate: TranslatePolicy = Field(default_factory=TranslatePolicy)
-
-    @staticmethod
-    def load(cfg_like: str | Path | dict | BaseModel, *, policy: ConfigPolicy | None = None) -> "TranslatorPolicy":
-        """Load TranslatorPolicy from various sources.
-        
-        Args:
-            cfg_like: Configuration source (YAML path, dict, BaseModel instance, etc.)
-            policy: ConfigPolicy for advanced loader options
-        
-        Returns:
-            TranslatorPolicy instance
-        """
-        return ConfigLoader.load(cfg_like, model=TranslatorPolicy, policy=policy)
 
     @model_validator(mode="after")
     def _derive_source_defaults(self) -> "TranslatorPolicy":

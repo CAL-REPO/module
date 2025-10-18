@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 
 
 class LogManager:
-    """Log Manager with ConfigLoader v2 pattern
+    """Log Manager with ConfigLoader pattern
     
     loguru를 사용한 로깅 관리자입니다.
-    cfg_utils_v2.ConfigLoader를 사용하여 정책을 로드합니다.
+    cfg_utils.ConfigLoader를 사용하여 정책을 로드합니다.
     
     Example:
         >>> # LogPolicy 직접 전달
@@ -73,54 +73,47 @@ class LogManager:
         cfg_like: Union[BaseModel, Path, str, dict, None],
         **overrides: Any
     ) -> "LogPolicy":
-        """LogPolicy 로드 (cfg_utils_v2 사용)"""
+        """LogPolicy 로드 (cfg_utils 사용)"""
         from logs_utils.core.policy import LogPolicy
         
         # 1. LogPolicy 인스턴스가 직접 전달된 경우
-        if isinstance(cfg_like, LogPolicy):
+        # Duck typing: 클래스 이름으로 체크 (import 경로 불일치 문제 해결)
+        if cfg_like is not None and cfg_like.__class__.__name__ == "LogPolicy":
+            if overrides:
+                return cfg_like.model_copy(update=overrides)
             return cfg_like
         
-        # 2. cfg_utils_v2.ConfigLoader 사용
+        # 2. cfg_utils.ConfigLoader 사용
         try:
-            from cfg_utils_v2 import ConfigLoader
+            from cfg_utils import ConfigLoader
             
-            # 기본 LogPolicy를 base로 사용
-            base_policy = LogPolicy()
+            # Section 이름 (LogPolicy 기본값)
+            section_name = LogPolicy().name  # "default_log"
             
-            # cfg_like가 None이면 기본 logging.yaml 사용
+            # cfg_like가 None이면 기본 log.yaml 사용
             if cfg_like is None:
-                default_path = Path(__file__).parent.parent / "configs" / "logging.yaml"
-                override_sources: Any = [(str(default_path), "logging")]
-            # str/Path면 YAML 파일
-            elif isinstance(cfg_like, (str, Path)):
-                override_sources = [(str(cfg_like), None)]
-            # dict면 그대로 사용
-            elif isinstance(cfg_like, dict):
-                override_sources = [(cfg_like, None)]
+                default_path = Path(__file__).parent.parent / "configs" / "log.yaml"
+                src = (str(default_path), section_name)
             else:
-                # 기타 경우 기본 정책 사용
-                override_sources = []
+                # str/Path/dict 모두 동일하게 처리
+                src = (cfg_like, section_name)
             
-            # ConfigLoader로 병합
-            loader = ConfigLoader(
-                base_sources=[(base_policy, "logging")],
-                override_sources=override_sources if override_sources else None
-            )
+            # ConfigLoader로 로드
+            loader = ConfigLoader(src=src)
             
             # overrides 적용
             if overrides:
                 for key, value in overrides.items():
-                    loader.override(f"logging__{key}", value)
+                    loader.override(f"{section_name}__{key}", value)
             
             # LogPolicy로 변환
-            result = loader.to_model(LogPolicy, section="logging")
-            return result  # type: ignore
+            return loader.to_model(LogPolicy, section=section_name)  # type: ignore
             
         except ImportError:
-            # cfg_utils_v2가 없으면 기본 설정
-            default_overrides = {"name": "app"}
-            default_overrides.update(overrides)
-            return LogPolicy(**default_overrides)
+            # cfg_utils가 없으면 기본 설정
+            if overrides:
+                return LogPolicy(**overrides)
+            return LogPolicy()
     
     def _configure_logger(self) -> None:
         """loguru logger 설정 (filter 기반 service 격리)"""

@@ -3,8 +3,7 @@
 
 책임:
 1. YAML 파일 기반 번역 실행 (run 메서드)
-2. ConfigLoader 통합 (BaseServiceLoader)
-3. LogManager 통합
+2. LogManager 통합
 
 실제 번역 로직은 Translate에 위임합니다 (SRP 준수).
 """
@@ -14,11 +13,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Union, Optional, Any, Dict
 
-from pydantic import BaseModel
-
-from cfg_utils import ConfigLoader
-from cfg_utils.core.base_service_loader import BaseServiceLoader
-from cfg_utils.core.policy import ConfigPolicy
 from logs_utils import LogManager
 
 from ..core.policy import TranslatorPolicy
@@ -26,37 +20,27 @@ from ..adapter.translate import Translate
 from ..services.source_loader import TextSourceLoader
 
 
-class Translator(BaseServiceLoader[TranslatorPolicy]):
-    """번역 EntryPoint - YAML 기반 번역 실행 (ImageTextRecognizer과 완전 대칭).
+class Translator:
+    """번역 EntryPoint - YAML 기반 번역 실행.
     
-    BaseServiceLoader를 상속하여 ConfigLoader 통합 및 일관된 설정 로딩을 제공합니다.
     실제 번역 로직은 Translate에 위임하여 SRP를 준수합니다.
     
     Attributes:
         policy: TranslatorPolicy 설정 (source, translate, log 포함)
-        log: loguru logger 인스턴스
-        translate: Translate 인스턴스 (lazy-loaded)
+        translate: Translate 인스턴스 (즉시 생성)
     """
     
     def __init__(
         self,
-        cfg_like: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like: Union[Path, str, dict, TranslatorPolicy, None] = None,
         *,
-        policy: Optional[ConfigPolicy] = None,
-        config_loader_path: Optional[Union[str, Path]] = None,
         log: Optional[LogManager] = None,
         **overrides: Any
     ):
-        """ConfigLoader와 동일한 인자 패턴으로 초기화 (ImageTextRecognizer과 완전 대칭).
+        """ConfigLoader와 동일한 인자 패턴으로 초기화.
         
         Args:
-            cfg_like: BaseModel, YAML 경로, dict, 또는 None
-                - BaseModel: TranslatePolicy 인스턴스 직접 전달
-                - str/Path: YAML 파일 경로
-                - dict: 설정 딕셔너리
-                - None: 기본 설정 파일 사용
-            policy: ConfigPolicy 인스턴스
-            config_loader_path: config_loader_translate.yaml 경로 override (선택)
+            cfg_like: TranslatorPolicy 인스턴스, YAML 경로, dict, 또는 None
             log: 외부 LogManager (없으면 policy.log_config로 생성)
             **overrides: 런타임 오버라이드 값 (provider__target_lang, source__text 등)
         
@@ -67,51 +51,64 @@ class Translator(BaseServiceLoader[TranslatorPolicy]):
             >>> # dict로 직접 설정
             >>> translator = Translator({"provider": {"provider": "deepl"}})
             
-            >>> # config_loader_path override
-            >>> translator = Translator(config_loader_path="./custom_config_loader.yaml")
-            
             >>> # 런타임 오버라이드 (KeyPath 형식)
             >>> translator = Translator("config.yaml", provider__target_lang="EN")
         """
-        # BaseServiceLoader 초기화 (self.policy 설정)
-        super().__init__(cfg_like, policy=policy, config_loader_path=config_loader_path, **overrides)
+        # Load policy
+        self.policy = self._load_config(cfg_like, **overrides)
         
         # Translate 즉시 생성 (self.log 사용을 위해 lazy-loading 제거)
         self._translate: Translate = Translate(cfg_like=self.policy.translate)
         self._source_loader: Optional[TextSourceLoader] = None
     
-    
     # ==========================================================================
-    # BaseServiceLoader Abstract Methods Implementation
+    # Config Loading (LogManager pattern)
     # ==========================================================================
     
-    def _get_policy_model(self) -> type[TranslatorPolicy]:
-        """Policy 모델 클래스 반환."""
-        return TranslatorPolicy
-    
-    def _get_config_loader_path(self) -> Path:
-        """config_loader_translate.yaml 경로 반환."""
-        return Path(__file__).parent.parent / "configs" / "config_loader_translate.yaml"
-    
-    def _get_default_section(self) -> str:
-        """기본 section 이름: 'translate'."""
-        return "translate"
-    
-    def _get_config_path(self) -> Path:
-        """마지막 안전 장치용 기본 설정 파일: translate.yaml."""
-        return Path(__file__).parent.parent / "configs" / "translate.yaml"
-    
-    def _get_reference_context(self) -> dict[str, Any]:
-        """paths.local.yaml을 reference_context로 제공."""
-        from modules.cfg_utils.services.paths_loader import PathsLoader
+    def _load_config(self, cfg_like, **overrides) -> TranslatorPolicy:
+        """Load TranslatorPolicy from various sources.
+        
+        Args:
+            cfg_like: TranslatorPolicy instance, YAML path, dict, or None
+            **overrides: Runtime overrides
+        
+        Returns:
+            TranslatorPolicy instance
+        """
+        # If already a Policy instance
+        if isinstance(cfg_like, TranslatorPolicy):
+            if overrides:
+                return cfg_like.model_copy(update=overrides)
+            return cfg_like
+        
+        # Try to use ConfigLoader
         try:
-            return PathsLoader.load()
-        except FileNotFoundError:
-            # paths.local.yaml이 없어도 동작 계속 (선택 사항)
-            return {}
+            from cfg_utils import ConfigLoader
+            section_name = TranslatorPolicy().name  # "translator"
+            
+            # Determine src
+            if cfg_like is None:
+                default_path = Path(__file__).parent.parent / "configs" / "translator.yaml"
+                src = (str(default_path), section_name)
+            else:
+                src = (cfg_like, section_name)
+            
+            # Load with ConfigLoader
+            loader = ConfigLoader(src=src)
+            if overrides:
+                for key, value in overrides.items():
+                    loader.override(f"{section_name}__{key}", value)
+            
+            result = loader.to_model(TranslatorPolicy, section=section_name)
+            return result  # type: ignore[return-value]
+        except ImportError:
+            # Fallback: create Policy directly
+            if overrides:
+                return TranslatorPolicy(**overrides)
+            return TranslatorPolicy()
     
     # ==========================================================================
-    # Translate (Immediate Creation)
+    # Translate & Log Properties
     # ==========================================================================
     
     @property

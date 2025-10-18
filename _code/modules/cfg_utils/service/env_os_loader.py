@@ -53,14 +53,14 @@ class EnvOSLoader:
         
         처리 순서:
         1. env_os에 따라 OS 환경 변수 수집
-        2. 값이 YAML 파일 경로면 파싱
+        2. 값이 YAML 파일 경로면 2-pass 파싱 (self-reference resolve)
         3. 그 외는 문자열 그대로 반환
         
         Args:
             env_os: 
                 - True: 모든 OS 환경 변수
                 - List[str]: 지정된 키만
-            parse_yaml: True이면 YAML 파일 경로 감지 및 파싱
+            parse_yaml: True이면 YAML 파일 경로 감지 및 2-pass 파싱
             
         Returns:
             OS 환경 변수 dict
@@ -80,10 +80,10 @@ class EnvOSLoader:
             env_data = EnvOSLoader.load(env_os=["DEBUG", "CONFIG_PATH"])
             # {'DEBUG': 'true', 'CONFIG_PATH': 'config.yaml'}
             
-            # YAML 파일 경로가 값이면 파싱
+            # YAML 파일 경로가 값이면 2-pass 파싱 (self-reference resolve)
             os.environ['MY_CONFIG'] = 'config.yaml'
             env_data = EnvOSLoader.load(env_os=["MY_CONFIG"])
-            # {'MY_CONFIG': {'key': 'value', ...}}  # ← YAML 파싱됨
+            # {'MY_CONFIG': {'key': 'value', ...}}  # ← YAML 파싱 + {{}} resolve
         """
         # 1️⃣ OS 환경 변수 수집
         if env_os is True:
@@ -101,7 +101,7 @@ class EnvOSLoader:
                 f"Expected True or List[str]."
             )
         
-        # 2️⃣ YAML 파일 경로 감지 및 파싱
+        # 2️⃣ YAML 파일 경로 감지 및 2-pass 파싱
         if parse_yaml:
             env_os_data = cls._parse_yaml_values(env_os_data)
         
@@ -109,7 +109,11 @@ class EnvOSLoader:
     
     @classmethod
     def _parse_yaml_values(cls, env_data: Dict[str, str]) -> Dict[str, Any]:
-        """환경 변수 값 중 YAML 파일 경로 감지 및 파싱.
+        """환경 변수 값 중 YAML 파일 경로 감지 및 2-pass 파싱.
+        
+        2-pass parsing으로 YAML 파일 내부의 self-reference를 resolve:
+        - 1st pass: Raw parse ({{placeholder}} 포함된 그대로)
+        - 2nd pass: 1st pass 결과를 context로 사용하여 self-reference resolve
         
         Args:
             env_data: OS 환경 변수 dict
@@ -133,17 +137,20 @@ class EnvOSLoader:
                         f"OS 환경 변수 '{key}'의 YAML 파일을 찾을 수 없습니다: {path}"
                     )
                 
-                # YAML 파싱
+                # YAML 단순 파싱 (placeholder 보존)
                 try:
                     parser_policy = BaseParserPolicy(
                         enable_placeholder=True,
-                        enable_env=True,
+                        enable_env=False,  # ${} 충돌 방지
                         enable_reference=False,
                         encoding="utf-8",
                         on_error="raise"
                     )
+                    
+                    yaml_text = path.read_text(encoding="utf-8")
                     parser = YamlParser(parser_policy, context={})
-                    parsed_data = parser.parse(path.read_text(encoding="utf-8"))
+                    parsed_data = parser.parse(yaml_text)
+                    
                     result[key] = parsed_data
                 except Exception as e:
                     raise RuntimeError(

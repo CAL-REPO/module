@@ -58,7 +58,7 @@ class OSPath:
             this method handles all conversion steps:
             1. str → Path conversion
             2. Tilde expansion (if expand_user=True)
-            3. Relative → absolute conversion (using cwd)
+            3. If already absolute, skip relative conversion
             4. Path normalization via resolve()
         """
         p = Path(path)
@@ -67,11 +67,14 @@ class OSPath:
         if expand_user:
             p = p.expanduser()
         
-        # 2. Convert relative paths to absolute (using current working directory)
-        if not p.is_absolute():
-            p = Path.cwd() / p
+        # 2. 이미 절대경로면 변환 건너뛰기 (중요!)
+        if p.is_absolute():
+            return p.resolve(strict=strict)
         
-        # 3. Normalize path (resolve symlinks, '..' and '.')
+        # 3. Convert relative paths to absolute (using current working directory)
+        p = Path.cwd() / p
+        
+        # 4. Normalize path (resolve symlinks, '..' and '.')
         return p.resolve(strict=strict)
     
     @staticmethod

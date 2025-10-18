@@ -1,33 +1,63 @@
-# Configuration for ConfigLoader (OTO Pipeline)
-# OTO 파이프라인의 모든 모듈 정책을 통합 관리
-
-config_loader:
-  yaml:
-    source_paths:
-      - path: "{{configs_dir}}/oto/image.yaml"
-        section: "image"  # ImageLoader가 사용할 섹션
-      - path: "{{configs_dir}}/oto/ocr.yaml"
-        section: "ocr"  # ImageOCR가 사용할 섹션
-      - path: "{{configs_dir}}/oto/overlay.yaml"
-        section: "overlay"  # ImageOverlay가 사용할 섹션
-      - path: "{{configs_dir}}/oto/translate.yaml"
-        section: "translate"  # Translator가 사용할 섹션
-    
-    enable_env: true
-    enable_include: false
-    enable_placeholder: true
-    enable_reference: true
+# ============================================================
+# ConfigLoaderPolicy - src 포함 테스트
+# ============================================================
+source:
+  # src에 YAML 파일 경로 지정 (정적 설정)
+  src:
+    - ["{{configs_oto_dir}}/image.yaml", "image"]
+    - ["{{configs_oto_dir}}/overlay.yaml", "overlay"]
+    - ["{{configs_oto_dir}}/text_recognize.yaml", "text_recognizer"]
+    - ["{{configs_oto_dir}}/translate.yaml", "translate"]
+  
+  # YAML 정책
+  yaml_parser:
     safe_mode: true
     encoding: "utf-8"
-    on_error: "ignore"
-    sort_keys: false
-    default_flow_style: false
-    indent: 2
+    enable_env: false
+    enable_include: true
+    enable_placeholder: true
+    enable_reference: true
   
-  # Normalizer options
-  drop_blanks: true
-  resolve_reference: true
+  yaml_normalizer:
+    normalize_keys: true
+    drop_blanks: true
+    resolve_vars: true
   
-  # Merge options
-  merge_order: "base→yaml→arg"
-  merge_mode: "deep"
+  yaml_merge:
+    deep: true
+    overwrite: true
+  
+  # # BaseModel 정책
+  # base_model_normalizer:
+  #   normalize_keys: true
+  #   drop_blanks: false
+  #   resolve_vars: false
+  
+  # base_model_merge:
+  #   deep: false
+  #   overwrite: false
+  
+  # # Dict 정책
+  # dict_normalizer:
+  #   normalize_keys: true
+  #   drop_blanks: true
+  #   resolve_vars: false
+  
+  # dict_merge:
+  #   deep: false
+  #   overwrite: true
+
+keypath:
+  separator: "__"
+
+log:
+  enabled: true
+  name: "cfg_loader"
+  level: "INFO"
+  sinks:
+    - sink_type: "console"
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+      colorize: true
+      backtrace: false
+      diagnose: false
+  context: {}

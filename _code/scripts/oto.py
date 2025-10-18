@@ -165,7 +165,7 @@ class OTO(BaseServiceLoader[OTOPolicy]):
         """
         if self._translate is None:
             self._translate = Translate(
-                policy=self.policy.translate,
+                cfg_like=self.policy.translate,
                 log_manager=None,  # Translate가 자체 LogManager 생성
             )
         return self._translate

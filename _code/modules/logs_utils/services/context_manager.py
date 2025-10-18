@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional, Union
 from pydantic import BaseModel
-from loguru import logger
+
 from logs_utils.services.manager import LogManager
 
 

@@ -10,10 +10,11 @@
 
 from __future__ import annotations
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union, List
-from pydantic import BaseModel, Field
+from typing import TYPE_CHECKING, Any, Optional, Union, List, Dict
+from pydantic import BaseModel, Field, model_validator
 from modules.keypath_utils.core.policy import KeyPathStatePolicy
 from modules.structured_io.core.policy import BaseParserPolicy
+from modules.path_utils import resolve as resolve_path
 
 if TYPE_CHECKING:
     from modules.logs_utils.core.policy import LogPolicy
@@ -23,11 +24,6 @@ else:
         from modules.logs_utils.core.policy import LogPolicy
     except ImportError:
         LogPolicy = Any  # type: ignore
-
-
-# ============================================================
-# 1. MergePolicy - KeyPathState 병합 정책
-# ============================================================
 
 
 # ============================================================
@@ -101,7 +97,17 @@ class SourcePolicy(BaseModel):
     # 단일 진입점 (Any 타입 사용 - Pydantic이 dict를 BaseModel로 변환하지 않도록)
     src: Optional[Any] = Field(
         default=None,
-        description="소스 데이터: BaseModel/dict/str/Path 또는 (데이터, section) 튜플"
+        description=(
+            "소스 데이터 (단일 또는 리스트):\n"
+            "- 단일: BaseModel/dict/str/Path 또는 (데이터, section) 튜플\n"
+            "- 리스트: [(path1, section1), (path2, section2), ...] 형태로 여러 소스 지정 가능"
+        )
+    )
+    
+    # Context (env section resolved data)
+    context: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="YAML 파싱 시 사용할 context (env section의 resolved data)"
     )
     
     # BaseModel 정책
@@ -137,7 +143,7 @@ class SourcePolicy(BaseModel):
         default_factory=lambda: BaseParserPolicy(
             safe_mode=True,
             encoding="utf-8",
-            enable_env=True,
+            enable_env=False,  # ${} 충돌 방지 (KeyPath와 겹침)
             enable_include=True,
             enable_placeholder=True
         ),
@@ -155,6 +161,33 @@ class SourcePolicy(BaseModel):
         default_factory=lambda: MergePolicy(deep=True, overwrite=True),
         description="YAML 병합 정책"
     )
+    
+    @model_validator(mode="after")
+    def _list_to_tuple(self) -> "SourcePolicy":
+        """src 필드의 리스트를 튜플로 변환
+        
+        처리 로직:
+        - 모든 리스트를 재귀적으로 튜플로 변환
+        - 경로 해석은 source.py에서 context와 함께 처리
+        
+        예시:
+        - [["path1.yaml", "s1"], ["path2.yaml", "s2"]] 
+          → (("path1.yaml", "s1"), ("path2.yaml", "s2"))
+        - ["path.yaml", "section"] → ("path.yaml", "section")
+        """
+        if self.src is None:
+            return self
+        
+        def list_to_tuple_recursive(value: Any) -> Any:
+            """재귀적으로 list를 tuple로 변환"""
+            if isinstance(value, list):
+                return tuple(list_to_tuple_recursive(item) for item in value)
+            return value
+        
+        # list → tuple 변환만 수행
+        self.src = list_to_tuple_recursive(self.src)
+        
+        return self
 
 
 # ============================================================

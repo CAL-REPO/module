@@ -9,7 +9,7 @@ overlay:
   # 1. Source - 소스 이미지 설정 (런타임에서 Image 객체 전달)
   # --------------------------------------------------------------------------
   source:
-    path: "{{temp_input_dir}}/01.jpg"              # 기본값 (런타임 오버라이드)
+    path: "${temp_input_dir}/01.jpg"              # 기본값 (런타임 오버라이드)
     # must_exist: false
     # convert_mode: "RGB"
   
@@ -24,7 +24,7 @@ overlay:
         - [400, 200]
         - [100, 200]
       font:
-        font_dir: "{{fonts_dir}}"
+        font_dir: "${fonts_dir}"
         family: "HMKMMAG.TTF"           # 한글 폰트
         size: 48                        # 크기 명시
         fill: "#FF0000"                 # 빨간색 (눈에 잘 띄게)
@@ -38,7 +38,7 @@ overlay:
         - [500, 400]
         - [150, 400]
       font:
-        font_dir: "{{fonts_dir}}"
+        font_dir: "${fonts_dir}"
         family: "HMKMMAG.TTF"
         size: 60
         fill: "#0000FF"                 # 파란색
@@ -52,7 +52,7 @@ overlay:
         - [600, 600]
         - [200, 600]
       font:
-        font_dir: "{{fonts_dir}}"
+        font_dir: "${fonts_dir}"
         family: "HMKMMAG.TTF"           # 폰트 패밀리
         size: 72                        # 더 큰 크기
         fill: "#00FF00"                 # 초록색
@@ -74,7 +74,7 @@ overlay:
   # --------------------------------------------------------------------------
   save:
     save_copy: true                    # 오버레이된 이미지 저장 (임시로 비활성화)
-    directory: "{{temp_input_dir}}"      # 저장 디렉토리
+    directory: "${temp_input_dir}"      # 저장 디렉토리
     
     name:
       # as_type: "file"
@@ -112,7 +112,7 @@ overlay:
   # --------------------------------------------------------------------------
   meta:
     save_meta: true                     # 메타 저장 활성화
-    directory: "{{temp_input_dir}}"      # 메타 저장 디렉토리
+    directory: "${temp_input_dir}"      # 메타 저장 디렉토리
     
     name:
     #   as_type: "file"

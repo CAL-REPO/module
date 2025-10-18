@@ -13,10 +13,10 @@
 #
 # ============================================================
 
-logging:
+default_log:
   # 기본 설정
-  enabled: true
-  name: "app"
+  enabled: True
+  name: ""
   level: "INFO"
   
   # Sink 설정 (콘솔만)

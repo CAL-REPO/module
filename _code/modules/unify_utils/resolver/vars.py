@@ -116,7 +116,11 @@ class VarsResolver(Resolver):
         def replacer(match: re.Match) -> str:
             key = match.group(1).strip()
             if key in self.policy.context:
-                return str(self.policy.context[key])
+                value = str(self.policy.context[key])
+                # 🔥 재귀 해석: Context 값에 또 다른 placeholder가 있을 수 있음
+                if '{{' in value or '${' in value:
+                    value = self._apply_single(value)
+                return value
             if self.strict:
                 raise KeyError(f"[VarsResolver] Missing context key: {key}")
             return match.group(0)  # 원본 유지

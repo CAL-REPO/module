@@ -222,10 +222,12 @@ class KeyPathDict:
         """데이터 내 모든 KeyPath 참조를 완전히 해석.
         
         KeyPathVarsResolver를 사용하여 내부 KeyPath 참조를 치환합니다.
-        (${key__path:default} 패턴)
+        - ${key__path:default}: KeyPath 중첩 참조
+        - {{placeholder}}: Context 변수 (self.data 기반)
+        - ${ENV:default}: 환경 변수
         
         Args:
-            context: 해석에 사용할 컨텍스트 dict (사용 안 함, 향후 확장용)
+            context: 해석에 사용할 컨텍스트 dict (None이면 self.data 사용)
             recursive: 재귀적으로 중첩 구조 처리
             strict: 해석 실패 시 예외 발생 여부
         
@@ -242,6 +244,15 @@ class KeyPathDict:
             >>> model.data
             {'image': {'max_width': 1024}, 'ref': '1024'}
             
+            >>> # Placeholder 참조 (self-reference)
+            >>> model = KeyPathDict({
+            ...     "base_path": "/app",
+            ...     "config_dir": "{{base_path}}/config"
+            ... })
+            >>> model.resolve_all()
+            >>> model.data
+            {'base_path': '/app', 'config_dir': '/app/config'}
+            
             >>> # 재귀 참조
             >>> model = KeyPathDict({
             ...     "config": {"base": "https://api.com"},
@@ -251,21 +262,30 @@ class KeyPathDict:
             >>> model.resolve_all()
             >>> model.data['url']
             'https://api.com/v1/users'
-            
-            >>> # 순환 참조 감지
-            >>> model = KeyPathDict({"a": "${b}", "b": "${a}"})
-            >>> model.resolve_all(strict=True)  # ValueError: Circular reference
         """
         from modules.keypath_utils.services.resolver import KeyPathVarsResolver
         from modules.keypath_utils.core.policy import KeyPathResolverPolicy
         
+        # context가 None이면 self.data 사용 (self-reference 지원)
+        if context is None:
+            context = self.data
+        
         policy = KeyPathResolverPolicy(
-            enable_env=False,  # 환경 변수 비활성화
-            enable_context=False,  # 컨텍스트 비활성화
+            enable_env=False,  # ❌ 환경 변수: ${} 패턴이 KeyPath와 겹침
+            enable_context=True,  # ✅ Context 변수: {{placeholder}}
+            context=context,  # self.data를 context로 사용
             keypath_sep="__",  # 프로젝트 표준
             recursive=recursive,
             strict=strict
         )
+        
+        # Multi-pass resolution (재귀 참조 해결)
+        # Pass 1: 첫 번째 해석
+        resolver = KeyPathVarsResolver(data=self.data, policy=policy)
+        self.data = resolver.apply(self.data)
+        
+        # Pass 2: 두 번째 해석 (context 업데이트하여 재귀 참조 해결)
+        policy.context = self.data  # 1차 resolve된 데이터를 context로 업데이트
         resolver = KeyPathVarsResolver(data=self.data, policy=policy)
         self.data = resolver.apply(self.data)
         

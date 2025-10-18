@@ -9,7 +9,7 @@ image:
   # 1. Source - 소스 이미지 설정 (런타임에서 지정)
   # --------------------------------------------------------------------------
   source:
-    path: "{{temp_input_dir}}/01.jpg"           # 소스 이미지 경로 (런타임 오버라이드) - ${} 패턴 사용
+    path: "${temp_input_dir}/01.jpg"           # 소스 이미지 경로 (런타임 오버라이드) - ${} 패턴 사용
     # must_exist: false                 # 파일 존재 여부 확인
     # convert_mode: "RGB"               # PIL 모드 변환
   
@@ -18,7 +18,7 @@ image:
   # --------------------------------------------------------------------------
   save:
     save_copy: true                    # 이미지 복사본 저장 여부 (임시로 비활성화)
-    directory: "{{temp_input_dir}}"      # 저장 디렉토리 - ${} 패턴 사용
+    directory: "${temp_input_dir}"      # 저장 디렉토리 - ${} 패턴 사용
     
     # FSO Name Policy - 파일 이름 생성 정책
     name:
@@ -63,7 +63,7 @@ image:
   # --------------------------------------------------------------------------
   meta:
     save_meta: true                    # 메타 저장 활성화 (임시로 비활성화)
-    directory: "{{temp_input_dir}}"      # 메타 저장 디렉토리 - ${ } 패턴 사용
+    directory: "${temp_input_dir}"      # 메타 저장 디렉토리 - ${} 패턴 사용
     # name:
     #   as_type: "file"
     #   prefix: null

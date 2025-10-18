@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from modules.keypath_utils import KeyPathState, KeyPathMerger, KeyPathMergePolicy
+from modules.keypath_utils import KeyPathState, KeyPathMerger, KeyPathMergePolicy, KeyPathDict
 from modules.data_utils.core.types import PathLike
 
 from .source import YamlFileSource
@@ -75,6 +75,7 @@ class EnvProcessor:
         1. env section 확인 및 생성
         2. env 소스 처리 → merge
         3. env_os 소스 처리 → merge (override)
+        4. ${keypath} 형식 참조 resolve
         
         Args:
             state: 현재 KeyPathState
@@ -92,13 +93,46 @@ class EnvProcessor:
         if "env" not in current_data:
             current_data["env"] = {}
         
-        # 1️⃣ env 처리
+        # 1️⃣ env 소스 처리
         if self.env is not None:
             current_data["env"] = self._process_env(current_data["env"])
         
-        # 2️⃣ env_os 처리 (env override)
+        # 2️⃣ env_os 소스 처리 (env에 merge, override)
         if self.env_os is not None and self.env_os is not False:
             current_data["env"] = self._process_env_os(current_data["env"])
+        
+        # 3️⃣ env section 전체를 KeyPathDict로 변환 후 resolve_all()
+        # {{self-reference}}, ${keypath} 모두 한 번에 처리
+        if current_data["env"]:
+            # Context flatten: env.CASHOP_PATHS.configs_dir → configs_dir
+            # self-reference를 위해 최상위 dict의 값들을 직접 사용
+            flat_context = {}
+            for key, value in current_data["env"].items():
+                if isinstance(value, dict):
+                    # dict 값을 flatten (CASHOP_PATHS의 모든 키를 최상위로)
+                    flat_context.update(value)
+            
+            env_kpd = KeyPathDict(data=current_data["env"])
+            
+            # Multi-pass resolution (최대 5번)
+            for i in range(5):
+                resolved_env = env_kpd.resolve_all(
+                    context=flat_context,  # Flatten된 context 사용
+                    recursive=True,
+                    strict=False
+                )
+                # Context 업데이트 (resolve된 값으로)
+                flat_context = {}
+                for key, value in resolved_env.data.items():
+                    if isinstance(value, dict):
+                        flat_context.update(value)
+                
+                # 변화가 없으면 종료
+                if resolved_env.data == env_kpd.data:
+                    break
+                env_kpd.data = resolved_env.data
+            
+            current_data["env"] = env_kpd.data
         
         return KeyPathState(name=state.name, store=current_data)
     
@@ -129,6 +163,8 @@ class EnvProcessor:
     def _process_env_os(self, env_data: Dict[str, Any]) -> Dict[str, Any]:
         """env_os 소스 처리.
         
+        OS 환경 변수를 로드하고 env_data에 merge.
+        
         Args:
             env_data: 현재 env section 데이터
             
@@ -138,7 +174,7 @@ class EnvProcessor:
         if self.env_os is None or self.env_os is False:
             return env_data
         
-        # OS 환경 변수 로드 (YAML 파일 자동 파싱)
+        # OS 환경 변수 로드 (YAML 단순 파싱, placeholder 보존)
         env_os_data = EnvOSLoader.load(self.env_os, parse_yaml=True)
         
         # Deep merge

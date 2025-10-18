@@ -24,14 +24,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 from pydantic import BaseModel
 
 from modules.keypath_utils import KeyPathState, KeyPathDict
-from modules.data_utils.core.types import (
-    PathLike,
-    ConfigSourceWithSection,
-)
+from modules.data_utils.core.types import PathLike
 
-from ..core.policy import ConfigLoaderPolicy, SourcePolicy
+from ..core.policy import ConfigLoaderPolicy
 from .converter import StateConverter
-from .source import UnifiedSource
+from .source import UnifiedSource, YamlFileSource
 
 if TYPE_CHECKING:
     from modules.logs_utils.core.policy import LogPolicy
@@ -83,8 +80,7 @@ class ConfigLoader:
         config_loader_cfg_path: Optional[Union[str, Path, tuple[Union[str, Path], str]]] = None,
         *,
         policy: Optional[ConfigLoaderPolicy] = None,
-        base_sources: Optional[ConfigSourceWithSection] = None,
-        override_sources: Optional[ConfigSourceWithSection] = None,
+        src: Optional[Any] = None,
         env: Optional[Union[str, List[str], PathLike, List[PathLike]]] = None,
         env_os: Optional[Union[bool, List[str]]] = None,
         log: Optional[LogPolicy] = None,
@@ -140,7 +136,19 @@ class ConfigLoader:
             ...     )
             ... )
         """
-        # 1단계: config_loader_cfg_path로 YAML 정책 로드
+        # 🔥 1단계: 환경 변수 우선 설정 (가장 먼저!)
+        self.env = env
+        self.env_os = env_os
+        
+        # 2단계: env 처리 (state 생성)
+        self._state = KeyPathState(name="config")
+        
+        if self.env is not None or (self.env_os is not None and self.env_os is not False):
+            from .env_processor import EnvProcessor
+            env_processor = EnvProcessor(env=self.env, env_os=self.env_os)
+            self._state = env_processor.process(self._state)
+        
+        # 3단계: config_loader_cfg_path로 YAML 정책 로드 (env context 사용 가능)
         self.config_loader_cfg_path = config_loader_cfg_path
         self._loader_policy_dict: Optional[Dict[str, Any]] = None
         
@@ -150,67 +158,50 @@ class ConfigLoader:
         else:
             self._config_loader_policy = None
         
-        # 2단계: policy 매개변수로 정책 덮어쓰기
+        # 4단계: policy 매개변수로 정책 덮어쓰기
         if policy is not None:
             self._config_loader_policy = policy
         
-        # 3단계: ConfigLoaderPolicy에서 개별 정책 추출
+        # 5단계: ConfigLoaderPolicy에서 개별 정책 추출
         if self._config_loader_policy is not None:
-            self._normalizer_policy = self._config_loader_policy.normalizer
-            self._merge_policy = self._config_loader_policy.merge
-            self._yaml_parser_policy = self._config_loader_policy.yaml_parser
+            self._source_policy = self._config_loader_policy.source
             self._keypath_policy = self._config_loader_policy.keypath
             yaml_log_policy = self._config_loader_policy.log
         else:
-            self._normalizer_policy = None
-            self._merge_policy = None
-            self._yaml_parser_policy = None
+            self._source_policy = None
             self._keypath_policy = None
             yaml_log_policy = None
         
-        # 4단계: 개별 매개변수로 소스 설정
-        # ⚠️ base_sources, override_sources, env, env_os는 Python 코드에서만 전달
-        self.base_sources = base_sources or []
-        self.override_sources = override_sources or []
-        self.env = env
-        self.env_os = env_os
+        # 6단계: src 파라미터 처리
+        # 우선순위: src 파라미터 > ConfigLoaderPolicy.source.src > None
+        if src is not None:
+            # src 파라미터가 명시적으로 전달됨
+            self._final_src = src
+        elif self._source_policy is not None and self._source_policy.src is not None:
+            # config_loader_cfg_path에서 source.src 추출
+            yaml_src = self._source_policy.src
+            
+            # src가 단일 소스를 담은 튜플인 경우: ((path, section),) → (path, section)
+            if isinstance(yaml_src, tuple) and len(yaml_src) == 1:
+                self._final_src = yaml_src[0]
+            else:
+                self._final_src = yaml_src
+        else:
+            self._final_src = None
+        
+        # 7단계: 로그 정책
         self._log_policy = log if log is not None else yaml_log_policy
         
-        # 5단계: 정책 기본값 설정
-        if self._normalizer_policy is None:
-            from ..core.policy import NormalizePolicy
-            self._normalizer_policy = NormalizePolicy(
-                normalize_keys=False,
-                drop_blanks=False,
-                resolve_vars=True
-            )
-        
-        if self._merge_policy is None:
-            from ..core.policy import MergePolicy
-            self._merge_policy = MergePolicy(
-                deep=False,
-                overwrite=True
-            )
-        
-        if self._yaml_parser_policy is None:
-            from ..core.policy import YamlParserPolicy
-            self._yaml_parser_policy = YamlParserPolicy(
-                encoding="utf-8",
-                safe_mode=True
-            )
-        
-        if self._keypath_policy is None:
-            from ..core.policy import KeyPathPolicy
-            self._keypath_policy = KeyPathPolicy(
-                separator="__",
-                override_requires_base=True
-            )
-        
-        # Section 추적 (BaseModel에 정의된 sections)
+        # 6단계: 정책 기본값 설정
+        if self._source_policy is None:
+            from ..core.policy import SourcePolicy
+            self._source_policy = SourcePolicy()
+
+        # Section 추적
         self._base_sections: set = set()
         
-        # KeyPath State (내부 상태)
-        self._state: Optional[KeyPathState] = None
+        # KeyPath State는 이미 Line 147에서 초기화됨!
+        # self._state: Optional[KeyPathState] = None  ← 삭제!
         
         # 로거 초기화
         self._logger = None
@@ -225,70 +216,49 @@ class ConfigLoader:
         """Load 프로세스 수행.
         
         프로세스:
-        1. base_sources: BaseModel 우선 처리 → Normalize key → Merge → Section 추적
-        2. override_sources: 타입 자동 판단 → Section 중복 확인 → 조건별 처리
-        3. env + env_os: 환경 변수 통합 처리 → env section 자동 생성 → 무조건 merge
-        4. 최종 Resolve_vars
+        1. src 처리: UnifiedSource로 통합 처리
+        2. env + env_os: 환경 변수 통합 처리
+        3. 최종 정규화
         """
-        from modules.keypath_utils import KeyPathMerger, KeyPathMergePolicy
-        from .override_processor import OverrideProcessor
+        from .source import UnifiedSource
         from .env_processor import EnvProcessor
         
         # 로깅 시작
         if self._logger:
             self._logger.info("ConfigLoader._load() started")
         
-        # 초기화
-        self._state = KeyPathState(name="config")
-        self._base_sections = set()
+        # NOTE: env + env_os는 이미 __init__에서 처리됨 (self._state 생성됨)
         
-        # 1단계: base_sources 처리 (Source에서 이미 정규화됨)
-        if self._logger:
-            self._logger.debug(f"Processing base_sources: {len(self.base_sources)} items")
-        
-        for source_item in self.base_sources:
-            kpd, section = self._extract_source(source_item, source_type="base")
-            
-            # Section 추적
-            if section:
-                self._base_sections.add(section)
-                if self._logger:
-                    self._logger.debug(f"Base section added: {section}")
-            
-            # Merge (shallow) - Source에서 이미 정규화되었으므로 그대로 사용
-            self._state.merge(kpd.data, deep=False)
-        
-        # 2단계: override_sources 처리 (Source에서 이미 정규화됨)
-        if self._logger:
-            self._logger.debug(f"Processing override_sources: {len(self.override_sources)} items")
-        
-        # override_requires_base 정책 확인 (keypath 정책에서)
-        override_requires_base = True
-        if self._config_loader_policy is not None and self._config_loader_policy.keypath is not None:
-            override_requires_base = self._config_loader_policy.keypath.override_requires_base
-        
-        override_processor = OverrideProcessor(
-            base_sections=self._base_sections,
-            require_base=override_requires_base
-        )
-        for source_item in self.override_sources:
-            kpd, section = self._extract_source(source_item, source_type="override")
-            # Source에서 이미 정규화되었으므로 그대로 사용
-            self._state = override_processor.process(self._state, kpd, section)
-        
-        # 3단계: env + env_os 통합 처리
-        if self.env is not None or (self.env_os is not None and self.env_os is not False):
+        # 1단계: src 처리 (env placeholder 이미 resolved)
+        if self._final_src is not None:
             if self._logger:
-                self._logger.debug("Processing env + env_os")
+                self._logger.debug(f"Processing src: {type(self._final_src).__name__}")
             
-            env_processor = EnvProcessor(env=self.env, env_os=self.env_os)
-            self._state = env_processor.process(self._state)
+            # SourcePolicy에 src 주입 및 처리
+            from ..core.policy import SourcePolicy
+            
+            # env section을 context로 추출
+            env_context = self._state.to_dict().get("env", {}) if self._state else {}
+            
+            # Tuple src인 경우 (list source의 경우) 각각 개별 처리
+            if isinstance(self._final_src, tuple):
+                if self._logger:
+                    self._logger.debug(f"Processing multiple sources: {len(self._final_src)} items")
+                
+                for idx, single_src in enumerate(self._final_src):
+                    if self._logger:
+                        self._logger.debug(f"Processing source [{idx}]: {single_src}")
+                    
+                    self._process_single_source(single_src, env_context)
+            else:
+                # Single src 처리
+                self._process_single_source(self._final_src, env_context)
         
-        # 4단계: 최종 정규화 (resolve_vars)
+        # 3단계: 최종 정규화 (resolve_vars)
         if self._logger:
             self._logger.debug("Final normalization (resolve_vars)")
         
-        if self._normalizer_policy and self._normalizer_policy.resolve_vars:
+        if self._source_policy and self._source_policy.yaml_normalizer and self._source_policy.yaml_normalizer.resolve_vars:
             final_kpd = KeyPathDict(data=self._state.to_dict())
             resolved = final_kpd.resolve_all()
             self._state = KeyPathState(name="config", store=resolved.data)
@@ -296,6 +266,39 @@ class ConfigLoader:
         # 로깅 완료
         if self._logger:
             self._logger.info("ConfigLoader._load() completed")
+    
+    def _process_single_source(self, src: Any, env_context: Dict[str, Any]) -> None:
+        """단일 소스 처리 (중복 제거용 헬퍼 메서드).
+        
+        Args:
+            src: 소스 데이터 (path, (path, section), BaseModel, dict 등)
+            env_context: env 섹션 context
+        """
+        from ..core.policy import SourcePolicy
+        from .source import UnifiedSource
+        
+        if self._source_policy:
+            # 기존 정책 복사 후 src와 context 설정
+            source_policy_with_src = SourcePolicy(
+                src=src,
+                context=env_context,
+                base_model_normalizer=self._source_policy.base_model_normalizer,
+                base_model_merge=self._source_policy.base_model_merge,
+                dict_normalizer=self._source_policy.dict_normalizer,
+                dict_merge=self._source_policy.dict_merge,
+                yaml_parser=self._source_policy.yaml_parser,
+                yaml_normalizer=self._source_policy.yaml_normalizer,
+                yaml_merge=self._source_policy.yaml_merge
+            )
+        else:
+            source_policy_with_src = SourcePolicy(src=src, context=env_context)
+        
+        # UnifiedSource로 처리
+        source = UnifiedSource(policy=source_policy_with_src)
+        kpd = source.extract()
+        
+        # KeyPathState에 merge
+        self._state.merge(kpd.data, deep=False)
     
     def _load_loader_policy(self) -> Dict[str, Any]:
         """ConfigLoader 정책 파일 로드.
@@ -325,8 +328,30 @@ class ConfigLoader:
                 f"ConfigLoader policy file not found: {file_path}"
             )
         
-        # YAML 파일 로드
-        source = YamlFileSource(file_path, section=section)
+        # YAML 파일 로드 (placeholder 해석 비활성화 - env 없음)
+        from ..core.policy import SourcePolicy
+        from modules.structured_io.core.policy import BaseParserPolicy
+        
+        # Placeholder 해석 비활성화 (env가 아직 없어서 빈 문자열로 해석됨)
+        from ..core.policy import NormalizePolicy
+        
+        yaml_policy = SourcePolicy(
+            src=file_path,
+            yaml_parser=BaseParserPolicy(
+                safe_mode=True,
+                encoding="utf-8",
+                enable_env=False,
+                enable_include=True,
+                enable_placeholder=False,  # ← 비활성화!
+                enable_reference=False
+            ),
+            yaml_normalizer=NormalizePolicy(
+                normalize_keys=True,
+                drop_blanks=False,
+                resolve_vars=False  # ← 비활성화!
+            )
+        )
+        source = YamlFileSource(file_path, section=section, policy=yaml_policy)
         kpd = source.extract()
         
         return kpd.data
@@ -334,8 +359,10 @@ class ConfigLoader:
     def _parse_loader_policy(self):
         """ConfigLoader 정책 파싱.
         
-        ConfigLoaderPolicy는 5개 필드를 YAML에서 로드합니다:
-        - normalizer, merge, yaml_parser, keypath, log
+        ConfigLoaderPolicy는 3개 필드를 YAML에서 로드합니다:
+        - source: SourcePolicy (단일) 또는 List[SourcePolicy] (다중 src 지원)
+        - keypath: KeyPathStatePolicy
+        - log: LogPolicy
         
         Returns:
             ConfigLoaderPolicy 또는 None
@@ -344,38 +371,67 @@ class ConfigLoader:
             return None
         
         try:
-            from ..core.policy import (
-                ConfigLoaderPolicy,
-                NormalizePolicy,
-                MergePolicy,
-                YamlParserPolicy,
-                KeyPathPolicy
-            )
+            from ..core.policy import ConfigLoaderPolicy, SourcePolicy
+            from modules.keypath_utils.core.policy import KeyPathStatePolicy
             
-            # 1. normalizer 파싱
-            normalizer_dict = self._loader_policy_dict.get("normalizer", {})
-            normalizer = NormalizePolicy(**normalizer_dict) if normalizer_dict else None
+            # 1. source 파싱 (list 또는 dict 지원)
+            source_data = self._loader_policy_dict.get("source", {})
             
-            # 2. merge 파싱
-            merge_dict = self._loader_policy_dict.get("merge", {})
-            merge = MergePolicy(**merge_dict) if merge_dict else None
+            if isinstance(source_data, list):
+                # List[dict]: 각 dict를 SourcePolicy로 변환 후 src 추출하여 병합
+                all_srcs = []
+                base_source_policy = None
+                
+                for item in source_data:
+                    if not isinstance(item, dict):
+                        continue
+                    
+                    # 각 item을 SourcePolicy로 변환
+                    item_policy = SourcePolicy(**item)
+                    
+                    # src 추출
+                    if item_policy.src is not None:
+                        all_srcs.append(item_policy.src)
+                    
+                    # 첫 번째 item의 정책을 base로 사용
+                    if base_source_policy is None:
+                        base_source_policy = item_policy
+                
+                # 모든 src를 병합하여 하나의 SourcePolicy로
+                if base_source_policy and all_srcs:
+                    # src를 tuple로 병합
+                    merged_src = tuple(all_srcs) if len(all_srcs) > 1 else all_srcs[0]
+                    source = SourcePolicy(
+                        src=merged_src,
+                        base_model_normalizer=base_source_policy.base_model_normalizer,
+                        base_model_merge=base_source_policy.base_model_merge,
+                        dict_normalizer=base_source_policy.dict_normalizer,
+                        dict_merge=base_source_policy.dict_merge,
+                        yaml_parser=base_source_policy.yaml_parser,
+                        yaml_normalizer=base_source_policy.yaml_normalizer,
+                        yaml_merge=base_source_policy.yaml_merge
+                    )
+                else:
+                    source = None
+            elif isinstance(source_data, dict):
+                # dict: 단일 SourcePolicy
+                source = SourcePolicy(**source_data) if source_data else None
+            else:
+                source = None
             
-            # 3. yaml_parser 파싱
-            yaml_parser_dict = self._loader_policy_dict.get("yaml_parser", {})
-            yaml_parser = YamlParserPolicy(**yaml_parser_dict) if yaml_parser_dict else None
-            
-            # 4. keypath 파싱
+            # 2. keypath 파싱
             keypath_dict = self._loader_policy_dict.get("keypath", {})
-            keypath = KeyPathPolicy(**keypath_dict) if keypath_dict else None
+            keypath = KeyPathStatePolicy(**keypath_dict) if keypath_dict else None
             
-            # 5. log 파싱 (별도 메서드 사용)
+            # 3. log 파싱 (별도 메서드 사용)
             log = self._parse_log_policy()
             
             # ConfigLoaderPolicy 생성
+            if source is None:
+                source = SourcePolicy()  # 기본 정책 사용
+            
             return ConfigLoaderPolicy(
-                normalizer=normalizer,
-                merge=merge,
-                yaml_parser=yaml_parser,
+                source=source,
                 keypath=keypath,
                 log=log
             )
@@ -431,8 +487,8 @@ class ConfigLoader:
             from modules.logs_utils.services.manager import LogManager
             from modules.logs_utils.core.policy import LogPolicy
             
-            # LogPolicy 타입 검증
-            if not isinstance(self._log_policy, LogPolicy):
+            # LogPolicy 타입 검증 (duck typing - 클래스 이름으로 체크)
+            if self._log_policy.__class__.__name__ != "LogPolicy":
                 import sys
                 print(
                     f"Warning: log parameter must be LogPolicy instance, got {type(self._log_policy).__name__}. "
@@ -470,201 +526,37 @@ class ConfigLoader:
                 file=sys.stderr
             )
     
-
-    
-    def _extract_source(
-        self,
-        source_item: Any,
-        source_type: str
-    ) -> tuple[KeyPathDict, Optional[str]]:
-        """소스에서 KeyPathDict 추출 (정책 전달).
-        
-        정책 전달 방식:
-        1. Source가 이미 생성된 경우 (ConfigSource 인스턴스):
-           → Source 자체 정책 사용
-        2. 개별 정책 지정 (SourcePolicy, data, section):
-           → 개별 SourcePolicy 사용
-        3. 전역 정책 사용 (data, section):
-           → ConfigLoader 전역 정책 사용
+    def get_state(self, name: Optional[str] = None) -> Union[KeyPathState, Any]:
+        """내부 KeyPathState 또는 section 데이터 반환.
         
         Args:
-            source_item: 소스 아이템
-                - ConfigSource: 이미 생성된 Source 인스턴스
-                - (SourcePolicy, data, section): 개별 정책 + 데이터 + section 튜플
-                - (data, section): 데이터와 section 튜플 (전역 정책 사용)
-                - data: 데이터만 (section 없음, 전역 정책 사용)
-            source_type: 소스 타입 힌트 ("base" or "override") - 로깅용
+            name: section 이름 (None이면 전체 KeyPathState 반환)
         
         Returns:
-            (KeyPathDict, section) 튜플
-            
-        Raises:
-            TypeError: base_sources에 BaseModel이 아닌 타입이 전달된 경우
-        
-        Examples:
-            >>> # 패턴 1: 전역 정책 사용
-            >>> base_sources = [(ImagePolicy(), "image")]
-            
-            >>> # 패턴 2: 개별 정책 사용
-            >>> custom_policy = SourcePolicy(normalizer=NormalizePolicy(normalize_keys=True))
-            >>> base_sources = [(custom_policy, ImagePolicy(), "image")]
-            
-            >>> # 패턴 3: YAML 파일 + 개별 정책
-            >>> yaml_policy = SourcePolicy(yaml_parser=YamlParserPolicy(safe_mode=False))
-            >>> override_sources = [(yaml_policy, "config.yaml", "image")]
-        """
-        from .source import ConfigSource
-        from ..core.policy import SourcePolicy
-        
-        # None 처리
-        if source_item is None:
-            return KeyPathDict(data={}), None
-        
-        # Tuple 처리: 3가지 패턴
-        custom_policy = None
-        if isinstance(source_item, tuple):
-            if len(source_item) == 3:
-                # 패턴: (SourcePolicy, data, section)
-                first, second, third = source_item
-                if isinstance(first, SourcePolicy):
-                    custom_policy = first
-                    data = second
-                    section = third
-                else:
-                    # 잘못된 형태
-                    raise ValueError(
-                        f"Invalid source_item format: 3-tuple must be (SourcePolicy, data, section). "
-                        f"Got ({type(first).__name__}, {type(second).__name__}, {type(third).__name__})"
-                    )
-            elif len(source_item) == 2:
-                # 패턴: (data, section) - 전역 정책 사용
-                data, section = source_item
-            else:
-                raise ValueError(
-                    f"Invalid source_item format: tuple must be (data, section) or (SourcePolicy, data, section). "
-                    f"Got {len(source_item)}-tuple"
-                )
-        else:
-            # 패턴: data만 (section 없음)
-            data = source_item
-            section = None
-        
-        # 이미 생성된 Source 인스턴스
-        if isinstance(data, ConfigSource):
-            return data.extract(), section
-        
-        # 정책 결정: 개별 정책 우선, 없으면 전역 정책
-        if custom_policy:
-            policy = custom_policy
-            if self._logger:
-                self._logger.debug(f"[{source_type.upper()}] Using custom SourcePolicy")
-        else:
-            # 전역 정책으로 SourcePolicy 생성
-            from ..core.policy import SourcePolicy
-            policy = SourcePolicy(
-                normalizer=self._normalizer_policy,
-                merge=self._merge_policy,
-                yaml_parser=self._yaml_parser_policy
-            )
-            if self._logger:
-                self._logger.debug(f"[{source_type.upper()}] Using global SourcePolicy")
-        
-        # base_sources 타입 제한 (정책 기반)
-        if source_type == "base":
-            # base_sources는 BaseModel만 허용
-            if not isinstance(data, BaseModel):
-                raise TypeError(
-                    f"base_sources only accepts BaseModel instances. "
-                    f"Got {type(data).__name__}. "
-                    f"BaseModel provides default values and type validation. "
-                    f"Use override_sources for Dict or YAML files."
-                )
-            
-            # BaseModel 처리
-            if isinstance(data, BaseModel):
-                source = BaseModelSource(
-                    data,
-                    section=section,
-                    policy=policy
-                )
-                return source.extract(), section
-            
-            # any 정책: Dict/YAML도 허용
-            if isinstance(data, dict):
-                source = DictSource(
-                    data,
-                    section=section,
-                    policy=policy
-                )
-                return source.extract(), section
-            
-            if isinstance(data, (str, Path)):
-                source = YamlFileSource(
-                    data,
-                    section=section,
-                    policy=policy
-                )
-                return source.extract(), section
-            
-            raise TypeError(
-                f"Unsupported base_sources type: {type(data)}. "
-                f"Expected BaseModel, dict, or str/Path (YAML file)."
-            )
-        
-        # override_sources는 타입 자동 판단 (policy 이미 결정됨)
-        
-        # 1. BaseModel → KeyPathDict
-        if isinstance(data, BaseModel):
-            source = BaseModelSource(
-                data,
-                section=section,
-                policy=policy
-            )
-            return source.extract(), section
-        
-        # 2. Dict → KeyPathDict
-        if isinstance(data, dict):
-            source = DictSource(
-                data,
-                section=section,
-                policy=policy
-            )
-            return source.extract(), section
-        
-        # 3. Path-like (YAML 파일) → KeyPathDict
-        if isinstance(data, (str, Path)):
-            source = YamlFileSource(
-                data,
-                section=section,
-                policy=policy
-            )
-            return source.extract(), section
-        
-        raise TypeError(
-            f"Unsupported source type: {type(data)}. "
-            f"Expected BaseModel, dict, or str/Path (YAML file)."
-        )
-    
-    def get_state(self) -> KeyPathState:
-        """내부 KeyPathState 반환.
-        
-        Returns:
-            KeyPathState (복사본)
+            name이 None: KeyPathState 전체
+            name이 지정됨: 해당 section의 데이터 (dict 또는 BaseModel)
         
         Examples:
             >>> loader = ConfigLoader(...)
-            >>> state = loader.get_state()
-            >>> state.get("image__max_width")
+            >>> state = loader.get_state()  # 전체
+            >>> log_policy = loader.get_state(name="default")  # section만
         """
         if self._state is None:
             raise RuntimeError("ConfigLoader not initialized")
         
-        # Copy state to prevent external modification
-        return KeyPathState(
-            name=self._state.name,
-            store=self._state.store,
-            policy=self._state.policy
-        )
+        if name is None:
+            # 전체 KeyPathState 반환
+            return KeyPathState(
+                name=self._state.name,
+                store=self._state.store,
+                policy=self._state.policy
+            )
+        else:
+            # section 데이터만 반환
+            section_data = self._state.to_dict().get(name)
+            if section_data is None:
+                raise KeyError(f"Section '{name}' not found in state")
+            return section_data
     
     def override(self, path: str, value: Any) -> ConfigLoader:
         """KeyPath로 값 override.

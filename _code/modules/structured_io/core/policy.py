@@ -26,7 +26,7 @@ class BaseParserPolicy(BaseModel):
         - source_paths 필드는 제거됨 (cfg_utils.SourcePathPolicy로 이동)
         - Parser는 파싱만 담당, 소스 관리는 ConfigLoader의 책임
     """
-    enable_env: bool = Field(default=True, description="환경 변수(${VAR} 또는 ${VAR:default}) 확장 활성화")
+    enable_env: bool = Field(default=False, description="환경 변수(${VAR} 또는 ${VAR:default}) 확장 활성화")
     enable_include: bool = Field(default=True, description="!include 태그 활성화 여부 (JSON에서는 비활성)")
     enable_placeholder: bool = Field(default=True, description="{{ var }} 또는 ${VAR} 스타일 치환")
     enable_reference: bool = Field(default=False, description="${ref:path.to.key} 참조 치환 (기본 비활성화)")

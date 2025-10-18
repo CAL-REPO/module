@@ -4,7 +4,7 @@
 from pathlib import Path
 from pprint import pprint
 
-from modules.cfg_utils_v2.core.policy import ConfigLoaderPolicy
+from modules.cfg_utils.core.policy import ConfigLoaderPolicy
 from modules.structured_io.formats.yaml_io import YamlParser
 from modules.structured_io.core.policy import BaseParserPolicy
 

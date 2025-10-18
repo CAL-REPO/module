@@ -57,7 +57,3 @@ def create_logger(
         >>> logger_manager = create_logger(policy)
     """
     return LogManager(cfg_like, policy=policy, **overrides)
-
-
-# Convenience alias
-logger_factory = create_logger

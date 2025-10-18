@@ -44,7 +44,7 @@ excel:
   # Target Excel File & Sheet
   # -------------------------------------------------------------------------
   target:
-    excel_path: "{{root}}/01.All Product List.xlsx"  # 절대경로
+    excel_path: "${root}/01.All Product List.xlsx"  # 절대경로
     sheet_name: "Purchase"
 
   # -------------------------------------------------------------------------

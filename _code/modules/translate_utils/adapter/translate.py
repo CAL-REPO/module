@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Translate - Core translation business logic (SRP-compliant + BaseServiceLoader).
+"""Translate - Core translation business logic (SRP-compliant).
 
 책임:
 1. 텍스트 리스트를 받아 번역 실행
 2. Pipeline 오케스트레이션 (세그먼트 분할, 캐싱, bulk 번역)
 3. 번역 결과 매핑 반환 (Dict[원본, 번역])
-4. BaseServiceLoader 통합으로 config_loader 지원
 
 이 클래스는 Translator(EntryPoint)와 분리되어 순수한 번역 로직만 담당합니다.
 Standalone 사용 + EntryPoint에서 위임 받는 겸용 Adapter입니다.
@@ -16,12 +15,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict, Optional, Any, Union
 
-from pydantic import BaseModel
-
 from path_utils.os_paths import OSPath
 from logs_utils import LogManager
-from cfg_utils.core.base_service_loader import BaseServiceLoader
-from cfg_utils.core.policy import ConfigPolicy
 
 from ..core.policy import TranslatePolicy
 from ..providers.factory import ProviderFactory
@@ -32,10 +27,9 @@ from ..services.preprocessor import TextPreprocessor
 from ..services.storage import TranslationStorage, TranslationResultWriter
 
 
-class Translate(BaseServiceLoader[TranslatePolicy]):
+class Translate:
     """Core translation service providing run() API.
     
-    BaseServiceLoader를 상속하여 ConfigLoader 통합 및 일관된 설정 로딩을 제공합니다.
     Standalone 사용 가능 + Translator에서 위임 받는 Adapter 역할 겸용.
     
     Attributes:
@@ -47,19 +41,15 @@ class Translate(BaseServiceLoader[TranslatePolicy]):
     
     def __init__(
         self,
-        cfg_like: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like: Union[Path, str, dict, TranslatePolicy, None] = None,
         *,
-        policy: Optional[ConfigPolicy] = None,
-        config_loader_path: Optional[Union[str, Path]] = None,
         log_manager: Optional[LogManager] = None,
         **overrides: Any
     ):
         """Initialize Translate with policy.
         
         Args:
-            cfg_like: BaseModel, YAML 경로, dict, 또는 None
-            policy: ConfigPolicy 인스턴스
-            config_loader_path: translate_cfg_loader.yaml 경로 override
+            cfg_like: TranslatePolicy, YAML 경로, dict, 또는 None
             log_manager: 외부 LogManager (선택사항)
             **overrides: 런타임 오버라이드
         
@@ -77,8 +67,8 @@ class Translate(BaseServiceLoader[TranslatePolicy]):
             >>> # 런타임 오버라이드
             >>> translate = Translate("config.yaml", provider__target_lang="EN")
         """
-        # BaseServiceLoader 초기화 (self.policy 설정)
-        super().__init__(cfg_like, policy=policy, config_loader_path=config_loader_path, **overrides)
+        # Load policy
+        self.policy = self._load_config(cfg_like, **overrides)
         
         # LogManager 생성 (우선순위: 외부 log_manager > policy.log > 기본)
         if log_manager:
@@ -95,32 +85,50 @@ class Translate(BaseServiceLoader[TranslatePolicy]):
         self._pipeline: Optional[TranslationPipeline] = None
     
     # ==========================================================================
-    # BaseServiceLoader Abstract Methods (필수 구현)
+    # Config Loading (LogManager pattern)
     # ==========================================================================
     
-    def _get_policy_model(self) -> type[TranslatePolicy]:
-        """Policy 모델 클래스 반환 (BaseServiceLoader 요구사항)."""
-        return TranslatePolicy
-    
-    def _get_config_loader_path(self) -> Path:
-        """translate_cfg_loader.yaml 경로 반환."""
-        return Path(__file__).parent.parent / "configs" / "translate_cfg_loader.yaml"
-    
-    def _get_default_section(self) -> str:
-        """기본 section 이름: 'translate'."""
-        return "translate"
-    
-    def _get_config_path(self) -> Path:
-        """마지막 안전 장치용 기본 설정 파일: translate.yaml."""
-        return Path(__file__).parent.parent / "configs" / "translate.yaml"
-    
-    def _get_reference_context(self) -> dict[str, Any]:
-        """paths.local.yaml을 reference_context로 제공."""
-        from cfg_utils.services.paths_loader import PathsLoader
+    def _load_config(self, cfg_like, **overrides) -> TranslatePolicy:
+        """Load TranslatePolicy from various sources.
+        
+        Args:
+            cfg_like: TranslatePolicy instance, YAML path, dict, or None
+            **overrides: Runtime overrides
+        
+        Returns:
+            TranslatePolicy instance
+        """
+        # If already a Policy instance
+        if isinstance(cfg_like, TranslatePolicy):
+            if overrides:
+                return cfg_like.model_copy(update=overrides)
+            return cfg_like
+        
+        # Try to use ConfigLoader
         try:
-            return PathsLoader.load()
-        except FileNotFoundError:
-            return {}
+            from cfg_utils import ConfigLoader
+            section_name = TranslatePolicy().name  # "translate"
+            
+            # Determine src
+            if cfg_like is None:
+                default_path = Path(__file__).parent.parent / "configs" / "translate.yaml"
+                src = (str(default_path), section_name)
+            else:
+                src = (cfg_like, section_name)
+            
+            # Load with ConfigLoader
+            loader = ConfigLoader(src=src)
+            if overrides:
+                for key, value in overrides.items():
+                    loader.override(f"{section_name}__{key}", value)
+            
+            result = loader.to_model(TranslatePolicy, section=section_name)
+            return result  # type: ignore[return-value]
+        except ImportError:
+            # Fallback: create Policy directly
+            if overrides:
+                return TranslatePolicy(**overrides)
+            return TranslatePolicy()
     
     # ==========================================================================
     # Provider & Pipeline (Lazy Creation)

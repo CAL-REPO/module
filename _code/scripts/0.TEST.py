@@ -111,42 +111,42 @@
 # result = img_overlay.run()
 
 
-from scripts.oto import OTO
+# from scripts.oto import OTO
 
-print("\n" + "="*80)
-print("Test OTO Pipeline - OCR -> Translate -> Overlay")
-print("="*80)
+# print("\n" + "="*80)
+# print("Test OTO Pipeline - OCR -> Translate -> Overlay")
+# print("="*80)
 
-try:
-    # OTO Pipeline 생성 (ImageLoader와 동일한 패턴)
-    # cfg_like 없이 config_loader_path만 지정하면 자동으로 로드
-    oto = OTO(
-        cfg_like={},  # ✅ 빈 dict 전달 (config_loader_path에서 로드)
-        config_loader_path="M:/CALife/CAShop - 구매대행/_code/configs/loader/config_loader_oto.yaml"
-    )
+# try:
+#     # OTO Pipeline 생성 (ImageLoader와 동일한 패턴)
+#     # cfg_like 없이 config_loader_path만 지정하면 자동으로 로드
+#     oto = OTO(
+#         cfg_like={},  # ✅ 빈 dict 전달 (config_loader_path에서 로드)
+#         config_loader_path="M:/CALife/CAShop - 구매대행/_code/configs/loader/config_loader_oto.yaml"
+#     )
     
-    # ✅ run() 메서드 사용 (BaseServiceLoader 대칭)
-    result = oto.run(
-        source_override="m:/CALife/CAShop - 구매대행/_code/input/01.jpg"
-    )
+#     # ✅ run() 메서드 사용 (BaseServiceLoader 대칭)
+#     result = oto.run(
+#         source_override="m:/CALife/CAShop - 구매대행/_code/input/01.jpg"
+#     )
     
-    if result['success']:
-        print(f"\n✅ OTO Pipeline 성공!")
-        if result['image']:
-            print(f"   최종 이미지: {result['image'].size} {result['image'].mode}")
-        if result['ocr_result']:
-            print(f"   OCR Items: {len(result['ocr_result']['ocr_items'])}")
-        if result['translate_result']:
-            print(f"   번역 결과: {len(result['translate_result'])} 텍스트")
-        if result['overlay_result']:
-            print(f"   오버레이: {result['overlay_result'].get('overlaid_items', 0)}개 아이템")
-    else:
-        print(f"\n❌ OTO Pipeline 실패: {result['error']}")
+#     if result['success']:
+#         print(f"\n✅ OTO Pipeline 성공!")
+#         if result['image']:
+#             print(f"   최종 이미지: {result['image'].size} {result['image'].mode}")
+#         if result['ocr_result']:
+#             print(f"   OCR Items: {len(result['ocr_result']['ocr_items'])}")
+#         if result['translate_result']:
+#             print(f"   번역 결과: {len(result['translate_result'])} 텍스트")
+#         if result['overlay_result']:
+#             print(f"   오버레이: {result['overlay_result'].get('overlaid_items', 0)}개 아이템")
+#     else:
+#         print(f"\n❌ OTO Pipeline 실패: {result['error']}")
         
-except Exception as e:
-    import traceback
-    print(f"\n❌ 예외 발생: {e}")
-    traceback.print_exc()
+# except Exception as e:
+#     import traceback
+#     print(f"\n❌ 예외 발생: {e}")
+#     traceback.print_exc()
 
 
 # print(f"✅ 결과: success={result['success']}, saved_path={result['saved_path']}")
@@ -260,3 +260,28 @@ except Exception as e:
 #     print(f"✅ 예상된 에러 발생: {e}")
 # except Exception as e:
 #     print(f"❌ 다른 에러: {e}")
+
+from cfg_utils.service.loader import ConfigLoader
+from logs_utils.core.policy import LogPolicy
+from logs_utils.services.manager import LogManager
+# from image_utils.core.policy import ImageLoaderPolicy
+
+
+
+CfgLoader = ConfigLoader(config_loader_cfg_path="M:/CALife/CAShop - 구매대행/_code/configs/loader/config_loader_oto.yaml",
+                         env_os=["CASHOP_PATHS"])
+
+
+print(CfgLoader.get_state())
+policy_image = CfgLoader.get_state(name="image")
+policy_overlay = CfgLoader.get_state(name="overlay")
+policy_text_recognize = CfgLoader.get_state(name="text_recognizer")
+policy_translate = CfgLoader.get_state(name="translate")
+
+
+print(policy_image)
+print(policy_overlay)
+print(policy_text_recognize)
+print(policy_translate)
+
+
