@@ -1,0 +1,121 @@
+# =============================================================================
+# config_loader_log.yaml
+# =============================================================================
+# Purpose: ConfigLoader 정책 파일 (config_loader_cfg_path 인자로 주입)
+#
+# 이 파일은 ConfigLoader의 동작을 제어하는 정책 파일입니다.
+# ConfigLoader(config_loader_cfg_path="config_loader_log.yaml")로 전달됩니다.
+#
+# 구조:
+#   각 섹션은 ConfigLoaderPolicy를 정의합니다:
+#   - normalizer: 정규화 정책 (옵션)
+#   - merge: 병합 정책 (옵션)
+#   - yaml_parser: YAML 파서 정책 (옵션)
+#   - keypath: KeyPath 정책 (옵션)
+#   - log: LogPolicy (ConfigLoader 로깅 제어)
+#
+# 사용 예시:
+#   from cfg_utils import ConfigLoader
+#   
+#   # config_loader_debug 섹션 사용
+#   loader = ConfigLoader(
+#       config_loader_cfg_path=("config_loader_log.yaml", "config_loader_debug"),
+#       base_sources=[...]
+#   )
+#   # → ConfigLoader 내부 동작이 DEBUG 레벨로 로그 출력
+#
+# log.yaml과의 차이:
+#   - config_loader_log.yaml: config_loader_cfg_path로 주입 (ConfigLoader 정책)
+#   - log.yaml: LogManager에 직접 전달 (애플리케이션 로깅)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# config_loader (기본 정책)
+# -----------------------------------------------------------------------------
+config_loader:
+  log:
+    enabled: true
+    name: "cfg_loader"
+    level: "INFO"
+    sinks:
+      - sink_type: "console"
+        level: "INFO"
+        colorize: true
+        format: "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | {message}"
+
+# -----------------------------------------------------------------------------
+# config_loader_debug (디버그 정책)
+# -----------------------------------------------------------------------------
+config_loader_debug:
+  log:
+    enabled: true
+    name: "cfg_loader_debug"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "console"
+        level: "DEBUG"
+        colorize: true
+        format: "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | {message}"
+      
+      - sink_type: "file"
+        filepath: "output/logs/cfg_loader_debug.log"
+        level: "DEBUG"
+        rotation: "10 MB"
+        retention: "3 days"
+        format: "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {name} | {message}"
+
+# -----------------------------------------------------------------------------
+# config_loader_trace (최상세 추적)
+# -----------------------------------------------------------------------------
+config_loader_trace:
+  log:
+    enabled: true
+    name: "cfg_loader_trace"
+    level: "TRACE"
+    sinks:
+      - sink_type: "file"
+        filepath: "output/logs/cfg_loader_trace.log"
+        level: "TRACE"
+        rotation: "50 MB"
+        retention: "1 days"
+        format: "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name} | {file}:{line} | {message}"
+        backtrace: true
+        diagnose: true
+
+# -----------------------------------------------------------------------------
+# config_loader_production (운영 환경)
+# -----------------------------------------------------------------------------
+config_loader_production:
+  log:
+    enabled: true
+    name: "cfg_loader_prod"
+    level: "WARNING"
+    sinks:
+      - sink_type: "file"
+        filepath: "output/logs/cfg_loader.log"
+        level: "WARNING"
+        rotation: "20 MB"
+        retention: "30 days"
+        compression: "zip"
+        format: "{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {message}"
+
+# -----------------------------------------------------------------------------
+# config_loader_disabled (로깅 비활성화)
+# -----------------------------------------------------------------------------
+config_loader_disabled:
+  log:
+    enabled: false
+
+# -----------------------------------------------------------------------------
+# config_loader_test (테스트용)
+# -----------------------------------------------------------------------------
+config_loader_test:
+  log:
+    enabled: true
+    name: "cfg_loader_test"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "console"
+        level: "DEBUG"
+        colorize: false
+        format: "{time:HH:mm:ss} | {level:<8} | {message}"

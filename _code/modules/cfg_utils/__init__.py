@@ -1,20 +1,42 @@
-
 # -*- coding: utf-8 -*-
-# cfg_utils/__init__.py
-# Unified configuration loading and normalization utilities.
-# Provides ConfigLoader, ConfigNormalizer, ConfigPolicy for YAML/dict/model merging and normalization.
+"""cfg_utils_v2 - Configuration Management v2.
 
-from __future__ import annotations
+3-Tier Architecture:
+- core/: Low-level components (Source, Merger, Normalizer)
+- service/: Mid-level services (ConfigLoader)
+- adapter/: High-level adapters (CfgLoader)
 
-# Re-export core types (keep imports local and lightweight)
-from .core.policy import ConfigPolicy
-from .core.base_service_loader import BaseServiceLoader
-from .services.normalizer import ConfigNormalizer
-from .services.config_loader import ConfigLoader
+Usage:
+    >>> # Import ConfigLoader for direct use
+    >>> from cfg_utils_v2.service import ConfigLoader
+    >>> policy = ConfigLoader.load(cfg_like="config__yaml", model=MyPolicy)
+    
+    >>> # Import CfgLoader for policy files
+    >>> from cfg_utils_v2.adapter import CfgLoader
+    >>> cfg_loader = CfgLoader("cfg_loader__yaml")
+    >>> data = cfg_loader.extract("section")
+"""
+
+# Core components
+from .core import (
+    SourceBase,
+    SourcePolicy,
+    NormalizePolicy,
+    MergePolicy,
+)
+
+# Service layer
+from .service import ConfigLoader, UnifiedSource
 
 __all__ = [
-    "ConfigLoader",
-    "ConfigNormalizer",
-    "ConfigPolicy",
-    "BaseServiceLoader"
+    # Core
+    'SourceBase',
+    'SourcePolicy',
+    'NormalizePolicy',
+    'MergePolicy',
+    # Service
+    'ConfigLoader',
+    'UnifiedSource',
 ]
+
+__version__ = '2.0.0'
