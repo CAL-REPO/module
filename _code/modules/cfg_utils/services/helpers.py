@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from modules.keypath_utils import KeyPathDict
 from modules.data_utils.services.dict_ops import DictOps
 from modules.structured_io.formats.yaml_io import YamlParser
-from modules.unify_utils.normalizers.normalizer_keypath import KeyPathNormalizer
+from modules.unify_utils.normalizers.keypath import KeyPathNormalizer
 from modules.unify_utils.core.policy import KeyPathNormalizePolicy
 from modules.cfg_utils.core.policy import ConfigPolicy
 

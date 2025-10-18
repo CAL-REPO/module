@@ -10,35 +10,42 @@ unify_utils — 데이터 정규화 및 해석(Resolver) 유틸리티 모듈
 Public API
 -----------
 - Base & Policy
-  - NormalizerBase
-  - NormalizePolicyBase
-  - RuleNormalizePolicy, ValueNormalizePolicy, ListNormalizePolicy, KeyPathNormalizePolicy
+  - Normalizer, Resolver
+  - UnifyPolicyBase, VarsResolverPolicy
+  - RuleNormalizePolicy, ValueNormalizePolicy, ListNormalizePolicy
 
 - Rules & Presets
   - NormalizeRule, RuleType, LetterCase, RegexFlag, RulePresets
 
 - Normalizers
-  - RuleBasedNormalizer, ValueNormalizer, ListNormalizer, KeyPathNormalizer
+  - RuleBasedNormalizer, ValueNormalizer, ListNormalizer
 
 - Resolvers
-  - PlaceholderResolver, ReferenceResolver
+  - VarsResolver (변수 치환 Resolver) ⭐ 권장
+  - ReferenceResolver (단순 참조, 레거시)
+  - PlaceholderResolver (환경변수, 레거시)
 
 - Factory Helpers
-  - rule_normalizer(), value_normalizer(), list_normalizer(), reference_resolver(), placeholder_resolver()
+  - rule_normalizer(), value_normalizer(), list_normalizer()
+  - vars_resolver() (권장)
 """
 
 # ---------------------------------------------------------------------------
 # Base / Policy
 # ---------------------------------------------------------------------------
-from .core.base_normalizer import NormalizerBase
-from .core.base_resolver import ResolverBase
+from .core.interface import Normalizer
+from .core.interface import Resolver
 from .core.policy import (
-    NormalizePolicyBase,
+    UnifyPolicyBase,
+    VarsResolverPolicy,
     RuleNormalizePolicy,
     ValueNormalizePolicy,
     ListNormalizePolicy,
-    KeyPathNormalizePolicy,
 )
+
+# Backward compatibility
+NormalizePolicyBase = UnifyPolicyBase
+ResolverPolicy = VarsResolverPolicy
 
 # ---------------------------------------------------------------------------
 # Rules / Presets
@@ -54,16 +61,17 @@ from .presets.rules import (
 # ---------------------------------------------------------------------------
 # Normalizers
 # ---------------------------------------------------------------------------
-from .normalizers.normalizer_rule import RuleBasedNormalizer
-from .normalizers.normalizer_value import ValueNormalizer
-from .normalizers.normalizer_list import ListNormalizer
-from .normalizers.normalizer_keypath import KeyPathNormalizer
+from .normalizers.rule import RuleBasedNormalizer
+from .normalizers.value import ValueNormalizer
+from .normalizers.list import ListNormalizer
 
 # ---------------------------------------------------------------------------
-# Resolvers (신규 노출)
+# Resolvers
 # ---------------------------------------------------------------------------
-from .normalizers.resolver_placeholder import PlaceholderResolver
-from .normalizers.resolver_reference import ReferenceResolver
+from .resolver.vars import VarsResolver
+
+# Backward compatibility
+UnifiedResolver = VarsResolver
 
 # ---------------------------------------------------------------------------
 # Convenience factory helpers
@@ -92,36 +100,80 @@ def list_normalizer(*, sep: str | None = None,
         min_len=min_len, max_len=max_len, recursive=recursive, strict=strict)
     return ListNormalizer(policy)
 
-def reference_resolver(data: dict, *, recursive: bool = True, strict: bool = False) -> ReferenceResolver:
-    """ReferenceResolver 팩토리"""
-    return ReferenceResolver(data, recursive=recursive, strict=strict)
+def vars_resolver(
+    data: dict,
+    *,
+    enable_env: bool = False,
+    enable_context: bool = False,
+    context: dict | None = None,
+    recursive: bool = True,
+    strict: bool = False
+) -> VarsResolver:
+    """VarsResolver 팩토리 (권장)
+    
+    ⚠️ KeyPath 중첩 경로는 미지원 (a__b__c)
+    중첩 경로 필요 시 keypath_utils.KeyPathVarsResolver 사용
+    
+    Args:
+        data: 참조 소스 데이터
+        enable_env: 환경 변수 지원 (${ENV:default})
+        enable_context: Context 변수 지원 ({{VAR}})
+        context: Context 변수 사전
+        recursive: 재귀적 구조 처리
+        strict: 오류 시 예외 발생
+    
+    Examples:
+        >>> # 단순 참조
+        >>> resolver = vars_resolver({"host": "api.com", "url": "${host}"})
+        
+        >>> # 환경변수 + Context
+        >>> resolver = vars_resolver(
+        ...     data,
+        ...     enable_env=True,
+        ...     enable_context=True,
+        ...     context={"HOST": "localhost"}
+        ... )
+    """
+    from .core.policy import VarsResolverPolicy
+    policy = VarsResolverPolicy(
+        recursive=recursive,
+        strict=strict,
+        enable_env=enable_env,
+        enable_context=enable_context,
+        context=context or {}
+    )
+    return VarsResolver(data, policy)
 
-def placeholder_resolver(context: dict | None = None, *, recursive: bool = False, strict: bool = False) -> PlaceholderResolver:
-    """PlaceholderResolver 팩토리"""
-    return PlaceholderResolver(context or {}, recursive=recursive, strict=strict)
+# Backward compatibility
+unified_resolver = vars_resolver
 
 # ---------------------------------------------------------------------------
 # 공개 인터페이스
 # ---------------------------------------------------------------------------
 __all__ = [
     # Base / Policy
-    "NormalizerBase", "ResolverBase",
-    "NormalizePolicyBase",
+    "Normalizer", "Resolver",
+    "UnifyPolicyBase", "VarsResolverPolicy",
     "RuleNormalizePolicy", "ValueNormalizePolicy",
-    "ListNormalizePolicy", "KeyPathNormalizePolicy",
+    "ListNormalizePolicy",
+    "NormalizePolicyBase",  # Backward compatibility
+    "ResolverPolicy",  # Backward compatibility
 
     # Rules
     "NormalizeRule", "RuleType", "LetterCase", "RegexFlag", "RulePresets",
 
     # Normalizers
     "RuleBasedNormalizer", "ValueNormalizer",
-    "ListNormalizer", "KeyPathNormalizer",
+    "ListNormalizer",
 
     # Resolvers
-    "PlaceholderResolver", "ReferenceResolver",
+    "VarsResolver",
+    "UnifiedResolver",  # Backward compatibility
 
     # Factory helpers
     "rule_normalizer", "value_normalizer",
-    "list_normalizer", "reference_resolver",
-    "placeholder_resolver",
+    "list_normalizer",
+    "vars_resolver",  # 권장
+    "unified_resolver",  # Backward compatibility
 ]
+

@@ -9,7 +9,7 @@ ocr:
   # 1. Source - 소스 이미지 설정 (런타임에서 Image 객체 전달)
   # --------------------------------------------------------------------------
   source:
-    path: ""          # 기본값 (런타임 오버라이드)
+    path: "{{temp_input_dir}}/01.jpg"          # 기본값 (런타임 오버라이드)
     # must_exist: false
     # convert_mode: "RGB"
   
@@ -22,8 +22,8 @@ ocr:
     min_conf: 0.5                       # 최소 신뢰도 (0.0-1.0)
     
     # PaddleOCR 전용 설정
-    # paddle_device: "cpu"
-    # paddle_use_angle_cls: true
+    paddle_device: "gpu"
+    paddle_use_angle_cls: true
     # paddle_instance: null
   
   # --------------------------------------------------------------------------
@@ -51,11 +51,11 @@ ocr:
     #   as_type: "file"
     #   prefix: null
     #   name: ""
-      suffix: "_ocr"
+      suffix: "ocr_copy"
     #   tail: null
     #   extension: null
     #   delimiter: "_"
-    #   tail_mode: "counter"
+      tail_mode: "counter"
     #   date_format: "%Y-%m-%d"
     #   counter_width: 3
     #   auto_expand: true
@@ -86,15 +86,15 @@ ocr:
     #   as_type: "file"
     #   prefix: null
     #   name: ""
-      suffix: "_ocr"
-    #   tail: null
+      suffix: "ocr_meta"
+      # tail: null
     #   extension: ".json"
     #   delimiter: "_"
-    #   tail_mode: null
+      tail_mode: "counter"
     #   date_format: "%Y-%m-%d"
     #   counter_width: 3
     #   auto_expand: true
-    #   tail_suffix: null
+      # tail_suffix: null
     #   sanitize: true
     #   case: "keep"
     #   ensure_unique: false

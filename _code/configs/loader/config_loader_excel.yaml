@@ -4,7 +4,7 @@
 config_loader:
   yaml:
     source_paths:
-      - path: "${configs_dir}/xl/excel.yaml"
+      - path: "{{configs_dir}}/xl/excel.yaml"
         section: "excel"  # ImageLoader가 사용할 섹션
     enable_env: true
     enable_include: true

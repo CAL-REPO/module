@@ -17,13 +17,13 @@ from .policy import (
     ImageProcessPolicy,
     ImageLoaderPolicy,
     
-    # ImageOCR policies
+    # ImageTextRecognizer policies
     OCRProviderPolicy,
     OCRPreprocessPolicy,
     OCRPostprocessPolicy,
     ImageOCRPolicy,
     
-    # ImageOverlay policies
+    # ImageOverlayer policies
     OverlayTextPolicy,
     ImageOverlayPolicy,
     
@@ -44,13 +44,13 @@ __all__ = [
     "ImageProcessPolicy",
     "ImageLoaderPolicy",
     
-    # ImageOCR policies
+    # ImageTextRecognizer policies
     "OCRProviderPolicy",
     "OCRPreprocessPolicy",
     "OCRPostprocessPolicy",
     "ImageOCRPolicy",
     
-    # ImageOverlay policies
+    # ImageOverlayer policies
     "OverlayTextPolicy",
     "ImageOverlayPolicy",
     

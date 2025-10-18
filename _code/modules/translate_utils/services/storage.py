@@ -12,14 +12,15 @@ from fso_utils import ExistencePolicy, FSOOps, FSOOpsPolicy
 from structured_io import json_fileio
 
 from ..core.policy import StorePolicy
+from ..core.interfaces import CacheInterface, WriterInterface
 from .cache import TranslationCache
 
 
-class TranslationStorage:
-    """Translation storage managing both database cache and JSON file output.
+class TranslationStorage(CacheInterface):
+    """Translation storage managing database cache.
     
-    This class now uses the refactored TranslationCache (which wraps SQLiteKVStore)
-    instead of the old stub from structured_data.composite.database.
+    CacheInterface 구현체입니다.
+    This class uses the refactored TranslationCache (which wraps SQLiteKVStore).
     """
 
     def __init__(self, policy: StorePolicy, *, default_dir: Path):
@@ -75,8 +76,11 @@ class TranslationStorage:
             self._cache = None
 
 
-class TranslationResultWriter:
-    """Persist translated results to JSON."""
+class TranslationResultWriter(WriterInterface):
+    """Persist translated results to JSON.
+    
+    WriterInterface 구현체입니다.
+    """
 
     def __init__(self, policy: StorePolicy, *, default_dir: Path):
         self.policy = policy
@@ -87,7 +91,7 @@ class TranslationResultWriter:
             base_dir = Path(policy.tr_dir).expanduser() if policy.tr_dir else default_dir
             dir_ops = FSOOps(
                 base_dir,
-                policy=FSOOpsPolicy(as_type="dir", exist=ExistencePolicy(create_if_missing=True)),
+                policy=FSOOpsPolicy(as_type="dir", exist=ExistencePolicy(create_if_missing=True, must_exist=False, overwrite=False)),  # type: ignore
             )
             self._dir_path = dir_ops.path
             self.path = self._dir_path / policy.tr_name
@@ -103,3 +107,4 @@ class TranslationResultWriter:
         payload = {src: tgt for src, tgt in zip(texts, translations)}
         json_fileio(str(self.path)).write(payload)
         return self.path
+

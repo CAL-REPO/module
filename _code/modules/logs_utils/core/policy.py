@@ -66,6 +66,7 @@ class SinkPolicy(BaseModel):
 
 class LogPolicy(BaseModel):
     """로깅 정책"""
+    enabled: bool = True  # ✨ logging 활성화/비활성화 제어
     name: str = "app"
     level: LogLevel = "INFO"
     sinks: list[SinkPolicy] = Field(default_factory=lambda: [SinkPolicy()])

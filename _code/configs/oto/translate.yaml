@@ -9,18 +9,18 @@ translate:
   # 1. Source - 번역할 텍스트 (런타임에서 지정)
   # --------------------------------------------------------------------------
   source:
-    text: []                            # 런타임에서 OCR 결과 전달
+    text: ["正在努力"]                            # 런타임에서 OCR 결과 전달
     # file_path: ""
 
   # --------------------------------------------------------------------------
   # 2. Provider - 번역 API 설정
   # --------------------------------------------------------------------------
   provider:
-    provider: "deepl"                   # Provider: "deepl" | "google" | "mock"
-    # source_lang: "AUTO"
+    provider: "deepL"                    # Provider: "deepl" | "google" | "mock"
+    source_lang: "AUTO"
     target_lang: "KO"                   # 목표 언어
-    # model_type: "prefer_quality_optimized"
-    # timeout: 30
+    model_type: "prefer_quality_optimized"
+    timeout: 30
 
   # --------------------------------------------------------------------------
   # 3. Chinese Text Preprocessing
@@ -36,10 +36,10 @@ translate:
   # --------------------------------------------------------------------------
   store:
     save_db: true                       # SQLite 캐시 사용
-    db_dir: "${temp_input_dir}"         # DB 저장 디렉토리
+    db_dir: "{{temp_input_dir}}"         # DB 저장 디렉토리
     db_name: "translate_cache.sqlite3"
     save_tr: true                       # JSON 저장 활성화
-    tr_dir: "${temp_input_dir}"         # JSON 저장 디렉토리
+    tr_dir: "{{temp_input_dir}}"         # JSON 저장 디렉토리
     tr_name: "translated_text.json"
 
   # --------------------------------------------------------------------------

@@ -1,0 +1,47 @@
+# ============================================================================
+# Translator - Complete Configuration Example
+# ============================================================================
+# 모든 가능한 정책 옵션을 포함한 전체 예제입니다.
+# 실제 사용시에는 필요한 항목만 선택하여 사용하세요.
+#
+# NOTE: Section fallback 지원으로 'translate:' section 여부와 무관하게 동작합니다.
+#       - cfg_like=Path로 직접 로드: 최상위부터 로드
+#       - cfg_like=None + policy.source_paths: intelligent fallback 적용
+
+# --------------------------------------------------------------------------
+# 1. Source - 번역 소스 설정
+# --------------------------------------------------------------------------
+translator:
+  source:
+    text: ["테스트 텍스트입니다"]  # Inline texts to translate (list of strings)
+    file_path: ""               # Optional: UTF-8 file path to read texts from
+
+  # --------------------------------------------------------------------------
+  # 2. Provider - 번역 제공자 설정
+  # --------------------------------------------------------------------------
+  provider:
+    provider: "mock"            # Provider: "deepl" | "google" | "mock"
+    target_lang: "KO"           # Target language code
+    source_lang: "AUTO"         # Source language (AUTO for auto-detection)
+    model_type: "prefer_quality_optimized"  # DeepL model type
+    timeout: 30                 # API request timeout (seconds)
+
+  # --------------------------------------------------------------------------
+  # 3. Chinese Text Preprocessing - 중국어 전처리
+  # --------------------------------------------------------------------------
+  zh:
+    mode: "clause"              # Chunking mode: "off" | "clause"
+    max_len: 48                 # Maximum chunk length
+    min_len: 80                 # Minimum chunk length
+    phrase_map: []              # List of [source, target] phrase replacements
+
+  # --------------------------------------------------------------------------
+  # 4. Store - 번역 결과 저장 설정
+  # --------------------------------------------------------------------------
+  store:
+    save_db: true               # Save translations to SQLite cache
+    db_dir: "M:/CALife/CAShop - 구매대행/data/db"
+    db_name: "translate_cache.sqlite3"
+    save_tr: false              # Save results to JSON file
+    tr_dir: ""
+    tr_name: "translated_text.json"

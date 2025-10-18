@@ -1,0 +1,19 @@
+{
+  "original_path": "M:\\CALife\\CAShop - 구매대행\\_code\\input\\01.jpg",
+  "original_size": [
+    1500,
+    2322
+  ],
+  "original_mode": "RGB",
+  "original_format": "JPEG",
+  "processed_size": [
+    1500,
+    2322
+  ],
+  "saved_path": "M:\\CALife\\CAShop - 구매대행\\_code\\input\\01_copy_001.jpg",
+  "processing": {
+    "resize_to": null,
+    "blur_radius": null,
+    "convert_mode": null
+  }
+}

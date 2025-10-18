@@ -1,8 +1,12 @@
 # structured_io/__init__.py
+from __future__ import annotations
+from typing import Any, Dict
+
 from .formats.yaml_io import YamlParser, YamlDumper
 from .formats.json_io import JsonParser, JsonDumper
 from .fileio.structured_fileio import StructuredFileIO
-from structured_io.core.base_policy import BaseParserPolicy, BaseDumperPolicy
+from structured_io.core.interface import BaseParser, BaseDumper
+from structured_io.core.policy import BaseParserPolicy, BaseDumperPolicy
 
 __all__ = [
     # Policies

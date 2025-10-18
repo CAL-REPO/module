@@ -1,0 +1,91 @@
+# ============================================================================
+# ConfigLoader Base Configuration
+# ============================================================================
+# 모든 모듈이 공유하는 기본 설정입니다.
+# 각 모듈은 이 파일을 상속하고 필요한 부분만 오버라이드합니다.
+#
+# 사용법:
+#   각 모듈의 config_loader_*.yaml에서:
+#   ```yaml
+#   _include:
+#     - path: "../../cfg_utils/configs/config_loader_base.yaml"
+#       section: "config_loader_base"
+#   
+#   config_loader_image:
+#     yaml:
+#       source_paths: [...]
+#     log:
+#       name: "image_ocr"
+#   ```
+
+config_loader_base:
+  # --------------------------------------------------------------------------
+  # 1. YAML Loader Configuration (공통)
+  # --------------------------------------------------------------------------
+  yaml:
+    enable_env: true              # 환경변수 치환 활성화 (${VAR})
+    enable_include: false         # _include 비활성화 (무한 루프 방지)
+    enable_placeholder: true      # Placeholder 치환 활성화 ({{VAR}})
+    enable_reference: true        # Reference 해결 활성화 ($ref)
+    safe_mode: true               # 안전 모드 (YAML 파싱)
+    encoding: "utf-8"             # 파일 인코딩
+    on_error: "ignore"            # 에러 발생 시 무시
+    sort_keys: false              # 키 정렬 안 함
+    default_flow_style: false     # YAML block style
+    indent: 2                     # 들여쓰기
+
+  # --------------------------------------------------------------------------
+  # 2. Normalizer Configuration (공통)
+  # --------------------------------------------------------------------------
+  drop_blanks: true               # 빈 값 제거 (None, "", [], {})
+  resolve_reference: true         # $ref 참조 해결
+
+  # --------------------------------------------------------------------------
+  # 3. Merge Configuration (공통)
+  # --------------------------------------------------------------------------
+  merge_order: "base→yaml→arg"    # 병합 순서
+  merge_mode: "deep"              # Deep merge (중첩 dict 병합)
+
+  # --------------------------------------------------------------------------
+  # 4. KeyPath Configuration (공통)
+  # --------------------------------------------------------------------------
+  # ✨ 프로젝트 표준 구분자 "__" 사용
+  keypath:
+    sep: "__"                     # KeyPath 구분자 (source__text → source.text)
+    escape_char: "\\"             # 이스케이프 문자 (source\\.text → source.text)
+    accept_dot: true              # "." 도 구분자로 인식 (하위 호환)
+    collapse: true                # 중첩 제거 ({"a": {"b": 1}} → {"a.b": 1})
+    recursive: false              # 재귀 처리 안 함
+    strict: false                 # 엄격 모드 안 함
+
+  # --------------------------------------------------------------------------
+  # 5. Log Configuration (Base)
+  # --------------------------------------------------------------------------
+  # 각 모듈은 log.name만 오버라이드하면 됩니다.
+  log:
+    enabled: true                 # Logging 활성화
+    name: "app"                   # 기본 서비스명 (모듈별 오버라이드 필요)
+    level: "INFO"                 # 로그 레벨 (DEBUG|INFO|WARNING|ERROR)
+    format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    colorize: true                # 컬러 출력
+    serialize: false              # JSON 직렬화 안 함
+    backtrace: false              # 백트레이스 포함 안 함
+    diagnose: false               # 진단 정보 포함 안 함
+    enqueue: false                # 비동기 큐 사용 안 함
+    catch: true                   # 예외 캐치
+
+    # 파일 출력 설정 (공통)
+    handlers:
+      - sink: "output/logs/{service}_{time:YYYY-MM-DD}.log"  # {service}는 log.name으로 치환
+        level: "DEBUG"
+        format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
+        rotation: "1 day"           # 1일마다 로테이션
+        retention: "7 days"         # 7일간 보관
+        compression: "zip"          # ZIP 압축
+        encoding: "utf-8"
+        colorize: false             # 파일은 컬러 안 함
+        serialize: false
+        backtrace: true             # 파일에는 백트레이스 포함
+        diagnose: false
+        enqueue: false
+        catch: true

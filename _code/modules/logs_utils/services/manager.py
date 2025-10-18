@@ -40,6 +40,7 @@ class LogManager:
         cfg_like: Union[BaseModel, Path, str, dict, list, None] = None,
         *,
         policy_overrides: Optional[dict] = None,
+        context: Optional[dict] = None,  # ← 추가: 추가 context
         **overrides: Any
     ):
         """LogManager 초기화
@@ -52,17 +53,25 @@ class LogManager:
                 - list: 여러 YAML 파일
                 - None: 기본 설정
             policy_overrides: ConfigPolicy 필드 개별 오버라이드 (merge_mode, yaml.source_paths 등)
+            context: 추가 context (ConfigLoader 등에서 전달)
             **overrides: 런타임 오버라이드
         """
         self.config = self._load_config(cfg_like, policy_overrides=policy_overrides, **overrides)
         self._handler_ids: list[int] = []
-        self._configure_logger()
         
-        # ✨ bind()로 service context 추가된 logger 생성
-        self._bound_logger = logger.bind(service=self.config.name, **self.config.context)
+        # 추가 context 병합
+        self._extra_context = context or {}
+        
+        # ✨ enabled=False면 handler 등록 안 함 (loguru가 자동으로 no-op)
+        if self.config.enabled:
+            self._configure_logger()
+        
+        # ✨ bind()로 service context + 추가 context 병합
+        full_context = {**self.config.context, **self._extra_context}
+        self._bound_logger = logger.bind(service=self.config.name, **full_context)
         
         # ✨ context-bound logger 생성 (service별 격리)
-        self._logger = logger.bind(service=self.config.name, **self.config.context)
+        self._logger = self._bound_logger
     
     def _load_config(
         self,

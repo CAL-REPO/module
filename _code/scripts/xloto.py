@@ -47,7 +47,7 @@ if "CASHOP_PATHS" not in os.environ:
 # PYTHONPATH: M:\CALife\CAShop - 구매대행\_code\modules
 from cfg_utils import ConfigLoader
 from xl_utils import XlController
-from image_utils import ImageOCR, ImageOverlay
+from image_utils import ImageTextRecognizer, ImageOverlayer
 from translate_utils import Translator
 
 
@@ -167,7 +167,7 @@ class ImageOTOProcessor:
         
         # ===== 성능 최적화: 인스턴스 재사용 =====
         # OCR 인스턴스 (한 번만 생성, GPU 메모리 절약)
-        self.ocr = ImageOCR(
+        self.ocr = ImageTextRecognizer(
             self.xloto_cfg_path,
             section="ocr",
         )
@@ -219,7 +219,7 @@ class ImageOTOProcessor:
         try:
             print(f"     🔍 OCR 실행: {image_path.name}")
             
-            # ===== 1. ImageOCR: OCR 실행 (인스턴스 재사용) =====
+            # ===== 1. ImageTextRecognizer: OCR 실행 (인스턴스 재사용) =====
             ocr_result = self.ocr.run(source_override=str(image_path))
             
             # OCR 결과 확인
@@ -262,7 +262,6 @@ class ImageOTOProcessor:
                 # Config에서 provider 설정만 가져오고, source는 runtime override
                 temp_translator = Translator(
                     self.xloto_cfg_path,
-                    section="translate",
                     source__text=original_texts,  # 동적 텍스트 주입
                     provider__source_lang="ZH",
                     provider__target_lang="KO"
@@ -286,10 +285,10 @@ class ImageOTOProcessor:
                 for i in range(len(translated_texts))
             ]
             
-            # ===== 3. ImageOverlay: 오버레이 적용 =====
+            # ===== 3. ImageOverlayer: 오버레이 적용 =====
             print(f"        🎨 오버레이 적용 중...")
             
-            overlay = ImageOverlay(
+            overlay = ImageOverlayer(
                 self.xloto_cfg_path,
                 section="overlay",
                 source__path=str(image_path),

@@ -3,7 +3,10 @@
 Translation policy (Pydantic)
 -----------------------------
 
-Defines a validated configuration model for the translation pipeline.
+Defines validated configuration models for the translation pipeline.
+- TranslatePolicy: Translate(Adapter) 전용 - 순수 번역 로직 설정
+- TranslatorPolicy: Translator(EntryPoint) 전용 - YAML 기반 진입점 설정
+
 Integrates with cfg_utils.ConfigLoader so callers can pass YAML paths,
 dicts, or already-built models.
 """
@@ -16,19 +19,7 @@ from typing import List, Tuple, Optional, Dict, Any
 from pydantic import BaseModel, Field, model_validator
 
 from cfg_utils import ConfigLoader, ConfigPolicy
-
-
-class LogConfig(BaseModel):
-    """Logging configuration model compatible with logs_utils.LogContextManager"""
-    name: str = Field(default="Translator")
-    sinks: List[Dict[str, Any]] = Field(default_factory=lambda: [
-        {
-            "sink_type": "console",
-            "level": "INFO",
-            "format": "<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | <cyan>{name}</cyan> | <level>{message}</level>",
-            "colorize": True
-        }
-    ])
+from logs_utils import LogPolicy
 
 
 class SourcePolicy(BaseModel):
@@ -61,17 +52,18 @@ class StorePolicy(BaseModel):
 
 
 class TranslatePolicy(BaseModel):
-    source: SourcePolicy = Field(default_factory=SourcePolicy)
+    """Translate(Adapter) 전용 Policy - 순수 번역 로직 설정
+    
+    이 Policy는 Translate 클래스에서 사용하며, 번역 실행에 필요한 설정만 포함합니다.
+    - provider: 번역 Provider 설정 (deepl, mock 등)
+    - zh: 중국어 세그먼트 분할 설정
+    - store: 캐싱 및 결과 저장 설정
+    - log: 로깅 설정 (Optional, config_loader에서 주입 가능)
+    """
     provider: ProviderPolicy = Field(default_factory=ProviderPolicy)
     zh: ZhChunkPolicy = Field(default_factory=ZhChunkPolicy)
     store: StorePolicy = Field(default_factory=StorePolicy)
-    log_config: Optional[LogConfig] = Field(default=None, description="Logging configuration")
-    debug: bool = Field(default=False)
-
-    @staticmethod
-    def load(cfg_like: str | Path | dict | BaseModel, *, policy: ConfigPolicy | None = None) -> "TranslatePolicy":
-        loader = ConfigLoader(cfg_like, policy=policy)
-        return loader.as_model(TranslatePolicy)
+    log: Optional[LogPolicy] = None  # ✨ logging 설정 (Optional)
 
     @model_validator(mode="after")
     def _derive_defaults(self) -> "TranslatePolicy":
@@ -89,6 +81,39 @@ class TranslatePolicy(BaseModel):
             normalized_map.append((str(src), str(dst)))
         self.zh.phrase_map = normalized_map
 
+        # Ensure storage filenames fallback to defaults
+        self.store.db_name = self.store.db_name or "translate_cache.sqlite3"
+        self.store.tr_name = self.store.tr_name or "translated_text.json"
+
+        return self
+
+
+class TranslatorPolicy(BaseModel):
+    """Translator(EntryPoint) 전용 Policy - YAML 기반 진입점 설정
+    
+    이 Policy는 Translator 클래스에서 사용하며, EntryPoint 실행에 필요한 설정을 포함합니다.
+    - source: 소스 텍스트 로딩 설정 (YAML 파일 또는 직접 텍스트)
+    - translate: Translate 내부 Policy (TranslatePolicy 포함, log도 여기 포함)
+    """
+    source: SourcePolicy = Field(default_factory=SourcePolicy)
+    translate: TranslatePolicy = Field(default_factory=TranslatePolicy)
+
+    @staticmethod
+    def load(cfg_like: str | Path | dict | BaseModel, *, policy: ConfigPolicy | None = None) -> "TranslatorPolicy":
+        """Load TranslatorPolicy from various sources.
+        
+        Args:
+            cfg_like: Configuration source (YAML path, dict, BaseModel instance, etc.)
+            policy: ConfigPolicy for advanced loader options
+        
+        Returns:
+            TranslatorPolicy instance
+        """
+        return ConfigLoader.load(cfg_like, model=TranslatorPolicy, policy=policy)
+
+    @model_validator(mode="after")
+    def _derive_source_defaults(self) -> "TranslatorPolicy":
+        """Derive default storage directories from source file path."""
         # Default storage directories to the source file parent when absent
         if self.source.file_path:
             base_path = Path(self.source.file_path).expanduser()
@@ -96,13 +121,9 @@ class TranslatePolicy(BaseModel):
                 parent = base_path.resolve().parent
             except Exception:
                 parent = base_path.parent
-            if not self.store.db_dir:
-                self.store.db_dir = str(parent)
-            if not self.store.tr_dir:
-                self.store.tr_dir = str(parent)
-
-        # Ensure storage filenames fallback to defaults
-        self.store.db_name = self.store.db_name or "translate_cache.sqlite3"
-        self.store.tr_name = self.store.tr_name or "translated_text.json"
+            if not self.translate.store.db_dir:
+                self.translate.store.db_dir = str(parent)
+            if not self.translate.store.tr_dir:
+                self.translate.store.tr_dir = str(parent)
 
         return self

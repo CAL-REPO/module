@@ -6,18 +6,18 @@ from pathlib import Path
 from typing import Any
 from yaml import SafeLoader, FullLoader, ScalarNode, Loader, SafeDumper, Dumper
 
-from structured_io.core.base_parser import BaseParser
-from structured_io.core.base_dumper import BaseDumper
-from unify_utils.normalizers.resolver_placeholder import PlaceholderResolver
-from unify_utils.normalizers.resolver_reference import ReferenceResolver
+from structured_io.core.policy import BaseParserPolicy
+from structured_io.core.interface import BaseParser, BaseDumper
+from unify_utils.resolver.vars import VarsResolver
+from unify_utils.core.policy import VarsResolverPolicy
 
 
 class YamlParser(BaseParser):
-    """
+    """YAML 파서.
+    
+    기능:
     - SafeLoader/FullLoader 선택(safe_mode)
     - !include 지원(enable_include)
-    - Placeholder/Env 치환(enable_placeholder/enable_env)
-    - Reference 치환(enable_reference)
     """
     def __init__(self, policy, context: dict | None = None):
         super().__init__(policy, context=context)
@@ -37,10 +37,19 @@ class YamlParser(BaseParser):
 
     def parse(self, text: str, base_path: Path | None = None) -> dict:
         try:
-            # 1) Placeholder/Env
+            # 1) Placeholder/Env 치환 (VarsResolver 사용)
             if self.policy.enable_placeholder or self.policy.enable_env:
-                placeholder = PlaceholderResolver(context=self.context)
-                text = placeholder.apply(text)
+                # VarsResolver 정책 생성
+                vars_policy = VarsResolverPolicy(
+                    enable_env=self.policy.enable_env,
+                    enable_context=self.policy.enable_placeholder,
+                    context=self.context or {},
+                    recursive=False,  # 문자열만 처리하므로 recursive 불필요
+                    strict=False
+                )
+                # VarsResolver의 public API 사용 (apply 또는 __call__)
+                resolver = VarsResolver(data={}, policy=vars_policy)
+                text = resolver.apply(text)  # ✅ public API 사용
 
             # 2) YAML load (base_path 유지해서 !include 상대경로 대응)
             loader_cls = SafeLoader if self.policy.is_safe_loader() else FullLoader
@@ -53,12 +62,6 @@ class YamlParser(BaseParser):
                 stream = text
 
             data = yaml.load(stream, Loader=loader_cls) or {}
-
-            # 3) Reference
-            if self.policy.enable_reference and isinstance(data, dict):
-                # self.context를 우선 사용하고, data 자신도 병합
-                context = {**data, **self.context} if self.context else data
-                data = ReferenceResolver(context, recursive=True, strict=False).apply(data)
 
             return data
 

@@ -56,7 +56,7 @@ class OCRItem(BaseModel):
             font_policy: Font policy for rendering. If None, uses default
         
         Returns:
-            OverlayItemPolicy instance ready for ImageOverlay
+            OverlayItemPolicy instance ready for ImageOverlayer
         
         Example:
             # In script/oto.py

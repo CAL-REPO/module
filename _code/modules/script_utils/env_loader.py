@@ -72,7 +72,7 @@ class EnvBasedConfigInitializer:
         # ReferenceResolver를 직접 사용하여 ${key} 형식 치환
         # ConfigLoader를 사용하지 않아 순환 의존성 제거
         import yaml
-        from unify_utils.normalizers.resolver_reference import ReferenceResolver
+        from unify_utils.resolver.reference import ReferenceResolver
         
         # 1. Raw YAML 파싱 (placeholder 해석 없이)
         text = env_path.read_text(encoding="utf-8")
@@ -129,9 +129,10 @@ class EnvBasedConfigInitializer:
             >>> loader = EnvBasedConfigInitializer.create_config_loader(
             ...     "configs_loader_file_oto", paths_dict
             ... )
-            >>> config = loader.load()
+            >>> config = loader.as_dict()
         """
         from modules.cfg_utils.services.config_loader import ConfigLoader
+        from modules.cfg_utils.core.policy import ConfigPolicy
         
         loader_file = paths_dict.get(loader_file_key)
         if not loader_file:
@@ -140,18 +141,21 @@ class EnvBasedConfigInitializer:
                 f"Available keys: {list(paths_dict.keys())}"
             )
         
-        # policy_overrides에 reference_context와 config_loader_path 설정
-        final_overrides = policy_overrides or {}
+        # loader_file이 이미 치환된 경로인지 확인
+        # paths_dict의 값은 이미 ReferenceResolver로 치환됨
         
-        # reference_context를 paths_dict로 설정 (ReferenceResolver가 사용)
-        if "reference_context" not in final_overrides:
-            final_overrides["reference_context"] = paths_dict
+        # ConfigPolicy 생성 (reference_context에 paths_dict 포함)
+        policy_dict = policy_overrides or {}
         
-        # config_loader_path를 loader_file로 설정
-        if "config_loader_path" not in final_overrides:
-            final_overrides["config_loader_path"] = loader_file
+        # reference_context를 paths_dict로 설정 (추가 reference 치환용)
+        if "reference_context" not in policy_dict:
+            policy_dict["reference_context"] = paths_dict
         
+        # ConfigPolicy 생성
+        policy = ConfigPolicy(**policy_dict)
+        
+        # ConfigLoader 생성 (cfg_like는 loader_file에서 자동 로드)
         return ConfigLoader(
-            cfg_like={},  # config_loader_path에서 로드하므로 빈 dict
-            policy_overrides=final_overrides
+            cfg_like=loader_file,  # 이미 치환된 경로 (예: "M:/.../_code/configs/loader/config_loader_oto.yaml")
+            policy=policy
         )

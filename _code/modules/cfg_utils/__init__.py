@@ -8,11 +8,13 @@ from __future__ import annotations
 
 # Re-export core types (keep imports local and lightweight)
 from .core.policy import ConfigPolicy
+from .core.base_service_loader import BaseServiceLoader
 from .services.normalizer import ConfigNormalizer
 from .services.config_loader import ConfigLoader
 
 __all__ = [
     "ConfigLoader",
     "ConfigNormalizer",
-    "ConfigPolicy"
+    "ConfigPolicy",
+    "BaseServiceLoader"
 ]

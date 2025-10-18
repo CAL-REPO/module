@@ -28,14 +28,37 @@ class OverlayTextRenderer:
         self.draw = draw
 
     def render_text(self, config: OverlayTextPolicy) -> None:
-        """Render a single text overlay according to configuration."""
+        """Render a single text overlay according to configuration.
+        
+        Rendering Process:
+        1. 흰색 배경 마스킹 bbox 그리기 (polygon 영역)
+        2. 텍스트 렌더링 (외곽선 + 채우기)
+        
+        Note: 
+        - config.font는 항상 FontPolicy 인스턴스 (default_factory 보장)
+        - fill, stroke_fill, stroke_width는 FontPolicy에서 기본값 제공
+        """
         # Calculate geometry using data_utils.GeometryOps
         bbox = GeometryOps.polygon_bbox(config.polygon)
         
+        # ====================================================================
+        # Step 1: 흰색 배경 마스킹 (polygon 영역)
+        # ====================================================================
+        # polygon을 흰색으로 채우기 (배경 마스킹)
+        self.draw.polygon(
+            config.polygon,
+            fill="#FFFFFF",  # 흰색 배경
+            outline=None,     # 외곽선 없음
+        )
+        
+        # ====================================================================
+        # Step 2: 텍스트 렌더링
+        # ====================================================================
         # Determine font size
         if config.font.size:
             size = config.font.size
         else:
+            # Auto-fit size based on bbox and text length
             size = GeometryOps.auto_font_size(
                 config.text, bbox, config.max_width_ratio
             )
@@ -43,50 +66,80 @@ class OverlayTextRenderer:
         # Load font with fallback
         font = self._load_font(config.font, size)
         
-        # Calculate position
+        # Calculate position (center of bbox + offset)
         center = GeometryOps.bbox_center(bbox)
         position = (
             center[0] + config.offset[0],
             center[1] + config.offset[1],
         )
         
-        # Draw text
+        # Draw text with stroke (외곽선) and fill (채우기)
+        # stroke_width=0이면 외곽선 없이 텍스트만 그려짐
         self.draw.text(
             position,
             config.text,
             font=font,
-            fill=config.font.fill,
-            anchor=config.anchor,
-            stroke_width=config.font.stroke_width,
-            stroke_fill=config.font.stroke_fill,
+            fill=config.font.fill,              # 텍스트 색상 (기본: #000000)
+            anchor=config.anchor,                # 앵커 (기본: "mm" - 중앙)
+            stroke_width=config.font.stroke_width,  # 외곽선 두께 (기본: 0)
+            stroke_fill=config.font.stroke_fill,    # 외곽선 색상 (기본: None)
         )
+        
+        # Debug: Log rendering details (개발 중에만 활성화)
+        # print(f"[Renderer] text='{config.text}', pos={position}, size={size}, "
+        #       f"fill={config.font.fill}, stroke={config.font.stroke_width}px")
     
     @staticmethod
     def _load_font(font_policy: FontPolicy, size: int):
-        """Load font with fallback chain."""
-        font_path = font_policy.family
+        """Load font with fallback chain.
         
-        # Try as file path
+        Font loading priority:
+        1. family as absolute file path
+        2. family as filename in font_dir
+        3. family as system font name
+        4. Arial fallback
+        5. Pillow default font
+        
+        Args:
+            font_policy: FontPolicy with font_dir, family, etc.
+            size: Font size in pixels
+            
+        Returns:
+            PIL ImageFont object
+        """
+        font_path = font_policy.family
+        font_dir = font_policy.font_dir
+        
+        # 1. Try as absolute file path
         if font_path and Path(font_path).exists():
             try:
                 return ImageFont.truetype(str(font_path), size=size)  # type: ignore
             except Exception:
                 pass
         
-        # Try as font name
+        # 2. Try as filename in font_dir
+        if font_path and font_dir:
+            font_file = Path(font_dir) / font_path
+            if font_file.exists():
+                try:
+                    return ImageFont.truetype(str(font_file), size=size)  # type: ignore
+                except Exception:
+                    pass
+        
+        # 3. Try as system font name
         if font_path:
             try:
                 return ImageFont.truetype(font_path, size=size)  # type: ignore
             except Exception:
                 pass
         
-        # Try Arial fallback
+        # 4. Try Arial fallback
         try:
             return ImageFont.truetype("arial.ttf", size=size)  # type: ignore
         except Exception:
             pass
         
-        # Default font
+        # 5. Default font (very small, bitmap)
         return ImageFont.load_default()  # type: ignore
 
 

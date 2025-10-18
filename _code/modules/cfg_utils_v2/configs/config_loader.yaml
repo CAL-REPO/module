@@ -1,0 +1,22 @@
+﻿default:
+  normalizer:
+    normalize_keys: false
+    drop_blanks: false
+    resolve_vars: true
+  merge:
+    deep: false
+    overwrite: true
+  yaml_parser:
+    safe_mode: true
+    encoding: "utf-8"
+    enable_env: true
+    enable_include: true
+    enable_placeholder: true
+    enable_reference: true
+  keypath:
+    separator: "__"
+    override_requires_base: true
+  log:
+    enabled: true
+    name: "cfg_loader"
+    level: "INFO"

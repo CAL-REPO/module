@@ -4,16 +4,19 @@
 config_loader:
   yaml:
     source_paths:
-      - path: "${configs_dir}/paths.local.yaml"
-      - path: "${configs_dir}/oto/image.yaml"
-      - path: "${configs_dir}/oto/ocr.yaml"
-      - path: "${configs_dir}/oto/overlay.yaml"
-      - path: "${configs_dir}/oto/translate.yaml"
-
-    enable_env: false  # ${} 패턴이 환경 변수로 오해되는 것 방지
-    enable_include: true
-    enable_placeholder: false  # PlaceholderResolver가 ${} reference를 침범하지 않도록
-    enable_reference: true  # ConfigNormalizer에서 처리 (context 필요)
+      - path: "{{configs_dir}}/oto/image.yaml"
+        section: "image"  # ImageLoader가 사용할 섹션
+      - path: "{{configs_dir}}/oto/ocr.yaml"
+        section: "ocr"  # ImageOCR가 사용할 섹션
+      - path: "{{configs_dir}}/oto/overlay.yaml"
+        section: "overlay"  # ImageOverlay가 사용할 섹션
+      - path: "{{configs_dir}}/oto/translate.yaml"
+        section: "translate"  # Translator가 사용할 섹션
+    
+    enable_env: true
+    enable_include: false
+    enable_placeholder: true
+    enable_reference: true
     safe_mode: true
     encoding: "utf-8"
     on_error: "ignore"

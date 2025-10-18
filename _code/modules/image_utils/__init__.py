@@ -3,8 +3,8 @@
 
 Three main entrypoints:
 1. ImageLoader - Load/copy/resize images with metadata
-2. ImageOCR - Run OCR with resize tracking
-3. ImageOverlay - Overlay text/graphics from OCR or manual input
+2. ImageTextRecognizer - Run OCR with resize tracking
+3. ImageOverlayer - Overlay text/graphics from OCR or manual input
 """
 
 from .core.policy import (
@@ -17,13 +17,13 @@ from .core.policy import (
     ImageProcessPolicy,
     ImageLoaderPolicy,
     
-    # ImageOCR
+    # ImageTextRecognizer
     OCRProviderPolicy,
     OCRPreprocessPolicy,
     OCRPostprocessPolicy,
     ImageOCRPolicy,
     
-    # ImageOverlay
+    # ImageOverlayer
     OverlayTextPolicy,
     ImageOverlayPolicy,
     
@@ -39,9 +39,9 @@ from .services.processor import ImageProcessor
 from .services.renderer import OverlayTextRenderer
 
 # Entry points (services → entry points로 변경)
-from .services.image_loader import ImageLoader
-from .services.image_ocr import ImageOCR
-from .services.image_overlay import ImageOverlay
+from .entry_point.loader import ImageLoader
+from .entry_point.text_recognizer import ImageTextRecognizer
+from .entry_point.overlayer import ImageOverlayer
 
 # Image downloader (동기 HTTP 다운로드)
 from .services.image_downloader import ImageDownloader, ImageDownloadPolicy, download_images
@@ -59,13 +59,13 @@ __all__ = [
     "ImageProcessPolicy",
     "ImageLoaderPolicy",
     
-    # ImageOCR policies
+    # ImageTextRecognizer policies
     "OCRProviderPolicy",
     "OCRPreprocessPolicy",
     "OCRPostprocessPolicy",
     "ImageOCRPolicy",
     
-    # ImageOverlay policies
+    # ImageOverlayer policies
     "OverlayTextPolicy",
     "ImageOverlayPolicy",
     
@@ -83,8 +83,8 @@ __all__ = [
     
     # Entrypoints
     "ImageLoader",
-    "ImageOCR",
-    "ImageOverlay",
+    "ImageTextRecognizer",
+    "ImageOverlayer",
     
     # Image Downloader
     "ImageDownloader",

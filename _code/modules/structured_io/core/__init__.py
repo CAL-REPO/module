@@ -1,14 +1,25 @@
+# -*- coding: utf-8 -*-
+# structured_io/core/__init__.py
+"""structured_io.core
+====================
+
+Core interfaces and policy classes for structured I/O operations.
 """
-structured_io.core
-------------------
-Core interfaces and base classes for structured I/O operations.
-"""
-from .base_dumper import *
-from .base_parser import *
-from .base_policy import *
+
+from .interface import BaseParser, BaseDumper, Parser, Dumper
+from .policy import (
+    SourcePathPolicy,
+    BaseParserPolicy,
+    BaseDumperPolicy,
+)
 
 __all__ = [
-    "BaseDumper",
+    # Interfaces (Base prefix is primary)
     "BaseParser",
-    "BasePolicy",
+    "BaseDumper",
+    # Policies
+    "SourcePathPolicy",
+    "BaseParserPolicy",
+    "BaseDumperPolicy",
 ]
+

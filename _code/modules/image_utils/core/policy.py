@@ -9,8 +9,8 @@ All policies support:
 
 This module consolidates all policy classes for the 3 entrypoints:
 1. ImageLoader
-2. ImageOCR
-3. ImageOverlay
+2. ImageTextRecognizer
+3. ImageOverlayer
 """
 
 from __future__ import annotations
@@ -172,7 +172,7 @@ class ImageLoaderPolicy(BaseModel):
 
 
 # ==============================================================================
-# 2nd EntryPoint: ImageOCR
+# 2nd EntryPoint: ImageTextRecognizer
 # ==============================================================================
 
 class OCRProviderPolicy(BaseModel):
@@ -244,7 +244,7 @@ class OCRPostprocessPolicy(BaseModel):
 
 
 class ImageOCRPolicy(BaseModel):
-    """Complete policy for ImageOCR (2nd entrypoint).
+    """Complete policy for ImageTextRecognizer (2nd entrypoint).
     
     Combines source, OCR provider, preprocessing, postprocessing,
     save, metadata, and logging policies.
@@ -270,7 +270,7 @@ class ImageOCRPolicy(BaseModel):
 
 
 # ==============================================================================
-# 3rd EntryPoint: ImageOverlay
+# 3rd EntryPoint: ImageOverlayer
 # ==============================================================================
 
 class OverlayItemPolicy(BaseModel):
@@ -315,12 +315,12 @@ class OverlayItemPolicy(BaseModel):
 
 
 class ImageOverlayPolicy(BaseModel):
-    """Complete policy for ImageOverlay (3rd entrypoint).
+    """Complete policy for ImageOverlayer (3rd entrypoint).
     
     Combines source, overlay item specifications, save, metadata,
     and logging policies.
     
-    Note: ImageOverlay follows SRP - it only overlays provided items.
+    Note: ImageOverlayer follows SRP - it only overlays provided items.
     OCR → Translation → OverlayItem conversion is handled in pipeline scripts.
     
     Attributes:

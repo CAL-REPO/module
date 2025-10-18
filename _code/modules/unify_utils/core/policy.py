@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # filename: unify_utils/core/policy.py
-# description: unify_utils.core — Normalizer용 Pydantic Policy 모델 정의
+# description: unify_utils.core — Normalizer/Resolver Pydantic Policy 모델 정의
 from __future__ import annotations
 
 from typing import Any, Callable, Optional, Sequence
@@ -14,36 +14,43 @@ from ..presets.rules import (
     RegexFlag,
 )
 
+# ---------------------------------------------------------------------------
+# Base Policy (공통 모듈 기반)
+# ---------------------------------------------------------------------------
 
-class NormalizePolicyBase(BaseModel):
-    """모든 Normalizer 정책 클래스의 기반.
-
-    Base Normalizer에서 공통으로 사용하는 설정 항목을 정의하며,
+class UnifyPolicyBase(BaseModel):
+    """unify_utils 모든 정책 클래스의 기반.
+    
+    공통 모듈에서 사용하는 기본 설정 항목:
     - recursive: 내부 구조 재귀 적용 여부
     - strict: 예외 발생 시 예외 전파 여부
+    
+    Note:
+        프로젝트 특정 기능(예: KeyPath)은 별도 모듈에서 확장
     """
 
     recursive: bool = Field(False, description="dict/list 등 내부 구조 재귀 처리 여부")
     strict: bool = Field(False, description="오류 발생 시 예외 전파 여부")
 
+# Backward compatibility
+NormalizePolicyBase = UnifyPolicyBase
 
 # ---------------------------------------------------------------------------
-# Rule Policy
+# Normalizer Policies
 # ---------------------------------------------------------------------------
 
-class RuleNormalizePolicy(NormalizePolicyBase):
+class RuleNormalizePolicy(UnifyPolicyBase):
     """정규식 기반 정규화 정책.
     - rules: NormalizeRule 목록
     """
 
     rules: Sequence[NormalizeRule] = Field(default_factory=list)
 
-
 # ---------------------------------------------------------------------------
 # Value Policy
 # ---------------------------------------------------------------------------
 
-class ValueNormalizePolicy(NormalizePolicyBase):
+class ValueNormalizePolicy(UnifyPolicyBase):
     """단일 값 정규화 정책.
     - date_fmt: 날짜 포맷 지정
     - bool_strict: 불리언 인식 범위 제한 여부
@@ -52,12 +59,11 @@ class ValueNormalizePolicy(NormalizePolicyBase):
     date_fmt: str = Field("%Y-%m-%d", description="날짜 문자열 변환 포맷")
     bool_strict: bool = Field(False, description="불리언 처리 시 제한적 모드")
 
-
 # ---------------------------------------------------------------------------
 # List Policy
 # ---------------------------------------------------------------------------
 
-class ListNormalizePolicy(NormalizePolicyBase):
+class ListNormalizePolicy(UnifyPolicyBase):
     """리스트 및 시퀀스 정규화 정책.
     - sep: 구분자
     - item_cast: 항목 타입 캐스팅 함수
@@ -71,18 +77,37 @@ class ListNormalizePolicy(NormalizePolicyBase):
     min_len: Optional[int] = Field(None, description="최소 길이")
     max_len: Optional[int] = Field(None, description="최대 길이")
 
-class KeyPathNormalizePolicy(NormalizePolicyBase):
-    """KeyPathNormalizer 전용 정책
+# ---------------------------------------------------------------------------
+# Resolver Policy (변수 치환 전용)
+# ---------------------------------------------------------------------------
 
-    Attributes:
-        sep: 구분자 (기본값: ".")
-        collapse: 연속 구분자 병합 여부 (빈 세그먼트 제거)
-        accept_dot: sep 없을 때 "." fallback 허용 여부
-        escape_char: 이스케이프 문자 (구분자를 리터럴로 처리)
-        enable_list_index: [0], [1] 형태 배열 인덱스 지원 (향후 확장용)
+class VarsResolverPolicy(UnifyPolicyBase):
+    """변수 치환 Resolver 정책 (공통 모듈)
+    
+    ✅ 공통 기능만 포함:
+    - 환경 변수: ${ENV:default}
+    - Context 변수: {{VAR}}
+    - 단순 참조: ${key:default}
+    
+    ⚠️ 프로젝트 특정 기능 제외:
+    - KeyPath 중첩 경로 (a__b__c) → keypath_utils.KeyPathResolverPolicy
+    
+    Examples:
+        >>> # 환경 변수 + Context
+        >>> policy = VarsResolverPolicy(
+        ...     enable_env=True,
+        ...     enable_context=True,
+        ...     context={"HOST": "localhost"}
+        ... )
+        
+        >>> # 단순 참조만
+        >>> policy = VarsResolverPolicy()
     """
-    sep: str = Field(default=".", description="경로 구분자")
-    collapse: bool = Field(default=True, description="빈 세그먼트 제거 여부")
-    accept_dot: bool = Field(default=True, description="구분자 실패 시 '.' fallback 허용")
-    escape_char: Optional[str] = Field(default="\\", description="이스케이프 문자")
-    enable_list_index: bool = Field(default=False, description="배열 인덱스 지원 [0], [1]")
+    
+    # Placeholder 지원
+    enable_env: bool = Field(False, description="환경 변수 지원 (${ENV:default})")
+    enable_context: bool = Field(False, description="Context 변수 지원 ({{VAR}})")
+    context: dict[str, Any] = Field(default_factory=dict, description="Context 변수 사전")
+
+# Backward compatibility
+ResolverPolicy = VarsResolverPolicy

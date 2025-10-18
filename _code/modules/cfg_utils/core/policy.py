@@ -17,8 +17,38 @@ from pydantic import BaseModel, Field, model_validator
 
 # Import the base parser policy from structured_io.  This replaces the
 # older YamlParserPolicy used in previous versions of cfg_utils.
-from structured_io.core.base_policy import BaseParserPolicy
+from structured_io.core.policy import BaseParserPolicy
 from unify_utils.core.policy import KeyPathNormalizePolicy
+
+
+# ==============================================================================
+# SourcePathPolicy - ConfigLoader용 소스 경로 정책
+# ==============================================================================
+class SourcePathPolicy(BaseModel):
+    """ConfigLoader용 소스 파일 설정.
+    
+    ConfigLoader가 여러 YAML 파일을 로드할 때 사용하는 정책입니다.
+    structured_io의 Parser와는 무관하며, cfg_utils 전용입니다.
+    
+    Attributes:
+        path: 파일 경로
+        section: 추출할 섹션 (None이면 전체 사용)
+    
+    Examples:
+        >>> # 단일 파일 로드
+        >>> source = SourcePathPolicy(path="config.yaml", section="database")
+        
+        >>> # 여러 파일 로드
+        >>> sources = [
+        ...     SourcePathPolicy(path="base.yaml", section=None),
+        ...     SourcePathPolicy(path="override.yaml", section="production")
+        ... ]
+    """
+    path: Union[str, Path] = Field(..., description="파일 경로")
+    section: Optional[str] = Field(None, description="추출할 섹션 (None이면 전체 사용)")
+    
+    class Config:
+        extra = "ignore"
 
 
 class ConfigPolicy(BaseModel):
@@ -45,7 +75,14 @@ class ConfigPolicy(BaseModel):
     The default policy performs deep merges, resolves references and
     drops blank entries.
     """
-    
+    config_loader_path: Optional[Union[str, Path]] = Field(
+        default=None,
+        description=(
+            "Optional path to a YAML configuration file for the ConfigLoader. "
+            "If provided, this file will be loaded and merged according to the "
+            "specified merge order and mode."
+        )
+    )
     yaml: Optional[BaseParserPolicy] = Field(
         default=None,
         description=(
@@ -100,8 +137,35 @@ class ConfigPolicy(BaseModel):
 
     reference_context: dict[str, Any] = Field(
         default_factory=dict,
-        description="Reference 해석용 컨텍스트 (paths_dict 등)"
+        description=(
+            "Reference 해석 시 사용할 추가 context. "
+            "PathsLoader.load()로 paths.local.yaml을 로드하여 주입 가능. "
+            "예: reference_context=PathsLoader.load()"
+        )
     )
+
+    auto_load_paths: bool = Field(
+        default=False,
+        description=(
+            "True이면 CASHOP_PATHS 환경변수에서 paths.local.yaml을 자동 로드하여 "
+            "reference_context에 주입합니다. "
+            "기본값은 False (명시적 로드 권장)."
+        )
+    )
+
+    @model_validator(mode='after')
+    def _load_paths_if_enabled(self):
+        """auto_load_paths=True이면 PathsLoader 실행하여 reference_context 자동 주입."""
+        if self.auto_load_paths and not self.reference_context:
+            from modules.cfg_utils.services.paths_loader import PathsLoader
+            try:
+                self.reference_context = PathsLoader.load()
+            except FileNotFoundError as e:
+                # 경고만 출력하고 계속 진행 (필수 아님)
+                print(f"[경고] paths.local.yaml 자동 로드 실패: {e}")
+            except Exception as e:
+                print(f"[경고] PathsLoader 실행 중 오류: {e}")
+        return self
 
     class Config:
         validate_assignment = True

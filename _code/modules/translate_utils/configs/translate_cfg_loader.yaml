@@ -1,0 +1,52 @@
+# Configuration for ConfigLoader (ImageLoader)
+# ImageLoader의 기본 섹션 및 정책을 정의합니다.
+
+translate_cfg_loader:
+  yaml:
+    source_paths:
+      - path: "./translate.yaml"
+        section: "translate"
+    enable_env: true
+    enable_include: false
+    enable_placeholder: true
+    enable_reference: true
+    safe_mode: true
+    encoding: "utf-8"
+    on_error: "ignore"
+    sort_keys: false
+    default_flow_style: false
+    indent: 2
+  # Normalizer options
+  drop_blanks: true
+  resolve_reference: true
+  
+  # Merge options
+  merge_order: "base→yaml→arg"
+  merge_mode: "deep"
+  
+  # KeyPath options
+  keypath:
+    sep: "__"
+    escape_char: "\\"
+    accept_dot: true
+    collapse: true
+    recursive: false
+    strict: false
+  
+  # --------------------------------------------------------------------------
+  # 5. Log - 로그 설정 (ImageOCR과 동일)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: false             # 로깅 활성화 여부
+    name: base                 # 로거 이름
+    level: INFO                # 로그 레벨
+    sinks:                     # Sink 리스트
+      - sink_type: console     # Console sink
+        level: INFO
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+        colorize: true
+        enqueue: true
+        backtrace: true
+        diagnose: true
+        catch: true
+    context: {}                # 추가 컨텍스트

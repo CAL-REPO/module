@@ -73,7 +73,7 @@ print(f"\n파싱 후 image.source.path: {parsed.get('image', {}).get('source', {
 # 6단계: PlaceholderResolver 직접 테스트
 print("\n[6단계] PlaceholderResolver 직접 테스트")
 print("-"*80)
-from unify_utils.normalizers.resolver_placeholder import PlaceholderResolver
+from unify_utils.resolver.placeholder import PlaceholderResolver
 
 test_string = "${temp_input_dir}/01.jpg"
 resolver = PlaceholderResolver(context=paths_dict, recursive=True)

@@ -44,8 +44,8 @@ excel:
   # Target Excel File & Sheet
   # -------------------------------------------------------------------------
   target:
-    excel_path: "configs/excel/test.xlsx"  # 상대경로 (PYTHONPATH 기준)
-    sheet_name: "Sheet1"
+    excel_path: "{{root}}/01.All Product List.xlsx"  # 절대경로
+    sheet_name: "Purchase"
 
   # -------------------------------------------------------------------------
   # Column Aliases (기존 유지)
@@ -67,13 +67,31 @@ excel:
     final: ["final", "최종"]
     url: ["url", "링크", "주소"]
 
-  # -------------------------------------------------------------------------
-  # Logging Configuration (logs_utils.LogContextManager)
-  # -------------------------------------------------------------------------
-  logging:
-    logger_name: "XlController"
-    log_level: "INFO"
-    log_file: "logs/excel_controller.log"
-    console_output: true
-    file_log_level: "DEBUG"
-    console_log_level: "INFO"
+  # --------------------------------------------------------------------------
+  # 5. Log - 로그 설정
+  # --------------------------------------------------------------------------
+  log:
+    name: "excel"                  # 서비스 이름 (필수)
+    level: "INFO"                       # 로그 레벨
+    # format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    # colorize: true
+    # serialize: false
+    # backtrace: false
+    # diagnose: false
+    # enqueue: false
+    # catch: true
+    
+    handlers:
+      - sink: "output/logs/translator_{time:YYYY-MM-DD}.log"
+        # level: "DEBUG"
+        # format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
+        rotation: "1 day"
+        retention: "7 days"
+        # compression: "zip"
+        # encoding: "utf-8"
+        # colorize: false
+        # serialize: false
+        # backtrace: true
+        # diagnose: false
+        # enqueue: false
+        # catch: true
