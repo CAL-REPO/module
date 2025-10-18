@@ -5,29 +5,21 @@ Mid-level services providing high-level APIs.
 """
 
 from .loader import ConfigLoader
-from .source import (
-    DictSource,
-    YamlFileSource,
-    BaseModelSource,
-    SectionSource,
-)
+from .source import UnifiedSource, BaseModelSource, DictSource, YamlFileSource
 from .converter import StateConverter
-from .normalizer import ConfigNormalizer, ConfigNormalizerPolicy
-from .env_loader import PathsLoader
+from .normalizer import Normalizer
 from .env_os_loader import EnvOSLoader
 from .env_processor import EnvProcessor
 from .override_processor import OverrideProcessor
 
 __all__ = [
     'ConfigLoader',
-    'DictSource',
-    'YamlFileSource',
-    'BaseModelSource',
-    'SectionSource',
+    'UnifiedSource',
+    'BaseModelSource',  # Backward compatibility
+    'DictSource',  # Backward compatibility
+    'YamlFileSource',  # Backward compatibility
     'StateConverter',
-    'ConfigNormalizer',
-    'ConfigNormalizerPolicy',
-    'PathsLoader',
+    'Normalizer',
     'EnvOSLoader',
     'EnvProcessor',
     'OverrideProcessor',

@@ -19,7 +19,7 @@ ConfigLoader v3 - KeyPath State 기반 설계.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
 from pydantic import BaseModel
 
@@ -29,13 +29,12 @@ from modules.data_utils.core.types import (
     ConfigSourceWithSection,
 )
 
-from ..core.policy import ConfigLoaderPolicy
+from ..core.policy import ConfigLoaderPolicy, SourcePolicy
 from .converter import StateConverter
-from .source import (
-    BaseModelSource,
-    DictSource,
-    YamlFileSource,
-)
+from .source import UnifiedSource
+
+if TYPE_CHECKING:
+    from modules.logs_utils.core.policy import LogPolicy
 
 
 class ConfigLoader:
@@ -88,7 +87,7 @@ class ConfigLoader:
         override_sources: Optional[ConfigSourceWithSection] = None,
         env: Optional[Union[str, List[str], PathLike, List[PathLike]]] = None,
         env_os: Optional[Union[bool, List[str]]] = None,
-        log: Optional[Any] = None,  # LogPolicy, 런타임에 타입 검증
+        log: Optional[LogPolicy] = None,
     ):
         """ConfigLoader 초기화.
         
@@ -107,7 +106,9 @@ class ConfigLoader:
             override_sources: Override 소스 리스트 (정책 필드 덮어쓰기)
             env: 환경 변수 소스 (정책 필드 덮어쓰기)
             env_os: OS 환경 변수 읽기 (정책 필드 덮어쓰기)
-            log: LogPolicy 인스턴스 (정책 필드 덮어쓰기)
+            log: logs_utils.LogPolicy 인스턴스 (정책 필드 덮어쓰기)
+                - LogPolicy(enabled=True, name="loader", level="INFO")
+                - None: 로깅 비활성화
                 
         Examples:
             >>> # 1. YAML 정책 파일만

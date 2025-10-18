@@ -4,13 +4,25 @@
 Low-level core components for configuration management.
 """
 
-from .interface import ConfigSource
-from .policy import ConfigLoaderPolicy, NormalizePolicy
+from .interface import SourceBase
+from .policy import (
+    # 기본 정책
+    MergePolicy,
+    NormalizePolicy,
+    # 통합 소스 정책 (단일 진입점)
+    SourcePolicy,
+    # ConfigLoader 정책
+    ConfigLoaderPolicy,
+)
 
 __all__ = [
     # Interface
-    "ConfigSource",
-    # Policy
-    "ConfigLoaderPolicy",
+    "SourceBase",
+    # 기본 정책
+    "MergePolicy",
     "NormalizePolicy",
+    # 통합 소스 정책
+    "SourcePolicy",
+    # ConfigLoader 정책
+    "ConfigLoaderPolicy",
 ]

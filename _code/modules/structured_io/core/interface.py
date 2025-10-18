@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # structured_io/core/interface.py
 # description: structured_io 공통 추상 인터페이스 (Parser, Dumper)
 

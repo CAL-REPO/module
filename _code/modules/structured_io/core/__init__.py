@@ -6,19 +6,17 @@
 Core interfaces and policy classes for structured I/O operations.
 """
 
-from .interface import BaseParser, BaseDumper, Parser, Dumper
+from .interface import BaseParser, BaseDumper
 from .policy import (
-    SourcePathPolicy,
     BaseParserPolicy,
     BaseDumperPolicy,
 )
 
 __all__ = [
-    # Interfaces (Base prefix is primary)
+    # Interfaces
     "BaseParser",
     "BaseDumper",
     # Policies
-    "SourcePathPolicy",
     "BaseParserPolicy",
     "BaseDumperPolicy",
 ]

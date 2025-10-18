@@ -10,7 +10,7 @@ processed.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union, List
 from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
@@ -24,31 +24,7 @@ from unify_utils.core.policy import KeyPathNormalizePolicy
 # ==============================================================================
 # SourcePathPolicy - ConfigLoader용 소스 경로 정책
 # ==============================================================================
-class SourcePathPolicy(BaseModel):
-    """ConfigLoader용 소스 파일 설정.
-    
-    ConfigLoader가 여러 YAML 파일을 로드할 때 사용하는 정책입니다.
-    structured_io의 Parser와는 무관하며, cfg_utils 전용입니다.
-    
-    Attributes:
-        path: 파일 경로
-        section: 추출할 섹션 (None이면 전체 사용)
-    
-    Examples:
-        >>> # 단일 파일 로드
-        >>> source = SourcePathPolicy(path="config.yaml", section="database")
-        
-        >>> # 여러 파일 로드
-        >>> sources = [
-        ...     SourcePathPolicy(path="base.yaml", section=None),
-        ...     SourcePathPolicy(path="override.yaml", section="production")
-        ... ]
-    """
-    path: Union[str, Path] = Field(..., description="파일 경로")
-    section: Optional[str] = Field(None, description="추출할 섹션 (None이면 전체 사용)")
-    
-    class Config:
-        extra = "ignore"
+
 
 
 class ConfigPolicy(BaseModel):
@@ -81,6 +57,16 @@ class ConfigPolicy(BaseModel):
             "Optional path to a YAML configuration file for the ConfigLoader. "
             "If provided, this file will be loaded and merged according to the "
             "specified merge order and mode."
+        )
+    )
+    source_paths: Optional[Union[
+        SourcePathPolicy,
+        List[SourcePathPolicy]
+    ]] = Field(
+        default=None,
+        description=(
+            "ConfigLoader용 소스 파일 경로. 단일 SourcePathPolicy 또는 리스트. "
+            "이 필드는 BaseParserPolicy가 아닌 ConfigPolicy에 속합니다."
         )
     )
     yaml: Optional[BaseParserPolicy] = Field(

@@ -1,12 +1,33 @@
 ﻿# -*- coding: utf-8 -*-
-"""cfg_utils_v2.core.policy - 정책 모델 정의"""
+"""cfg_utils_v2.core.policy - 정책 모델 정의
+
+정책 계층 구조:
+1. 기본 정책 (MergePolicy, NormalizePolicy)
+2. 소스 타입별 정책 (BaseModelSourcePolicy, DictSourcePolicy, YamlSourcePolicy)
+3. 통합 소스 정책 (SourcePolicy) - Source 인스턴스에서 사용
+4. ConfigLoader 전역 정책 (ConfigLoaderPolicy) - 소스 타입별 기본 정책 포함
+"""
 
 from __future__ import annotations
-from typing import Any, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional, Union, List
 from pydantic import BaseModel, Field
-from modules.keypath_utils.core.policy import KeyPathNormalizePolicy, KeyPathStatePolicy
-from modules.structured_io.formats.yaml_io import YamlParser
+from modules.keypath_utils.core.policy import KeyPathStatePolicy
 from modules.structured_io.core.policy import BaseParserPolicy
+
+if TYPE_CHECKING:
+    from modules.logs_utils.core.policy import LogPolicy
+else:
+    # 런타임에는 실제 import 시도, 실패 시 Any 사용
+    try:
+        from modules.logs_utils.core.policy import LogPolicy
+    except ImportError:
+        LogPolicy = Any  # type: ignore
+
+
+# ============================================================
+# 1. MergePolicy - KeyPathState 병합 정책
+# ============================================================
 
 
 # ============================================================
@@ -17,6 +38,7 @@ class MergePolicy(BaseModel):
     deep: bool = Field(False, description="Deep merge 여부 (False=shallow, True=recursive)")
     overwrite: bool = Field(True, description="기존 키 덮어쓰기 여부")
 
+
 # ============================================================
 # 2. NormalizePolicy - 정규화 정책
 # ============================================================
@@ -26,123 +48,156 @@ class NormalizePolicy(BaseModel):
     drop_blanks: bool = Field(False, description="빈 값 제거 (None, '', [], {})")
     resolve_vars: bool = Field(True, description="변수 참조 해결 ($ref: 등)")
 
-# ============================================================
-# 7. BaseModelSourcePolicy - 모든 Source의 기본 정책
-# ============================================================
-class SourceBasePolicy(BaseModel):
-    """모든 Source의 기본 정책 (normalizer, merge)
-    
-    모든 소스의 공통 기반 정책입니다.
-    SourcePolicy가 이를 상속받습니다.
-    """
-    normalizer: Optional[NormalizePolicy] = Field(
-        None,
-        description="정규화 정책 (None이면 정규화 비활성화)"
-    )
-    merge: Optional[MergePolicy] = Field(
-        None,
-        description="병합 정책 (None이면 기본값: deep=False, overwrite=True)"
-    )
 
 # ============================================================
-# 5. BaseModelBehaviorPolicy - BaseModel 동작 정책
+# 3. SourcePolicy - 통합 소스 정책 (단일 진입점)
 # ============================================================
-class BaseModelSourcePolicy(SourceBasePolicy):
-    """BaseModel 소스 동작 정책
+class SourcePolicy(BaseModel):
+    """통합 소스 정책 (모든 소스 타입을 단일 진입점으로 처리)
     
-    BaseModel 처리 시 section 유무에 따른 동작을 제어합니다.
-    - section 없음: auto_create_section=True면 생성, False면 에러
-    - section 있음: override=True면 기존 섹션 덮어쓰기, False면 병합
-    """
-    pass
-# ============================================================
-# 6. DictBehaviorPolicy - Dict 동작 정책
-# ============================================================
-class DictSourcePolicy(SourceBasePolicy):
-    """Dict 소스 동작 정책
+    src 필드로 모든 타입의 소스를 받고, 내부에서 타입에 따라 분기 처리합니다.
     
-    Dict 처리 시 section 유무에 따른 동작을 제어합니다.
-    - section 없음: require_section=True면 에러, False면 root에 병합
-    - section 있음: 항상 normalizing 후 override
-    """
-    section: Optional[str] = Field(
-        None,
-        description="Dict 소스 섹션 (None이면 기본값 사용)"
+    지원 타입:
+    - BaseModel: Pydantic 모델 → model_dump()
+    - dict: Python dict → copy()
+    - str/Path: YAML 파일 → YamlParser
+    
+    src 형식:
+    - 데이터만: src=ImagePolicy() 또는 src={"key": "value"}
+    - 데이터+섹션: src=(ImagePolicy(), "image") 또는 src=({"key": "value"}, "section")
+    
+    타입별 정책:
+    - BaseModel: base_model_normalizer, base_model_merge
+    - Dict: dict_normalizer, dict_merge
+    - YAML: yaml_parser, yaml_normalizer, yaml_merge
+    
+    사용 예시:
+    ```python
+    # BaseModel
+    policy = SourcePolicy(
+        src=(ImagePolicy(), "image"),
+        base_model_normalizer=NormalizePolicy(drop_blanks=True),
+        base_model_merge=MergePolicy(deep=False)
     )
-    pass
+    
+    # Dict
+    policy = SourcePolicy(
+        src=({"max_width": 1024}, "image"),
+        dict_normalizer=NormalizePolicy(drop_blanks=True)
+    )
+    
+    # YAML
+    policy = SourcePolicy(
+        src=("config.yaml", "image"),
+        yaml_parser=BaseParserPolicy(safe_mode=False),
+        yaml_normalizer=NormalizePolicy(resolve_vars=True)
+    )
+    
+    # Source는 하나로 통일
+    source = UnifiedSource(policy)
+    kpd = source.extract()  # 내부에서 타입 자동 판단
+    ```
+    """
+    # 단일 진입점 (Any 타입 사용 - Pydantic이 dict를 BaseModel로 변환하지 않도록)
+    src: Optional[Any] = Field(
+        default=None,
+        description="소스 데이터: BaseModel/dict/str/Path 또는 (데이터, section) 튜플"
+    )
+    
+    # BaseModel 정책
+    base_model_normalizer: Optional[NormalizePolicy] = Field(
+        default_factory=lambda: NormalizePolicy(
+            normalize_keys=True,
+            drop_blanks=False,
+            resolve_vars=False
+        ),
+        description="BaseModel 정규화 정책"
+    )
+    base_model_merge: Optional[MergePolicy] = Field(
+        default_factory=lambda: MergePolicy(deep=False, overwrite=False),
+        description="BaseModel 병합 정책"
+    )
+    
+    # Dict 정책
+    dict_normalizer: Optional[NormalizePolicy] = Field(
+        default_factory=lambda: NormalizePolicy(
+            normalize_keys=True,
+            drop_blanks=False,
+            resolve_vars=False
+        ),
+        description="Dict 정규화 정책"
+    )
+    dict_merge: Optional[MergePolicy] = Field(
+        default_factory=lambda: MergePolicy(deep=False, overwrite=True),
+        description="Dict 병합 정책"
+    )
+    
+    # YAML 정책
+    yaml_parser: Optional[BaseParserPolicy] = Field(
+        default_factory=lambda: BaseParserPolicy(
+            safe_mode=True,
+            encoding="utf-8",
+            enable_env=True,
+            enable_include=True,
+            enable_placeholder=True
+        ),
+        description="YAML 파서 정책"
+    )
+    yaml_normalizer: Optional[NormalizePolicy] = Field(
+        default_factory=lambda: NormalizePolicy(
+            normalize_keys=True,
+            drop_blanks=True,     # YAML은 override 용도 (빈 값 제거)
+            resolve_vars=True
+        ),
+        description="YAML 정규화 정책"
+    )
+    yaml_merge: Optional[MergePolicy] = Field(
+        default_factory=lambda: MergePolicy(deep=True, overwrite=True),
+        description="YAML 병합 정책"
+    )
+
 
 # ============================================================
-# 6. SourcePolicy - 개별 Source 정책
+# 4. ConfigLoaderPolicy - ConfigLoader 전역 정책
 # ============================================================
-class YamlSourcePolicy(SourceBasePolicy):
-    """개별 Source 정책 (SourceBasePolicy 상속)
+class ConfigLoaderPolicy(BaseModel):
+    """ConfigLoader 전역 정책
     
-    상속받은 필드:
-    - normalizer: 소스별 normalizer 정책
-    - merge: 소스별 merge 정책
+    ConfigLoader의 전역 기본 정책으로, 소스 타입별 기본 동작을 정의합니다.
+    SourcePolicy의 기본값을 제공합니다.
     
-    추가 필드:
-    - yaml_parser: YAML 소스 전용 parser 정책
-    - basemodel_behavior: BaseModel 동작 정책
-    - dict_behavior: Dict 동작 정책
-    
-    소스 타입별 처리:
-    - YAML: yaml_parser + normalizer + merge
-    - Dict: dict_behavior + normalizer + merge (yaml_parser 무시)
-    - BaseModel: basemodel_behavior + normalizer + merge (yaml_parser 무시)
-    """
-    yaml_parser: Optional[YamlParser] = Field(
-        None,
-        description="YAML 파서 정책 (None이면 전역 yaml_parser 사용, YAML 소스에만 적용)"
-    )
-
-# ============================================================
-# 7. ConfigLoaderPolicy - ConfigLoader 전역 정책
-# ============================================================
-class ConfigLoaderPolicy(SourceBase):
-    """ConfigLoader 정책 (SourcePolicy 상속)
-    
-    상속받은 필드 (SourceBasePolicy):
-    - normalizer: 전역 normalizer 정책
-    - merge: 전역 merge 정책
-    
-    상속받은 필드 (SourcePolicy):
-    - yaml_parser: 전역 YAML parser 정책
-    
-    추가 필드:
+    구조:
+    - source: SourcePolicy 기본값 (타입별 정책 포함)
     - keypath: KeyPath 동작 정책
     - log: 로깅 정책
+    
+    사용 예시:
+    ```python
+    # 전역 정책 커스터마이징
+    policy = ConfigLoaderPolicy(
+        source=SourcePolicy(
+            yaml_parser=BaseParserPolicy(safe_mode=False),
+            yaml_normalizer=NormalizePolicy(resolve_vars=True)
+        ),
+        keypath=KeyPathStatePolicy(separator="__")
+    )
+    
+    # ConfigLoader가 사용
+    loader = ConfigLoader(
+        policy=policy,
+        base_sources=[(ImagePolicy(), "image")]
+    )
+    ```
     """
-    base_model: Optional[BaseModelSourcePolicy] = Field(
-        default_factory=lambda: BaseModelSourcePolicy(
-            normalizer=NormalizePolicy(normalize_keys=True, drop_blanks=False, resolve_vars=False),
-            merge=MergePolicy(deep=False, overwrite=False)
-        ),
-        description="BaseModel 소스 동작 정책 (None이면 기본값 사용)"
+    source: SourcePolicy = Field(
+        default_factory=lambda: SourcePolicy(),
+        description="소스 정책 기본값 (타입별 정책 포함)"
     )
-    dict: Optional[DictSourcePolicy] = Field(
-        default_factory=lambda: DictSourcePolicy(
-            section=None,
-            normalizer=NormalizePolicy(normalize_keys=True, drop_blanks=False, resolve_vars=False),
-            merge=MergePolicy(deep=False, overwrite=True)
-        ),
-        description="Dict 소스 동작 정책 (None이면 기본값 사용)"
-    )   
-
-    yaml: Optional[YamlSourcePolicy] = Field(
-        default_factory=lambda: YamlSourcePolicy(
-            yaml_parser=YamlParser(safe_mode=True, encoding="utf-8"),
-            normalizer=NormalizePolicy(normalize_keys=True, drop_blanks=False, resolve_vars=True),
-            merge=MergePolicy(deep=True, overwrite=True)
-        ),
-        description="YAML 소스 정책 (None이면 기본값 사용)"
-    )
-
     keypath: Optional[KeyPathStatePolicy] = Field(
-        default_factory=lambda: KeyPathNormalizePolicy(separator="__", override_requires_base=True),
-        description="KeyPath 동작 정책 (None이면 기본값: separator='__', override_requires_base=True)"
+        None,
+        description="KeyPath 동작 정책 (None이면 기본값 사용)"
     )
-    log: Optional[Any] = Field(
+    log: Optional[LogPolicy] = Field(
         None,
         description="로깅 정책 (logs_utils.LogPolicy, None이면 로깅 비활성화)"
     )

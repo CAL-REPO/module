@@ -19,19 +19,24 @@ Usage:
 
 # Core components
 from .core import (
-    ConfigSource,
+    SourceBase,
+    SourcePolicy,
     NormalizePolicy,
+    MergePolicy,
 )
 
 # Service layer
-from .service import ConfigLoader
+from .service import ConfigLoader, UnifiedSource
 
 __all__ = [
     # Core
-    'ConfigSource',
+    'SourceBase',
+    'SourcePolicy',
     'NormalizePolicy',
+    'MergePolicy',
     # Service
     'ConfigLoader',
+    'UnifiedSource',
 ]
 
 __version__ = '2.0.0'

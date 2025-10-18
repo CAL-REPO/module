@@ -1,22 +1,184 @@
-﻿default:
-  normalizer:
-    normalize_keys: false
-    drop_blanks: false
-    resolve_vars: true
-  merge:
-    deep: false
-    overwrite: true
+﻿# ============================================================
+# ConfigLoaderPolicy - cfg_utils_v2 전역 정책 설정
+# ============================================================
+# 
+# 구조:
+#   - source: SourcePolicy (타입별 정책 통합)
+#     - BaseModel 정책
+#     - Dict 정책  
+#     - YAML 정책
+#   - keypath: KeyPathStatePolicy
+#   - log: LogPolicy
+#
+# ============================================================
+
+# ============================================================
+# 1. SourcePolicy - 통합 소스 정책 (타입별 기본값)
+# ============================================================
+source:
+  # src는 런타임에 ConfigLoader가 주입 (여기서는 예시만 제공)
+  # src: null  # BaseModel | dict | str/Path | tuple[data, section]
+  
+  # ------------------------------------------------------------
+  # 1-1. BaseModel 소스 정책
+  # ------------------------------------------------------------
+  # BaseModel → dict 변환 시 사용되는 정책
+  # 용도: 각 모듈의 Policy 클래스 (ImagePolicy, OcrPolicy 등)
+  # 특징: 기본값 제공, 타입 안전, 빈 값도 의미 있음
+  base_model_normalizer:
+    normalize_keys: true      # 키 정규화 (소문자 변환, 특수문자 제거 등)
+    drop_blanks: false        # 빈 값 유지 (BaseModel 기본값 중요)
+    resolve_vars: false       # 변수 참조 해결 안함 (타입 안전)
+  
+  base_model_merge:
+    deep: false               # Shallow merge (BaseModel은 평면 구조)
+    overwrite: false          # 기존 값 유지 (기본값 제공 용도)
+  
+  # ------------------------------------------------------------
+  # 1-2. Dict 소스 정책
+  # ------------------------------------------------------------
+  # dict → KeyPathDict 변환 시 사용되는 정책
+  # 용도: 런타임 데이터, 사용자 입력, API 응답
+  # 특징: Override 용도, 빈 값은 무의미한 데이터
+  dict_normalizer:
+    normalize_keys: true      # 키 정규화
+    drop_blanks: true         # 빈 값 제거 (런타임 데이터에서 빈 값은 무의미)
+    resolve_vars: false       # 변수 참조 해결 안함 (단순 데이터)
+  
+  dict_merge:
+    deep: false               # Shallow merge
+    overwrite: true           # 덮어쓰기 (Override 용도)
+  
+  # ------------------------------------------------------------
+  # 1-3. YAML 소스 정책
+  # ------------------------------------------------------------
+  # YAML 파일 파싱 및 처리 정책
+  # 용도: 설정 파일 override, 환경별 설정
+  # 특징: 변수 참조 많음, 계층 구조, Override 용도
   yaml_parser:
-    safe_mode: true
-    encoding: "utf-8"
-    enable_env: true
-    enable_include: true
-    enable_placeholder: true
-    enable_reference: true
-  keypath:
-    separator: "__"
-    override_requires_base: true
-  log:
-    enabled: true
-    name: "cfg_loader"
-    level: "INFO"
+    safe_mode: true           # Safe YAML 로딩 (보안)
+    encoding: "utf-8"         # 파일 인코딩
+    enable_env: true          # 환경변수 치환 활성화 (${ENV_VAR})
+    enable_include: true      # !include 지시자 활성화
+    enable_placeholder: true  # Placeholder 치환 활성화 (${var})
+    enable_reference: true    # 참조 해결 활성화 ($ref:)
+  
+  yaml_normalizer:
+    normalize_keys: true      # 키 정규화
+    drop_blanks: true         # 빈 값 제거 (YAML은 override 용도, 빈 값은 무의미)
+    resolve_vars: true        # 변수 참조 해결 (YAML은 변수 많음)
+  
+  yaml_merge:
+    deep: true                # Deep merge (YAML은 계층 구조)
+    overwrite: true           # 덮어쓰기 (YAML은 설정 override)
+
+
+# ============================================================
+# 2. KeyPathStatePolicy - KeyPath 동작 정책
+# ============================================================
+keypath:
+  separator: "__"             # KeyPath 구분자 (a__b__c → a.b.c)
+  # override_requires_base: true  # Override 시 base 키 존재 필요 (Deprecated)
+
+
+# ============================================================
+# 3. LogPolicy - 로깅 정책
+# ============================================================
+log:
+  enabled: true               # 로깅 활성화/비활성화
+  name: "cfg_loader"          # Logger 이름
+  level: "INFO"               # 로그 레벨 (TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL)
+  sinks:                      # Sink 설정 (콘솔, 파일)
+    - sink_type: "console"    # 콘솔 출력
+      level: "INFO"
+      colorize: true
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    # - sink_type: "file"     # 파일 출력 (선택)
+    #   filepath: "logs/cfg_loader.log"
+    #   level: "DEBUG"
+    #   rotation: "10 MB"
+    #   retention: "7 days"
+    #   compression: "zip"
+  context:                    # 추가 Context (선택)
+    app: "cfg_utils_v2"
+    # env: "dev"
+
+
+# ============================================================
+# 사용 예시 (주석)
+# ============================================================
+# 
+# 1. BaseModel 소스 사용:
+#    ```python
+#    policy = SourcePolicy(
+#        src=(ImagePolicy(), "image"),
+#        base_model_normalizer=NormalizePolicy(drop_blanks=False)
+#    )
+#    source = UnifiedSource(policy)
+#    kpd = source.extract()
+#    ```
+#
+# 2. Dict 소스 사용:
+#    ```python
+#    policy = SourcePolicy(
+#        src=({"max_width": 1024}, "settings"),
+#        dict_normalizer=NormalizePolicy(drop_blanks=True)
+#    )
+#    source = UnifiedSource(policy)
+#    kpd = source.extract()
+#    ```
+#
+# 3. YAML 소스 사용:
+#    ```python
+#    policy = SourcePolicy(
+#        src=("config.yaml", "image"),
+#        yaml_parser=BaseParserPolicy(safe_mode=False),
+#        yaml_normalizer=NormalizePolicy(resolve_vars=True)
+#    )
+#    source = UnifiedSource(policy)
+#    kpd = source.extract()
+#    ```
+#
+# 4. ConfigLoader에서 전역 정책 로드:
+#    ```python
+#    from cfg_utils_v2 import ConfigLoader
+#    from cfg_utils_v2.core.policy import ConfigLoaderPolicy
+#    from structured_io import YamlParser
+#    
+#    # YAML에서 정책 로드
+#    parser = YamlParser()
+#    policy_dict = parser.parse_file("config_loader.yaml")
+#    policy = ConfigLoaderPolicy(**policy_dict)
+#    
+#    # ConfigLoader 생성
+#    loader = ConfigLoader(
+#        policy=policy,
+#        base_sources=[(ImagePolicy(), "image")]
+#    )
+#    ```
+# ============================================================
+
+
+# ============================================================
+# 타입별 정책 비교표
+# ============================================================
+#
+# | 속성              | BaseModel      | Dict          | YAML          |
+# |-------------------|----------------|---------------|---------------|
+# | normalize_keys    | true           | true          | true          |
+# | drop_blanks       | false ⭐       | true ⭐       | true ⭐       |
+# | resolve_vars      | false          | false         | true ⭐       |
+# | deep              | false          | false         | true ⭐       |
+# | overwrite         | false ⭐       | true          | true          |
+#
+# ⭐ = 타입별 핵심 차이점
+#
+# 설계 원칙:
+# - BaseModel: 타입 안전, 기본값 제공, 빈 값 유지, 덮어쓰기 방지
+#   → 각 모듈의 Policy 클래스에서 기본값 관리 (ImagePolicy, OcrPolicy 등)
+# - Dict: 런타임 데이터, 빈 값 제거, 덮어쓰기 허용
+#   → Override 용도, 빈 값은 무의미한 데이터
+# - YAML: 설정 파일, 변수 해결, Deep merge, 빈 값 제거, 덮어쓰기 허용
+#   → Override 용도, 환경별 설정, 빈 값은 무의미한 데이터
+# ============================================================
+

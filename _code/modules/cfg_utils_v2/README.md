@@ -227,6 +227,55 @@ state = loader.get_state()
 - ✅ env 뒤에 처리되어 override
 - ✅ env section 자동 생성
 
+#### 7. 로깅 (log) ⭐ NEW
+
+```python
+from logs_utils import LogPolicy, SinkPolicy
+
+# 기본 로깅
+loader = ConfigLoader(
+    base_sources=[(ImagePolicy(), "image")],
+    log=LogPolicy(
+        enabled=True,
+        name="config_loader",
+        level="INFO"
+    )
+)
+
+# 파일 + 콘솔 로깅
+loader = ConfigLoader(
+    base_sources=[(ImagePolicy(), "image")],
+    log=LogPolicy(
+        enabled=True,
+        name="config_loader",
+        level="DEBUG",
+        sinks=[
+            SinkPolicy(sink_type="console", level="INFO"),
+            SinkPolicy(
+                sink_type="file",
+                filepath=Path("logs/config_loader.log"),
+                level="DEBUG",
+                rotation="10 MB",
+                retention="7 days"
+            )
+        ]
+    )
+)
+
+# 로깅 비활성화
+loader = ConfigLoader(
+    base_sources=[(ImagePolicy(), "image")],
+    log=None  # 또는 LogPolicy(enabled=False)
+)
+```
+
+**log 특징:**
+- ✅ logs_utils.LogManager 통합
+- ✅ LogPolicy로 세밀한 제어
+- ✅ 파일/콘솔 Sink 지원
+- ✅ Context 자동 추가 (loader_id, config_path)
+- ✅ None이면 로깅 비활성화
+
 ---
 
 ## 📊 3-Tier Architecture
@@ -283,6 +332,7 @@ pytest tests/test_cfg_utils_v2_*.py -v
 - ✅ 우선순위 기반 병합 (base + override + env)
 - ✅ Section 추적 및 조건별 병합
 - ✅ **환경 변수 지원 (env 인자)** ⭐ NEW
+- ✅ **로깅 통합 (logs_utils.LogPolicy)** ⭐ NEW
 - ✅ KeyPath State 통합
 - ✅ 다양한 Export (State/Dict/Model)
 - ✅ 런타임 Override 지원

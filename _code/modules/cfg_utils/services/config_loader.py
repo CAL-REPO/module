@@ -200,9 +200,8 @@ class ConfigLoader:
         if isinstance(cfg_like, (str, Path)):
             # ✅ FIX: cfg_like가 제공되면 source_paths 무시 (section wrap 방지)
             # policy의 source_paths를 제거한 복사본 생성
-            if temp_policy.yaml and temp_policy.yaml.source_paths:
-                yaml_policy_copy = temp_policy.yaml.model_copy(update={"source_paths": []})
-                temp_policy = temp_policy.model_copy(update={"yaml": yaml_policy_copy})
+            if temp_policy.source_paths:
+                temp_policy = temp_policy.model_copy(update={"source_paths": []})
             
             loader = ConfigLoader(cfg_like, policy=temp_policy)
             
@@ -472,21 +471,19 @@ class ConfigLoader:
         default_section: str,
         **overrides: Any
     ) -> T:
-        """policy.yaml.source_paths에서 section 로드 (내부 helper)."""
-        from structured_io.core.base_policy import SourcePathPolicy
+        """policy.source_paths에서 section 로드 (내부 helper)."""
         
-        if not policy.yaml or not policy.yaml.source_paths:
-            raise TypeError("No source_paths configured in policy.yaml")
+        if not policy.source_paths:
+            raise TypeError("No source_paths configured in policy")
         
         # source_paths 정규화 및 default_section 적용
         source_paths = cls._apply_default_section_to_paths(
-            policy.yaml.source_paths,
+            policy.source_paths,
             default_section
         )
         
         # 새로운 policy 생성
-        yaml_policy = policy.yaml.model_copy(update={"source_paths": source_paths})
-        new_policy = policy.model_copy(update={"yaml": yaml_policy})
+        new_policy = policy.model_copy(update={"source_paths": source_paths})
         
         # 로드 및 병합
         loader = cls(None, policy=new_policy)
@@ -503,9 +500,8 @@ class ConfigLoader:
     @staticmethod
     def _clear_source_paths(policy: ConfigPolicy) -> ConfigPolicy:
         """policy에서 source_paths 제거 (section wrap 방지)."""
-        if policy.yaml and policy.yaml.source_paths:
-            yaml_policy_copy = policy.yaml.model_copy(update={"source_paths": []})
-            return policy.model_copy(update={"yaml": yaml_policy_copy})
+        if policy.source_paths:
+            return policy.model_copy(update={"source_paths": []})
         return policy
     
     @staticmethod
@@ -609,9 +605,9 @@ class ConfigLoader:
         deep = self.policy.merge_mode == "deep"
         has_source = False  # 유효한 소스가 있는지 추적
 
-        # 1) Merge sources defined in policy.yaml.source_paths (if yaml policy exists)
-        if self.policy.yaml and hasattr(self.policy.yaml, 'source_paths') and self.policy.yaml.source_paths:
-            for src_cfg in self._normalize_source_paths(self.policy.yaml.source_paths):
+        # 1) Merge sources defined in policy.source_paths
+        if self.policy.source_paths:
+            for src_cfg in self._normalize_source_paths(self.policy.source_paths):
                 src_path = Path(src_cfg.path)
                 
                 # YAML 파일 로드
@@ -654,45 +650,39 @@ class ConfigLoader:
         self,
         source_paths: Union[SourcePathPolicy, List[SourcePathPolicy], str, Path, dict, List[Union[str, Path, dict]]]
     ) -> List[SourcePathPolicy]:
-        """source_paths를 SourcePathConfig 리스트로 정규화.
+        """source_paths를 SourcePathPolicy 리스트로 정규화.
         
         지원하는 입력:
-        - SourcePathConfig: 단일 소스 (그대로 사용)
-        - List[SourcePathConfig]: 복수 소스 (그대로 사용)
-        - 편의 변환 (자동으로 SourcePathConfig로 변환):
-          * 단일 문자열/Path: "file.yaml" → SourcePathConfig(path="file.yaml", section=None)
-          * Dict: {"path": "file.yaml", "section": "app"} → SourcePathConfig(...)
-          * List[str/Path/dict]: 각 항목을 SourcePathConfig로 변환
+        - SourcePathPolicy: 단일 소스 (그대로 사용)
+        - List[SourcePathPolicy]: 복수 소스 (그대로 사용)
+        - 편의 변환 (자동으로 SourcePathPolicy로 변환):
+          * 단일 문자열/Path: "file.yaml" → SourcePathPolicy(path="file.yaml", section=None)
+          * Dict: {"path": "file.yaml", "section": "app"} → SourcePathPolicy(...)
+          * List[str/Path/dict]: 각 항목을 SourcePathPolicy로 변환
         
         Returns:
-            SourcePathConfig 리스트
+            SourcePathPolicy 리스트
         """
-        # ✅ FIX: isinstance로 타입 체크 (타입 안정성 향상)
-        # SourcePathConfig 타입 체크 (isinstance 대신 type name 비교)
-        if type(source_paths).__name__ == 'SourcePathConfig':
+        # SourcePathPolicy 타입 체크
+        if isinstance(source_paths, SourcePathPolicy):
             return [source_paths]
         
-        # List[SourcePathConfig]는 그대로 사용
-        if isinstance(source_paths, list):
-            # 리스트는 그대로 진행
-            pass
         # 단일 경로/dict를 list로 변환
-        elif isinstance(source_paths, (str, Path)):
+        if isinstance(source_paths, (str, Path)):
             source_paths = [source_paths]
         elif isinstance(source_paths, dict):
-            # Pure dict만 변환
             source_paths = [source_paths]
-        else:
+        elif not isinstance(source_paths, list):
             raise TypeError(f"Unsupported source_paths type: {type(source_paths)}")
         
         normalized: List[SourcePathPolicy] = []
         
-        for item in source_paths:  # type: ignore
-            if type(item).__name__ == 'SourcePathConfig':
-                # 이미 SourcePathConfig
-                normalized.append(item)  # type: ignore
+        for item in source_paths:
+            if isinstance(item, SourcePathPolicy):
+                # 이미 SourcePathPolicy
+                normalized.append(item)
             elif isinstance(item, dict):
-                # Dict를 SourcePathConfig로 변환
+                # Dict를 SourcePathPolicy로 변환
                 if 'path' in item:
                     normalized.append(SourcePathPolicy(**item))
                 else:

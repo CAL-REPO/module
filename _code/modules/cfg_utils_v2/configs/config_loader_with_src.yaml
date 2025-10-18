@@ -1,0 +1,52 @@
+# ============================================================
+# ConfigLoaderPolicy - src 포함 테스트
+# ============================================================
+source:
+  # src에 YAML 파일 경로 지정 (정적 설정)
+  src: "modules/cfg_utils_v2/configs/test_default.yaml"
+  
+  # YAML 정책
+  yaml_parser:
+    safe_mode: true
+    encoding: "utf-8"
+    enable_env: true
+    enable_include: true
+    enable_placeholder: true
+    enable_reference: true
+  
+  yaml_normalizer:
+    normalize_keys: true
+    drop_blanks: false
+    resolve_vars: true
+  
+  yaml_merge:
+    deep: true
+    overwrite: true
+  
+  # BaseModel 정책
+  base_model_normalizer:
+    normalize_keys: true
+    drop_blanks: false
+    resolve_vars: false
+  
+  base_model_merge:
+    deep: false
+    overwrite: false
+  
+  # Dict 정책
+  dict_normalizer:
+    normalize_keys: true
+    drop_blanks: true
+    resolve_vars: false
+  
+  dict_merge:
+    deep: false
+    overwrite: true
+
+keypath:
+  separator: "__"
+
+log:
+  enabled: true
+  name: "cfg_loader"
+  level: "INFO"

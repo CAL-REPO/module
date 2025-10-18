@@ -8,27 +8,28 @@ from typing import Optional, Union, List, Dict, Any
 from pathlib import Path
 
 
-class SourcePathPolicy(BaseModel):
-    """개별 소스 파일 설정"""
-    path: Union[str, Path] = Field(..., description="파일 경로")
-    section: Optional[str] = Field(None, description="추출할 섹션 (None이면 전체 사용)")
-    
-    class Config:
-        extra = "ignore"
-
 class BaseParserPolicy(BaseModel):
-    # YAML 기능 동등 지원
-    source_paths: Optional[Union[
-        SourcePathPolicy,
-        List[SourcePathPolicy]
-    ]] = Field(
-        default=None, 
-        description="소스 파일 경로. 단일 SourcePathConfig 또는 리스트"
-    )
+    """Parser 정책 (YAML, JSON 공통)
+    
+    Parser의 동작을 제어하는 정책입니다.
+    
+    Attributes:
+        enable_env: 환경 변수(${VAR} 또는 ${VAR:default}) 확장 활성화
+        enable_include: !include 태그 활성화 여부 (JSON에서는 비활성)
+        enable_placeholder: {{ var }} 또는 ${VAR} 스타일 치환
+        enable_reference: ${ref:path.to.key} 참조 치환
+        encoding: 파일 인코딩
+        on_error: 에러 처리 방식 ('raise' | 'ignore' | 'warn')
+        safe_mode: YAML SafeLoader 사용 여부 / JSON에서는 의미 없음
+    
+    Note:
+        - source_paths 필드는 제거됨 (cfg_utils.SourcePathPolicy로 이동)
+        - Parser는 파싱만 담당, 소스 관리는 ConfigLoader의 책임
+    """
     enable_env: bool = Field(default=True, description="환경 변수(${VAR} 또는 ${VAR:default}) 확장 활성화")
     enable_include: bool = Field(default=True, description="!include 태그 활성화 여부 (JSON에서는 비활성)")
     enable_placeholder: bool = Field(default=True, description="{{ var }} 또는 ${VAR} 스타일 치환")
-    enable_reference: bool = Field(default=True, description="${ref:path.to.key} 참조 치환")
+    enable_reference: bool = Field(default=False, description="${ref:path.to.key} 참조 치환 (기본 비활성화)")
     encoding: str = Field(default="utf-8", description="파일 인코딩")
     on_error: str = Field(default="raise", description="에러 처리: 'raise' | 'ignore' | 'warn'")
     safe_mode: bool = Field(default=True, description="YAML: SafeLoader 사용 여부 / JSON: 의미 없음")
