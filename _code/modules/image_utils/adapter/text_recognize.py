@@ -116,7 +116,13 @@ class ImageTextRecognize:
                 ocr_kwargs = {
                     "use_angle_cls": self.policy.provider.paddle_use_angle_cls,
                     "lang": self.policy.provider.langs[0] if self.policy.provider.langs else "ch",
+                    # 🔧 PaddleOCR 3.0+ doc_preprocessor 비활성화
+                    "use_doc_orientation_classify": self.policy.provider.paddle_use_doc_orientation_classify,
+                    "use_doc_unwarping": self.policy.provider.paddle_use_doc_unwarping,
                 }
+                
+                self.log.info(f"  use_doc_orientation_classify: {ocr_kwargs['use_doc_orientation_classify']}")
+                self.log.info(f"  use_doc_unwarping: {ocr_kwargs['use_doc_unwarping']}")
                 
                 self._ocr_engine = PaddleOCR(**ocr_kwargs)
                 self.log.success("PaddleOCR initialized successfully")
@@ -173,56 +179,12 @@ class ImageTextRecognize:
         # PIL Image를 numpy array로 변환
         img_array = np.array(image)
         
-        # 🔍 디버깅: OCR 입력 이미지 정보
-        self.log.info(f"\n{'='*80}")
-        self.log.info(f"[OCR INPUT DEBUG] PIL Image size: {image.size} (width, height)")
-        self.log.info(f"[OCR INPUT DEBUG] numpy array shape: {img_array.shape} (height, width, channels)")
-        self.log.info(f"[OCR INPUT DEBUG] Image mode: {image.mode}")
-        self.log.info(f"{'='*80}\n")
-        
-        # 🔍 디버깅: OCR 입력 이미지 저장
-        debug_dir = Path(r"M:\CALife\CAShop - 구매대행\_public\01.IMAGE\CAPEA-001\translated")
-        debug_dir.mkdir(parents=True, exist_ok=True)
-        debug_input_path = debug_dir / "debug_ocr_input.jpg"
-        image.save(debug_input_path, quality=95)
-        self.log.info(f"[DEBUG] Saved OCR input image to: {debug_input_path}")
-        
         # PaddleOCR는 BGR 형식을 기대 (OpenCV 호환)
         if img_array.ndim == 3 and img_array.shape[2] == 3:
             img_array = img_array[:, :, ::-1]  # RGB → BGR
         
-        # PaddleOCR predict (문서 전처리 비활성화)
-        raw_result = self.ocr_engine.predict(
-            img_array,
-            use_doc_orientation_classify=False,  # 🔧 문서 방향 분류 비활성화
-            use_doc_unwarping=False              # 🔧 문서 왜곡 보정 비활성화
-        )
-        
-        # 🔍 디버깅: PaddleOCR output_img 저장
-        if raw_result and len(raw_result) > 0:
-            first_result = raw_result[0]
-            if hasattr(first_result, 'get') and 'doc_preprocessor_res' in first_result:
-                doc_res = first_result['doc_preprocessor_res']
-                if 'output_img' in doc_res:
-                    output_img_array = doc_res['output_img']
-                    # BGR → RGB
-                    if output_img_array.ndim == 3 and output_img_array.shape[2] == 3:
-                        output_img_array = output_img_array[:, :, ::-1]
-                    output_img = Image.fromarray(output_img_array)
-                    debug_output_path = debug_dir / "debug_paddle_output.jpg"
-                    output_img.save(debug_output_path, quality=95)
-                    self.log.info(f"[DEBUG] Saved PaddleOCR output_img to: {debug_output_path}")
-        
-        # 🔍 디버깅: PaddleOCR 원본 출력 확인
-        self.log.info(f"\n{'='*80}")
-        self.log.info(f"[OCR RAW DEBUG] PaddleOCR raw_result type: {type(raw_result)}")
-        self.log.info(f"[OCR RAW DEBUG] Length: {len(raw_result) if raw_result else 0}")
-        if raw_result and len(raw_result) > 0:
-            self.log.info(f"[OCR RAW DEBUG] First item type: {type(raw_result[0])}")
-            self.log.info(f"[OCR RAW DEBUG] First item keys: {raw_result[0].keys() if isinstance(raw_result[0], dict) else 'N/A'}")
-            self.log.info(f"[OCR RAW DEBUG] First item sample:")
-            self.log.info(f"{raw_result[0]}")
-        self.log.info(f"{'='*80}\n")
+        # PaddleOCR predict (초기화 시 설정된 파라미터 사용)
+        raw_result = self.ocr_engine.predict(img_array)
         
         # 결과 정규화
         ocr_items = self._normalize_ocr_result(raw_result)
@@ -246,17 +208,6 @@ class ImageTextRecognize:
         
         # 후처리
         ocr_items = self._postprocess_items(ocr_items)
-        
-        # 🔧 임시 수정: Y좌표 보정 (+100 픽셀)
-        # PaddleOCR이 Y좌표를 약 100픽셀 위로 잘못 감지하는 문제 보정
-        Y_OFFSET = 100
-        self.log.warning(f"[WORKAROUND] Applying Y-offset correction: +{Y_OFFSET}px")
-        for item in ocr_items:
-            # quad 보정
-            item.quad = [[x, y + Y_OFFSET] for x, y in item.quad]
-            # bbox 보정
-            item.bbox["y_min"] += Y_OFFSET
-            item.bbox["y_max"] += Y_OFFSET
         
         self.log.success(f"OCR completed: {len(ocr_items)} items after postprocessing")
         

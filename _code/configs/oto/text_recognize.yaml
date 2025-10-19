@@ -23,6 +23,8 @@ text_recognize:
     # PaddleOCR 전용 설정
     paddle_device: "gpu"
     paddle_use_angle_cls: true
+    paddle_use_doc_orientation_classify: false  # 🔧 문서 방향 감지 비활성화
+    paddle_use_doc_unwarping: false             # 🔧 문서 왜곡 보정 비활성화
     # paddle_instance: null
   
   # --------------------------------------------------------------------------

@@ -213,6 +213,8 @@ class OCRProviderPolicy(BaseModel):
     # PaddleOCR specific
     paddle_device: str = Field("cpu", description="PaddleOCR device")
     paddle_use_angle_cls: bool = Field(True, description="Enable angle classification")
+    paddle_use_doc_orientation_classify: bool = Field(False, description="Enable document orientation classification")
+    paddle_use_doc_unwarping: bool = Field(False, description="Enable document unwarping (distortion correction)")
     paddle_instance: Optional[Any] = Field(
         None, 
         description="Cached PaddleOCR instances (internal)"
