@@ -3,49 +3,73 @@
 # ============================================================
 source:
   # src에 YAML 파일 경로 지정 (정적 설정)
-  src:
-    - ["{{configs_oto_dir}}/image.yaml", "image"]
-    - ["{{configs_oto_dir}}/overlay.yaml", "overlay"]
-    - ["{{configs_oto_dir}}/text_recognize.yaml", "text_recognizer"]
-    - ["{{configs_oto_dir}}/translate.yaml", "translate"]
-  
-  # YAML 정책
-  yaml_parser:
-    safe_mode: true
-    encoding: "utf-8"
-    enable_env: false
-    enable_include: true
-    enable_placeholder: true
-    enable_reference: true
-  
-  yaml_normalizer:
-    normalize_keys: true
-    drop_blanks: true
-    resolve_vars: true
-  
-  yaml_merge:
-    deep: true
-    overwrite: true
-  
-  # # BaseModel 정책
-  # base_model_normalizer:
-  #   normalize_keys: true
-  #   drop_blanks: false
-  #   resolve_vars: false
-  
-  # base_model_merge:
-  #   deep: false
-  #   overwrite: false
-  
-  # # Dict 정책
-  # dict_normalizer:
-  #   normalize_keys: true
-  #   drop_blanks: true
-  #   resolve_vars: false
-  
-  # dict_merge:
-  #   deep: false
-  #   overwrite: true
+  - src: ["{{configs_oto_dir}}/image.yaml", "image"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: false
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  - src: ["{{configs_oto_dir}}/overlay.yaml", "overlay"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: false
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  - src: ["{{configs_oto_dir}}/text_recognize.yaml", "text_recognizer"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: false
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  - src: ["{{configs_oto_dir}}/translate.yaml", "translate"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: false
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
 
 keypath:
   separator: "__"
@@ -61,3 +85,23 @@ log:
       backtrace: false
       diagnose: false
   context: {}
+
+# BaseModel 정책
+# base_model_normalizer:
+#   normalize_keys: true
+#   drop_blanks: false
+#   resolve_vars: false
+
+# base_model_merge:
+#   deep: false
+#   overwrite: false
+
+# # Dict 정책
+# dict_normalizer:
+#   normalize_keys: true
+#   drop_blanks: true
+#   resolve_vars: false
+
+# dict_merge:
+#   deep: false
+#   overwrite: true

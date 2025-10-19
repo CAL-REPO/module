@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-"""cfg_utils_v2.adapter - High-level Adapters.
+"""cfg_utils.adapter - Standalone adapters.
 
-High-level adapters for specific use cases.
+Pure logic components that can be used without YAML configuration.
 """
 
-from .cfg_loader import CfgLoader
-from .cfg_loader_policy import CfgLoaderPolicy
+from .config import Config
 
-__all__ = ['CfgLoader', 'CfgLoaderPolicy']
+__all__ = ['Config']

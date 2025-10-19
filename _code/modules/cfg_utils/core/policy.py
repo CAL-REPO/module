@@ -200,31 +200,38 @@ class ConfigLoaderPolicy(BaseModel):
     SourcePolicy의 기본값을 제공합니다.
     
     구조:
-    - source: SourcePolicy 기본값 (타입별 정책 포함)
+    - source: SourcePolicy 기본값 (단일) 또는 List[SourcePolicy] (다중, 각 src별 정책)
     - keypath: KeyPath 동작 정책
     - log: 로깅 정책
     
     사용 예시:
     ```python
-    # 전역 정책 커스터마이징
+    # 단일 SourcePolicy (기존 방식)
     policy = ConfigLoaderPolicy(
         source=SourcePolicy(
-            yaml_parser=BaseParserPolicy(safe_mode=False),
-            yaml_normalizer=NormalizePolicy(resolve_vars=True)
-        ),
-        keypath=KeyPathStatePolicy(separator="__")
+            src=("config.yaml", "image"),
+            yaml_parser=BaseParserPolicy(safe_mode=False)
+        )
     )
     
-    # ConfigLoader가 사용
-    loader = ConfigLoader(
-        policy=policy,
-        base_sources=[(ImagePolicy(), "image")]
+    # 다중 SourcePolicy (각 src별 정책)
+    policy = ConfigLoaderPolicy(
+        source=[
+            SourcePolicy(
+                src=("image.yaml", "image"),
+                yaml_parser=BaseParserPolicy(enable_placeholder=True)
+            ),
+            SourcePolicy(
+                src=("overlay.yaml", "overlay"),
+                yaml_parser=BaseParserPolicy(enable_placeholder=False)
+            )
+        ]
     )
     ```
     """
-    source: SourcePolicy = Field(
+    source: Union[SourcePolicy, List[SourcePolicy]] = Field(
         default_factory=lambda: SourcePolicy(),
-        description="소스 정책 기본값 (타입별 정책 포함)"
+        description="소스 정책 (단일 또는 리스트, 각 src별로 개별 정책 설정 가능)"
     )
     keypath: Optional[KeyPathStatePolicy] = Field(
         None,

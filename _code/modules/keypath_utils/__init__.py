@@ -12,7 +12,15 @@ KeyPath 표기법으로 nested dict를 간편하게 접근하고 관리합니다
 """
 
 from .core import KeyPathAccessor, KeyPathStatePolicy, KeyPathResolverPolicy
-from .services import KeyPathDict, KeyPathState, KeyPathNormalizer, KeyPathVarsResolver, KeyPathMerger, KeyPathMergePolicy
+from .services import (
+    KeyPathDict,
+    KeyPathState,
+    KeyPathNormalizer,
+    KeyPathVarsResolver,
+    KeyPathMerger,
+    KeyPathMergePolicy,
+    expand_overrides,
+)
 
 # Backward compatibility
 KeyPathModel = KeyPathDict
@@ -31,6 +39,7 @@ __all__ = [
     "KeyPathVarsResolver",
     "KeyPathMerger",
     "KeyPathMergePolicy",
+    "expand_overrides",
     
     # Backward compatibility
     "KeyPathModel",

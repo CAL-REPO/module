@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import platform
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -40,8 +40,8 @@ class FontPolicy(BaseModel):
     family: Optional[str] = Field(
         None, description="Font family or path (None = Pillow default)"
     )
-    size: Optional[int] = Field(
-        None, description="Font size in pixels (None = auto-fit)"
+    size: Optional[Union[int, Literal["auto"]]] = Field(
+        None, description="Font size in pixels (None or 'auto' = auto-fit to bbox)"
     )
     fill: str = Field("#000000", description="Text color")
     stroke_fill: Optional[str] = Field(None, description="Stroke color")

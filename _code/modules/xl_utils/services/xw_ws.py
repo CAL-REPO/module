@@ -285,7 +285,14 @@ class XwWsDataFrameOps:
 
 
 class XwWs:
-    """Worksheet 통합 제어 (조합 패턴)"""
+    """Worksheet 통합 제어 (조합 패턴)
+    
+    컴포넌트 직접 접근 패턴:
+        ws.cell_ops.read("A1")          # 셀 읽기
+        ws.cell_ops.write(1, 1, "값")   # 셀 쓰기
+        ws.df_ops.to_dataframe()        # DataFrame 변환
+        ws.sheet                        # xlwings Sheet 객체
+    """
     
     def __init__(
         self,
@@ -308,93 +315,10 @@ class XwWs:
         self._save_manager = save_manager
         self._context_managed = False
     
-    # ------------------------------------------------------------------
-    # 셀 조작 (위임)
-    # ------------------------------------------------------------------
-    def read(self, cell: Union[str, tuple[int, int]]) -> Any:
-        """셀 읽기 (별칭)"""
-        return self.cell_ops.read(cell)
+    # ==========================================================================
+    # Convenience Methods (자주 사용하는 메서드만 직접 제공)
+    # ==========================================================================
     
-    def read_cell(self, cell: Union[str, tuple[int, int]]) -> Any:
-        """셀 읽기"""
-        return self.cell_ops.read(cell)
-    
-    def write_cell(
-        self,
-        row: int,
-        col: int,
-        value: Any,
-        *,
-        number_format: Optional[str] = None,
-        save: bool = False,
-    ) -> xw.Range:
-        """셀 쓰기"""
-        return self.cell_ops.write(row, col, value, number_format=number_format, save=save)
-    
-    def read_range(self, range_addr: str) -> Any:
-        """범위 읽기"""
-        return self.cell_ops.read_range(range_addr)
-    
-    def write_range(
-        self,
-        range_addr: str,
-        values: Any,
-        *,
-        save: bool = False,
-    ) -> xw.Range:
-        """범위 쓰기"""
-        return self.cell_ops.write_range(range_addr, values, save=save)
-    
-    def clear_range(self, range_addr: str) -> None:
-        """범위 초기화"""
-        return self.cell_ops.clear_range(range_addr)
-    
-    def apply_format(
-        self,
-        range_addr: str,
-        *,
-        bold: Optional[bool] = None,
-        italic: Optional[bool] = None,
-        font_size: Optional[int] = None,
-        font_color: Optional[tuple[int, int, int]] = None,
-        bg_color: Optional[tuple[int, int, int]] = None,
-        number_format: Optional[str] = None,
-        horizontal_alignment: Optional[str] = None,
-        vertical_alignment: Optional[str] = None,
-    ) -> xw.Range:
-        """서식 적용"""
-        return self.cell_ops.apply_format(
-            range_addr,
-            bold=bold,
-            italic=italic,
-            font_size=font_size,
-            font_color=font_color,
-            bg_color=bg_color,
-            number_format=number_format,
-            horizontal_alignment=horizontal_alignment,
-            vertical_alignment=vertical_alignment
-        )
-    
-    def insert_rows(self, row: int, count: int = 1) -> None:
-        """행 삽입"""
-        return self.cell_ops.insert_rows(row, count)
-    
-    def delete_rows(self, row: int, count: int = 1) -> None:
-        """행 삭제"""
-        return self.cell_ops.delete_rows(row, count)
-    
-    def insert_columns(self, col: Union[int, str], count: int = 1) -> None:
-        """열 삽입"""
-        return self.cell_ops.insert_columns(col, count)
-    
-    def delete_columns(self, col: Union[int, str], count: int = 1) -> None:
-        """열 삭제"""
-        return self.cell_ops.delete_columns(col, count)
-
-    
-    # ------------------------------------------------------------------
-    # DataFrame 변환 (위임)
-    # ------------------------------------------------------------------
     def to_dataframe(
         self,
         anchor: str = "A1",
@@ -403,6 +327,7 @@ class XwWs:
         index: bool = False,
         expand: str = "table",
     ) -> pd.DataFrame:
+        """DataFrame 변환 (편의 메서드)"""
         return self.df_ops.to_dataframe(anchor, header=header, index=index, expand=expand)
     
     def from_dataframe(
@@ -414,11 +339,25 @@ class XwWs:
         header: bool = True,
         clear: bool = None,
     ) -> bool:
+        """DataFrame 쓰기 (편의 메서드)"""
         return self.df_ops.from_dataframe(df, anchor, index=index, header=header, clear=clear)
     
-    # ------------------------------------------------------------------
-    # 유틸리티
-    # ------------------------------------------------------------------
+    def write_cell(
+        self,
+        row: int,
+        col: int,
+        value: Any,
+        *,
+        number_format: Optional[str] = None,
+        save: bool = False,
+    ) -> xw.Range:
+        """셀 쓰기 (편의 메서드)"""
+        return self.cell_ops.write(row, col, value, number_format=number_format, save=save)
+    
+    # ==========================================================================
+    # Utility Methods
+    # ==========================================================================
+    
     def clear(self, cell: Optional[Union[str, tuple[int, int]]] = None):
         """시트 또는 특정 셀 초기화"""
         if cell:
@@ -433,6 +372,7 @@ class XwWs:
     def used_range(self) -> xw.Range:
         """사용된 범위 반환"""
         return self.sheet.used_range
+    
     # ==========================================================================
     # Context Manager Protocol
     # ==========================================================================

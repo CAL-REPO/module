@@ -15,8 +15,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Dict, Optional, Any, Union
 
-from path_utils.os_paths import OSPath
-from logs_utils import LogManager
+from modules.path_utils.os_paths import OSPath
+from modules.logs_utils import LogManager
+from modules.keypath_utils import KeyPathDict
 
 from ..core.policy import TranslatePolicy
 from ..providers.factory import ProviderFactory
@@ -85,7 +86,7 @@ class Translate:
         self._pipeline: Optional[TranslationPipeline] = None
     
     # ==========================================================================
-    # Config Loading (LogManager pattern)
+    # Config Loading (ConfigLikeLoader pattern)
     # ==========================================================================
     
     def _load_config(self, cfg_like, **overrides) -> TranslatePolicy:
@@ -98,38 +99,18 @@ class Translate:
         Returns:
             TranslatePolicy instance
         """
-        # If already a Policy instance
-        if isinstance(cfg_like, TranslatePolicy):
-            if overrides:
-                return cfg_like.model_copy(update=overrides)
-            return cfg_like
+        from cfg_utils.services import ConfigLikeLoader
         
-        # Try to use ConfigLoader
-        try:
-            from cfg_utils import ConfigLoader
-            section_name = TranslatePolicy().name  # "translate"
-            
-            # Determine src
-            if cfg_like is None:
-                default_path = Path(__file__).parent.parent / "configs" / "translate.yaml"
-                src = (str(default_path), section_name)
-            else:
-                src = (cfg_like, section_name)
-            
-            # Load with ConfigLoader
-            loader = ConfigLoader(src=src)
-            if overrides:
-                for key, value in overrides.items():
-                    loader.override(f"{section_name}__{key}", value)
-            
-            result = loader.to_model(TranslatePolicy, section=section_name)
-            return result  # type: ignore[return-value]
-        except ImportError:
-            # Fallback: create Policy directly
-            if overrides:
-                return TranslatePolicy(**overrides)
-            return TranslatePolicy()
-    
+        return ConfigLikeLoader.load_with_caller_path(
+            cfg_like=cfg_like,
+            policy_class=TranslatePolicy,
+            caller_file=__file__,
+            default_config_filename="translate.yaml",
+            **overrides
+        )
+
+
+
     # ==========================================================================
     # Provider & Pipeline (Lazy Creation)
     # ==========================================================================

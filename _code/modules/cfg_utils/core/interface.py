@@ -104,6 +104,6 @@ class SourceBase(ABC):
         if normalizer_policy is None:
             return kpd
         
-        from ..service.normalizer import Normalizer
+        from ..services.normalizer import Normalizer
         normalizer = Normalizer(policy=normalizer_policy)
         return normalizer.normalize(kpd, stage=stage)

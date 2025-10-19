@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # crawl_utils/provider/base.py
 # Base WebDriver abstract class with ConfigLoader pattern integration
 

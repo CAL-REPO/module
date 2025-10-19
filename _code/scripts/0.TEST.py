@@ -44,11 +44,18 @@
 # cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\crawl.yaml"
 
 # run_crawl(cfg_path)
+from modules.crawl_utils.core.policy import FirefoxPolicy
+from modules.crawl_utils.provider.firefox import FirefoxWebDriver
+from modules.cfg_utils.entry_point.loader import ConfigLoader
+from modules.crawl_utils.provider.factory import create_webdriver
+cfg_path = "M:/CALife/CAShop - 구매대행/_code/modules/crawl_utils/configs/firefox.yaml"
 
-# from firefox.driver import FirefoxDriver
-# cfg_path = "M:\\CALife\\CAShop - 구매대행\\_code\\configs\\firefox.yaml"
+CfgLoader = ConfigLoader(src=["M:/CALife/CAShop - 구매대행/_code/modules/crawl_utils/configs/firefox.yaml", "firefox"])
 
-# ff = FirefoxDriver(cfg_path).driver
+
+
+policy = CfgLoader.to_model(FirefoxPolicy, section="firefox")
+ff = create_webdriver("firefox", policy)
 # ff.quit()
 
 
@@ -261,27 +268,27 @@
 # except Exception as e:
 #     print(f"❌ 다른 에러: {e}")
 
-from cfg_utils.service.loader import ConfigLoader
-from logs_utils.core.policy import LogPolicy
-from logs_utils.services.manager import LogManager
-# from image_utils.core.policy import ImageLoaderPolicy
+# from cfg_utils import ConfigLoader
+# from logs_utils.core.policy import LogPolicy
+# from logs_utils.services.manager import LogManager
+# # from image_utils.core.policy import ImageLoaderPolicy
 
 
 
-CfgLoader = ConfigLoader(config_loader_cfg_path="M:/CALife/CAShop - 구매대행/_code/configs/loader/config_loader_oto.yaml",
-                         env_os=["CASHOP_PATHS"])
+# CfgLoader = ConfigLoader(config_loader_cfg_path="M:/CALife/CAShop - 구매대행/_code/configs/loader/config_loader_oto.yaml",
+#                          env_os=["CASHOP_PATHS"])
 
 
-print(CfgLoader.get_state())
-policy_image = CfgLoader.get_state(name="image")
-policy_overlay = CfgLoader.get_state(name="overlay")
-policy_text_recognize = CfgLoader.get_state(name="text_recognizer")
-policy_translate = CfgLoader.get_state(name="translate")
+# print(CfgLoader.get_state())
+# policy_image = CfgLoader.get_state(name="image")
+# policy_overlay = CfgLoader.get_state(name="overlay")
+# policy_text_recognize = CfgLoader.get_state(name="text_recognizer")
+# policy_translate = CfgLoader.get_state(name="translate")
 
 
-print(policy_image)
-print(policy_overlay)
-print(policy_text_recognize)
-print(policy_translate)
+# print(policy_image)
+# print(policy_overlay)
+# print(policy_text_recognize)
+# print(policy_translate)
 
 

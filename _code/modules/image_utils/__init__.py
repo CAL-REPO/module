@@ -13,23 +13,22 @@ from .core.policy import (
     ImageSavePolicy,
     ImageMetaPolicy,
     
-    # ImageLoader
-    ImageProcessPolicy,
-    ImageLoaderPolicy,
+    # Adapter policies (source 없음)
+    ImageLoadPolicy,
+    ImageTextRecognizePolicy,
+    ImageOverlayPolicy,
     
-    # ImageTextRecognizer
+    # EntryPoint policies (source 포함)
+    ImageLoaderPolicy,
+    ImageTextRecognizerPolicy,
+    ImageOverlayerPolicy,
+    
+    # Sub-policies
+    ImageProcessPolicy,
     OCRProviderPolicy,
     OCRPreprocessPolicy,
     OCRPostprocessPolicy,
-    ImageOCRPolicy,
-    
-    # ImageOverlayer
-    OverlayTextPolicy,
-    ImageOverlayPolicy,
-    
-    # Backward compatibility (deprecated)
-    ImagePolicy,
-    ImageProcessorPolicy,
+    OverlayItemPolicy,
 )
 
 from .core.models import OCRItem
@@ -55,19 +54,22 @@ __all__ = [
     "ImageSavePolicy",
     "ImageMetaPolicy",
     
-    # ImageLoader policies
-    "ImageProcessPolicy",
-    "ImageLoaderPolicy",
+    # Adapter policies (source 없음)
+    "ImageLoadPolicy",
+    "ImageTextRecognizePolicy",
+    "ImageOverlayPolicy",
     
-    # ImageTextRecognizer policies
+    # EntryPoint policies (source 포함)
+    "ImageLoaderPolicy",
+    "ImageTextRecognizerPolicy",
+    "ImageOverlayerPolicy",
+    
+    # Sub-policies
+    "ImageProcessPolicy",
     "OCRProviderPolicy",
     "OCRPreprocessPolicy",
     "OCRPostprocessPolicy",
-    "ImageOCRPolicy",
-    
-    # ImageOverlayer policies
-    "OverlayTextPolicy",
-    "ImageOverlayPolicy",
+    "OverlayItemPolicy",
     
     # Models
     "OCRItem",
@@ -90,10 +92,6 @@ __all__ = [
     "ImageDownloader",
     "ImageDownloadPolicy",
     "download_images",
-    
-    # Backward compatibility (deprecated)
-    "ImagePolicy",
-    "ImageProcessorPolicy",
 ]
 
 """Lightweight utilities for loading, copying and resizing a single image.

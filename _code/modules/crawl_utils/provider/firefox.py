@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # crawl_utils/provider/firefox.py
 # Firefox WebDriver implementation using BaseWebDriver pattern
 
@@ -12,7 +12,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 
 from pydantic import BaseModel
-from cfg_utils import ConfigLoader
+from cfg_utils.services import ConfigLikeLoader
 from crawl_utils.provider.base import BaseWebDriver
 from crawl_utils.core.policy import FirefoxPolicy
 
@@ -57,25 +57,32 @@ class FirefoxWebDriver(BaseWebDriver[FirefoxPolicy]):
         Returns:
             로드된 FirefoxPolicy 인스턴스
         """
+        # Policy 인스턴스를 직접 전달한 경우
+        if isinstance(cfg_like, FirefoxPolicy):
+            if overrides:
+                return cfg_like.model_copy(update=overrides)
+            return cfg_like
+
+        # ConfigLikeLoader 사용
+        default_path = Path(__file__).parent.parent / "configs" / "firefox.yaml"
+
+        # ConfigLikeLoader.load 은 기본 경로가 필요
+        cfg_source: Union[BaseModel, Path, str, dict, list, None]
+
         if cfg_like is None:
-            default_path = Path(__file__).parent.parent / "configs" / "firefox.yaml"
-            if policy_overrides is None:
-                policy_overrides = {}
-            
-            # ConfigLoader 정책 파일 지정
-            policy_overrides.setdefault("config_loader_path",
-                str(Path(__file__).parent.parent / "configs" / "config_loader_firefox.yaml"))
-            
-            # 데이터 파일 + 섹션 지정
-            policy_overrides.setdefault("yaml.source_paths", {
-                "path": str(default_path),
-                "section": "firefox"
-            })
-        
-        return ConfigLoader.load(
-            cfg_like,
-            model=FirefoxPolicy,
-            policy_overrides=policy_overrides,
+            cfg_source = str(default_path)
+        elif isinstance(cfg_like, Path):
+            cfg_source = str(cfg_like)
+        elif isinstance(cfg_like, list):
+            cfg_source = [str(item) if isinstance(item, Path) else item for item in cfg_like]
+        else:
+            cfg_source = cfg_like
+
+        # policy_overrides는 v3 구조에서 더 이상 사용하지 않으므로 무시
+        return ConfigLikeLoader.load(
+            cfg_like=cfg_source,
+            policy_class=FirefoxPolicy,
+            default_config_path=str(default_path),
             **overrides
         )
     

@@ -37,12 +37,12 @@ class XlWorkflow:
         ...     # Worksheet 접근
         ...     ws = wf.get_worksheet()
         ...     
-        ...     # xlwings 기반 셀 조작
-        ...     ws.write_cell(1, 1, "제목")
-        ...     ws.write_range("A2:C10", data_list)
-        ...     ws.apply_format("A1", bold=True, font_size=14)
+        ...     # 직접 접근 패턴 (권장)
+        ...     ws.cell_ops.write(1, 1, "제목")
+        ...     ws.cell_ops.write_range("A2:C10", data_list)
+        ...     ws.cell_ops.apply_format("A1", bold=True, font_size=14)
         ...     
-        ...     # DataFrame 변환 (필요시)
+        ...     # DataFrame 변환 (편의 메서드)
         ...     df = ws.to_dataframe(anchor="A1")
         ...     # ... 비즈니스 로직 (외부에서 처리) ...
         ...     ws.from_dataframe(processed_df, anchor="A10")
@@ -158,9 +158,9 @@ class XlWorkflow:
         
         Example:
             >>> ws = workflow.get_worksheet()
-            >>> ws.write_cell(1, 1, "제목")
-            >>> ws.write_range("A2:C5", [[1,2,3], [4,5,6], [7,8,9], [10,11,12]])
-            >>> ws.apply_format("A1", bold=True, font_size=14)
+            >>> ws.cell_ops.write(1, 1, "제목")
+            >>> ws.cell_ops.write_range("A2:C5", [[1,2,3], [4,5,6], [7,8,9], [10,11,12]])
+            >>> ws.cell_ops.apply_format("A1", bold=True, font_size=14)
         """
         if not self._initialized:
             self._initialize()

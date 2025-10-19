@@ -1,0 +1,16 @@
+OCR Results: 13 items
+================================================================================
+
+1. 智能功率分配多设备高效充电 (conf: 1.00, lang: ch)
+2. 氮化桌面充电器 (conf: 1.00, lang: ch)
+3. 200W PD快充新高度 (conf: 1.00, lang: ch)
+4. GAN (conf: 1.00, lang: ch)
+5. 200W (conf: 0.98, lang: ch)
+6. 20W (conf: 0.98, lang: ch)
+7. 20W (conf: 0.99, lang: ch)
+8. 20W (conf: 0.99, lang: ch)
+9. 200W (conf: 0.97, lang: ch)
+10. 18W (conf: 0.96, lang: ch)
+11. MS1 (conf: 0.72, lang: ch)
+12. 1SW (conf: 0.70, lang: ch)
+13. ISW (conf: 0.70, lang: ch)

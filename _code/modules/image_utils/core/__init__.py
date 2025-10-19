@@ -13,23 +13,22 @@ from .policy import (
     ImageSavePolicy,
     ImageMetaPolicy,
     
-    # ImageLoader policies
-    ImageProcessPolicy,
-    ImageLoaderPolicy,
+    # Adapter policies (source 없음)
+    ImageLoadPolicy,
+    ImageTextRecognizePolicy,
+    ImageOverlayPolicy,
     
-    # ImageTextRecognizer policies
+    # EntryPoint policies (source 포함)
+    ImageLoaderPolicy,
+    ImageTextRecognizerPolicy,
+    ImageOverlayerPolicy,
+    
+    # Sub-policies
+    ImageProcessPolicy,
     OCRProviderPolicy,
     OCRPreprocessPolicy,
     OCRPostprocessPolicy,
-    ImageOCRPolicy,
-    
-    # ImageOverlayer policies
-    OverlayTextPolicy,
-    ImageOverlayPolicy,
-    
-    # Backward compatibility aliases (deprecated)
-    ImagePolicy,
-    ImageProcessorPolicy,
+    OverlayItemPolicy,
 )
 
 from .models import OCRItem
@@ -40,24 +39,23 @@ __all__ = [
     "ImageSavePolicy",
     "ImageMetaPolicy",
     
-    # ImageLoader policies
-    "ImageProcessPolicy",
-    "ImageLoaderPolicy",
+    # Adapter policies (source 없음)
+    "ImageLoadPolicy",
+    "ImageTextRecognizePolicy",
+    "ImageOverlayPolicy",
     
-    # ImageTextRecognizer policies
+    # EntryPoint policies (source 포함)
+    "ImageLoaderPolicy",
+    "ImageTextRecognizerPolicy",
+    "ImageOverlayerPolicy",
+    
+    # Sub-policies
+    "ImageProcessPolicy",
     "OCRProviderPolicy",
     "OCRPreprocessPolicy",
     "OCRPostprocessPolicy",
-    "ImageOCRPolicy",
-    
-    # ImageOverlayer policies
-    "OverlayTextPolicy",
-    "ImageOverlayPolicy",
+    "OverlayItemPolicy",
     
     # Data models
     "OCRItem",
-    
-    # Backward compatibility (deprecated)
-    "ImagePolicy",
-    "ImageProcessorPolicy",
 ]

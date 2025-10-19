@@ -12,6 +12,19 @@ Main Components:
 
 비즈니스 로직 (DataFrame 처리 등)은 사용자 단에서 수행
 xl_utils는 Excel 파일 접근 및 셀 조작만 담당
+
+다른 모듈에서 재사용:
+    >>> from xl_utils import XlController
+    >>> from cfg_utils import ConfigLoader
+    >>> 
+    >>> # ConfigLoader로 설정 로드
+    >>> config = ConfigLoader(src=("configs/excel.yaml", "excel"))
+    >>> excel_config = config.to_dict()
+    >>> 
+    >>> # XlController에 주입
+    >>> with XlController(cfg_like=excel_config) as xl:
+    ...     ws = xl.get_worksheet()
+    ...     df = ws.to_dataframe()
 """
 from .core.policy import (
     XlPolicyManager,
@@ -27,7 +40,7 @@ from .services.xw_wb import XwWb
 from .services.xw_ws import XwWs
 from .services.save_manager import XwSaveManager
 from .services.workflow import XlWorkflow
-from .services.controller import XlController
+from .entry_point.xl_controller import XlController
 
 __all__ = [
     # Main API

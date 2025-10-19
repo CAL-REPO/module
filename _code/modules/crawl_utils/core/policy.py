@@ -26,6 +26,7 @@ class WebDriverPolicy(BaseModel):
     확장 가능한 WebDriver 설정 베이스 클래스.
     Firefox, Chrome, Edge 등 모든 브라우저의 공통 설정을 정의합니다.
     """
+    name: str = Field("webdriver", description="Config section name used by ConfigLoader")
     provider: ProviderType = Field("firefox", description="WebDriver provider type")
     
     # 기본 WebDriver 설정
@@ -80,6 +81,7 @@ class FirefoxPolicy(WebDriverPolicy):
     
     Firefox 브라우저의 특화된 설정을 정의합니다.
     """
+    name: str = Field("firefox", description="Config section name for Firefox settings")
     provider: Literal["firefox"] = "firefox"
     
     # Firefox 전용 경로
@@ -110,6 +112,7 @@ class ChromePolicy(WebDriverPolicy):
     
     Chrome 브라우저의 특화된 설정을 정의합니다.
     """
+    name: str = Field("chrome", description="Config section name for Chrome settings")
     provider: Literal["chrome"] = "chrome"
     
     # Chrome 전용 경로

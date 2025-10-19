@@ -130,32 +130,3 @@ overlay:
         require_ext: false
         default_ext: ".json"
         allowed_exts: null
-  
-  # --------------------------------------------------------------------------
-  # 6. Log - 로그 설정
-  # --------------------------------------------------------------------------
-  log:
-    name: "image_overlay"               # ✨ 서비스 이름 (filter 격리용)
-    level: "INFO"
-    format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
-    colorize: true
-    serialize: false
-    backtrace: false
-    diagnose: false
-    enqueue: false
-    catch: true
-    
-    handlers:
-      - sink: "output/logs/image_overlay_{time:YYYY-MM-DD}.log"
-        level: "DEBUG"
-        format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
-        rotation: "1 day"
-        retention: "7 days"
-        compression: "zip"
-        encoding: "utf-8"
-        colorize: false
-        serialize: false
-        backtrace: true
-        diagnose: false
-        enqueue: false
-        catch: true

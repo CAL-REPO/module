@@ -7,13 +7,13 @@ from typing import Tuple
 
 from PIL import Image, ImageFilter
 
-from ..core.policy import ImageProcessorPolicy
+from ..core.policy import ImageProcessPolicy
 
 
 class ImageProcessor:
     """Applies lightweight processing steps defined in ImageProcessingPolicy."""
 
-    def __init__(self, policy: ImageProcessorPolicy):
+    def __init__(self, policy: ImageProcessPolicy):
         self.policy = policy
 
     def apply(self, image: Image.Image) -> Image.Image:

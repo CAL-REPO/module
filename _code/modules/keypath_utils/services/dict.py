@@ -252,7 +252,7 @@ class KeyPathDict:
             >>> model.resolve_all()
             >>> model.data
             {'base_path': '/app', 'config_dir': '/app/config'}
-            
+
             >>> # 재귀 참조
             >>> model = KeyPathDict({
             ...     "config": {"base": "https://api.com"},
@@ -373,3 +373,28 @@ class KeyPathDict:
             return False
         
         return check_value(self.data)
+
+
+def expand_overrides(
+    overrides: Mapping[str, Any],
+    *,
+    normalizer: Optional[Any] = None,
+    accept_dot: bool = True,
+) -> Dict[str, Any]:
+    """Return overrides expanded into nested dict form.
+
+    Args:
+        overrides: Mapping of KeyPath → value pairs.
+        normalizer: Optional KeyPathNormalizer for custom separators.
+        accept_dot: Allow "." fallback when normalizer is provided.
+
+    Returns:
+        Nested dict built from overrides.
+    """
+    model = KeyPathDict()
+    model.apply_overrides(
+        dict(overrides),
+        normalizer=normalizer,
+        accept_dot=accept_dot,
+    )
+    return model.data.copy()

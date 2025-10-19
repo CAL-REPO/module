@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent / "modules"))
 
 from logs_utils import LogManager, LogPolicy
 # cfg_utils (v2로 리팩토링됨)
-from cfg_utils.service.loader import ConfigLoader
+from cfg_utils import ConfigLoader
 
 
 def test_log_yaml():

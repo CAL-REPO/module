@@ -110,33 +110,3 @@ image:
     resize_to: null                     # 리사이즈 크기 [width, height]
     blur_radius: null                   # 블러 반경 (float)
     convert_mode: null                  # 처리 후 모드 변환
-
-  # --------------------------------------------------------------------------
-  # 5. Log - 로그 설정
-  # --------------------------------------------------------------------------
-  log:
-    name: "image_loader"                # ✨ 서비스 이름 (filter 격리용)
-    level: "INFO"                       # 로그 레벨: DEBUG|INFO|WARNING|ERROR
-    format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
-    colorize: true                      # 컬러 출력
-    serialize: false                    # JSON 직렬화
-    backtrace: false                    # 백트레이스 포함
-    diagnose: false                     # 진단 정보 포함
-    enqueue: false                      # 비동기 큐 사용
-    catch: true                         # 예외 캐치
-    
-    # 파일 출력 설정
-    handlers:
-      - sink: "output/logs/image_loader_{time:YYYY-MM-DD}.log"
-        level: "DEBUG"
-        format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}"
-        rotation: "1 day"               # 로테이션: 1 day, 100 MB 등
-        retention: "7 days"             # 보관 기간
-        compression: "zip"              # 압축 형식
-        encoding: "utf-8"
-        colorize: false
-        serialize: false
-        backtrace: true
-        diagnose: false
-        enqueue: false
-        catch: true

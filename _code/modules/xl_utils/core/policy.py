@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from cfg_utils import ConfigLoader, ConfigPolicy
+from cfg_utils import ConfigLoader
 from structured_io import BaseParserPolicy
 
 
@@ -106,11 +106,9 @@ class XlPolicyManager:
     
     @staticmethod
     def load(
-        cfg_like: str | Path | dict | BaseModel | None = None,
-        *,
-        policy: ConfigPolicy | None = None
+        cfg_like: str | Path | dict | BaseModel | None = None
     ) -> "XlPolicyManager":
-        """ConfigLoader를 사용한 로딩 (translate_utils 패턴)
+        """ConfigLoader를 사용한 로딩 (cfg_utils v2 패턴)
         
         기본 동작:
         - cfg_like이 None이면 'xl_utils/configs/excel.yaml' 시도
@@ -136,10 +134,9 @@ class XlPolicyManager:
                 cfg_like = cfg_like['excel']
             return XlPolicyManager.from_dict(cfg_like)
         
-        # Case 3: YAML 파일 경로 - ConfigLoader 사용
-        # ConfigLoader 생성
-        loader = ConfigLoader(cfg_like, policy=policy or ConfigPolicy())
-        cfg_dict = loader.as_dict()
+        # Case 3: YAML 파일 경로 - cfg_utils v2 API 사용
+        loader = ConfigLoader(src=(str(cfg_like), "excel"))
+        cfg_dict = loader.to_dict()
         
         # 'excel' 섹션이 있으면 추출 (기본 섹션)
         if 'excel' in cfg_dict:

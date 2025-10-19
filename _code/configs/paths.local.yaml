@@ -17,6 +17,7 @@ configs_loader_dir: "{{configs_dir}}/loader"
 configs_loader_oto: "{{configs_loader_dir}}/config_loader_oto.yaml"
 
 configs_oto_dir: "{{configs_dir}}/oto"
+configs_xl_dir: "{{configs_dir}}/xl"
 
 temp_input_dir: "{{base_path}}/input"
 temp_output_dir: "{{base_path}}/output/temp"

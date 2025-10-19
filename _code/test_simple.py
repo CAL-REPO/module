@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """간단한 ConfigLoader 테스트"""
 
-from cfg_utils.service.loader import ConfigLoader
+from cfg_utils import ConfigLoader
 from logs_utils.core.policy import LogPolicy
 from logs_utils.services.manager import LogManager
 
