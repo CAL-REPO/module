@@ -148,14 +148,7 @@ class ImageOverlay:
             from ..services.renderer import OverlayTextRenderer
             renderer = OverlayTextRenderer(draw)
             
-            # 🔍 디버깅: Overlay 렌더링 정보 (전역 설정 주입 전 - 원본 상태)
-            self.log.info(f"\n{'='*80}")
-            self.log.info(f"[OVERLAY DEBUG] Image size: {img.size}")
-            self.log.info(f"[OVERLAY DEBUG] Total items to render: {len(overlay_items)}")
-            self.log.info(f"{'='*80}\n")
-            
             # 각 아이템 렌더링 (전역 설정 주입)
-            debug_count = 0  # 디버깅용 카운터 (첫 3개만 출력)
             for idx, item in enumerate(overlay_items):
                 try:
                     # 1. 전역 font와 개별 font 병합
@@ -178,17 +171,6 @@ class ImageOverlay:
                     # 2. 전역 mask_opacity 적용 (개별 설정이 기본값 1.0이면)
                     if self.policy.mask_opacity is not None and item.mask_opacity == 1.0:
                         item.mask_opacity = self.policy.mask_opacity
-                    
-                    # 🔍 디버깅: 전역 설정 주입 후 상태 (첫 3개만)
-                    if debug_count < 3:
-                        self.log.info(f"[OVERLAY RENDER] [{idx+1}] text='{item.text}'")
-                        self.log.info(f"                 polygon={item.polygon}")
-                        if item.font:
-                            self.log.info(f"                 font: size={item.font.size}, family={item.font.family}")
-                        else:
-                            self.log.info(f"                 font: None")
-                        self.log.info(f"                 mask_opacity={item.mask_opacity:.2f}")
-                        debug_count += 1
                     
                     renderer.render_text(item)
                     result["overlaid_items"] += 1

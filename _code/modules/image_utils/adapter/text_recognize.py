@@ -190,22 +190,6 @@ class ImageTextRecognize:
         ocr_items = self._normalize_ocr_result(raw_result)
         self.log.info(f"OCR detected {len(ocr_items)} items")
         
-        # 🔍 디버깅: OCR 결과 좌표 샘플 출력
-        if ocr_items:
-            self.log.info(f"\n{'='*80}")
-            self.log.info(f"[OCR DEBUG] Image size: {image.size} (resized={scale_factor != 1.0}, scale={scale_factor:.3f})")
-            self.log.info(f"[OCR DEBUG] Sample items (first 3):")
-            for i, item in enumerate(ocr_items[:3]):
-                self.log.info(f"  [{i+1}] text='{item.text}'")
-                self.log.info(f"      bbox={item.bbox}")
-                self.log.info(f"      quad={item.quad}")
-                self.log.info(f"      conf={item.conf:.2f}, lang={item.lang}")
-            self.log.info(f"{'='*80}\n")
-        
-        # ⚠️ 좌표 스케일링은 하지 않음!
-        # OCR 좌표를 resize된 이미지 기준으로 유지
-        # Overlay도 동일한 resize된 이미지를 사용하므로 좌표가 일치함
-        
         # 후처리
         ocr_items = self._postprocess_items(ocr_items)
         
@@ -251,27 +235,10 @@ class ImageTextRecognize:
             scores = item_dict.get("rec_scores")
             
             # numpy.ndarray → list 변환
-            # 🔍 디버깅: polys 타입 확인
-            self.log.info(f"\n[POLYS DEBUG] polys type: {type(polys)}")
-            if polys:
-                self.log.info(f"[POLYS DEBUG] polys length: {len(polys)}")
-                self.log.info(f"[POLYS DEBUG] polys[0] type: {type(polys[0])}")
-                self.log.info(f"[POLYS DEBUG] polys[0] content: {polys[0]}")
-                self.log.info(f"[POLYS DEBUG] polys[1] type: {type(polys[1])}")
-                self.log.info(f"[POLYS DEBUG] polys[1] content: {polys[1]}")
-            
             if hasattr(boxes, "tolist"):
                 boxes = boxes.tolist()
             if hasattr(polys, "tolist"):
                 polys = polys.tolist()
-            
-            # 🔍 디버깅: tolist() 후
-            self.log.info(f"[POLYS DEBUG] After tolist() - polys type: {type(polys)}")
-            if polys:
-                self.log.info(f"[POLYS DEBUG] After tolist() - polys[0] type: {type(polys[0])}")
-                self.log.info(f"[POLYS DEBUG] After tolist() - polys[0]: {polys[0]}")
-                self.log.info(f"[POLYS DEBUG] After tolist() - polys[1] type: {type(polys[1])}")
-                self.log.info(f"[POLYS DEBUG] After tolist() - polys[1]: {polys[1]}\n")
             
             if not isinstance(texts, list):
                 continue
@@ -287,12 +254,6 @@ class ImageTextRecognize:
                     if hasattr(poly, "tolist"):
                         poly = poly.tolist()
                     
-                    # 🔍 디버깅: 원본 poly 확인 (첫 3개만)
-                    if order < 3:
-                        self.log.info(f"\n[NORMALIZE DEBUG] [{order}] text='{text}'")
-                        self.log.info(f"  poly (raw): {poly}")
-                        self.log.info(f"  poly type: {type(poly)}, len: {len(poly) if isinstance(poly, list) else 'N/A'}")
-                    
                     # polygon은 4점: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
                     if isinstance(poly, list) and len(poly) == 4:
                         # quad 그대로 사용
@@ -307,11 +268,6 @@ class ImageTextRecognize:
                             "x_max": max(xs),
                             "y_max": max(ys),
                         }
-                        
-                        # 🔍 디버깅: 계산된 좌표 확인 (첫 3개만)
-                        if order < 3:
-                            self.log.info(f"  quad (converted): {quad}")
-                            self.log.info(f"  bbox (calculated): {bbox}")
                     else:
                         continue
                 
