@@ -1,27 +1,34 @@
-# ============================================================================
-# Default Crawl Configuration
-# ============================================================================
-# 기본 크롤링 설정입니다. 실제 사용시 이 파일을 복사하여 수정하세요.
-# 
-# 예제:
-#   - crawl_simple.yaml: 간단한 설정 예제
-#   - crawl_full.yaml: 모든 옵션을 포함한 전체 예제
-# 
-# 사용법:
-#   from crawl_utils import run_sync_crawl, FirefoxWebDriver
-#   
-#   with FirefoxWebDriver(config) as driver:
-#       items = run_sync_crawl("crawl_utils/config/crawl.yaml", driver)
-# ============================================================================
-
-crawl:
-  navigation:
-    base_url: "https://example.com"
-    start_page: 1
-    max_pages: 1
+# -*- coding: utf-8 -*-
+# =============================================================================
+# URL Patterns (UrlAnalyzer 설정)
+# =============================================================================
+url_patterns:
+  # Site 도메인 매핑
+  site_domains:
+    aliexpress:
+      - "aliexpress.com"
+      - "aliexpress.us"
+      - "aliexpress.ru"
+    
+    taobao:
+      - "taobao.com"
+      - "world.taobao.com"
+      - "item.taobao.com"
+    
+    1688:
+      - "1688.com"
+      - "detail.1688.com"
   
-  storage:
-    image:
-      base_dir: "output/crawl/images"
-  
-  execution_mode: "sync"
+  # Method 패턴 매핑 (경로 기반)
+  method_patterns:
+    product_detail:
+      - "/item/"           # AliExpress: /item/123.html
+      - "item.htm"         # Taobao: item.taobao.com/item.htm?id=123
+      - "/product/"        # Alternative pattern
+      - "detail.html"      # Alternative pattern
+    
+    product_search:
+      - "/wholesale"       # AliExpress: /wholesale?SearchText=...
+      - "/search"          # Taobao: s.taobao.com/search?q=...
+      - "/category"        # Category pages
+      - "s.taobao.com"     # Taobao search domain

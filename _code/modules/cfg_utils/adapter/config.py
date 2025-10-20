@@ -56,6 +56,7 @@ class Config:
         self._state = KeyPathState(name="config")
         self._source_policy = source_policy
         self._log_policy = log_policy
+        self._flattened_env_context = {}  # env를 flatten하여 저장 (재사용)
         
         # Logger 초기화
         self._logger = None
@@ -68,6 +69,11 @@ class Config:
             from ..services.env_processor import EnvProcessor
             env_processor = EnvProcessor(env=env, env_os=env_os)
             self._state = env_processor.process(self._state)
+            
+            # env를 flatten하여 저장 (CASHOP_PATHS 제거, 내부 값만 최상위로)
+            env_data = self._state.to_dict().get("env", {})
+            if "CASHOP_PATHS" in env_data and isinstance(env_data["CASHOP_PATHS"], dict):
+                self._flattened_env_context.update(env_data["CASHOP_PATHS"])
             
             if self._logger:
                 self._logger.debug("Environment variables processed")
@@ -163,7 +169,8 @@ class Config:
                 self._logger.debug("Final normalization (resolve_vars)")
             
             final_kpd = KeyPathDict(data=self._state.to_dict())
-            resolved = final_kpd.resolve_all()
+            # flattened_env_context를 context로 전달 ({{data_dir}} 등 해석)
+            resolved = final_kpd.resolve_all(context=self._flattened_env_context)
             self._state = KeyPathState(name="config", store=resolved.data)
         
         if self._logger:

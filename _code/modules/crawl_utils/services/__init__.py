@@ -129,6 +129,35 @@ from .smart_normalizer import (
     SmartNormalizer,  # 자동 타입 추론 정규화 (TypeInferencer 사용)
 )
 
+# ============================================================================
+# URL Analysis & Method Resolution: URL 분석 및 메서드 해석
+# ============================================================================
+from .url_analyzer import (
+    UrlAnalyzer,  # URL에서 site와 method 추출
+)
+
+from .method_resolver import (
+    MethodResolver,  # site+method → config preset 매핑
+)
+
+# ============================================================================
+# Sync Extractor: Sync 버전 데이터 추출
+# ============================================================================
+from .sync_extractor import (
+    SyncDOMExtractor,       # Sync DOM 추출 (BeautifulSoup)
+    SyncJSExtractor,        # Sync JavaScript 실행 기반 추출
+    SyncExtractorFactory,   # Sync Extractor 생성 팩토리
+)
+
+# ============================================================================
+# Crawl Methods: 메서드별 크롤링 서비스
+# ============================================================================
+from .crawl_methods import (
+    CrawlProductDetail,     # 상품 상세 페이지 크롤링
+    CrawlProductSearch,     # 상품 검색 결과 크롤링
+    CrawlMethodFactory,     # 크롤링 메서드 팩토리
+)
+
 
 __all__ = [
     # ========================================
@@ -179,6 +208,26 @@ __all__ = [
     # ========================================
     "DataNormalizer",
     "SmartNormalizer",
+    
+    # ========================================
+    # URL Analysis & Method Resolution
+    # ========================================
+    "UrlAnalyzer",
+    "MethodResolver",
+    
+    # ========================================
+    # Sync Extractor
+    # ========================================
+    "SyncDOMExtractor",
+    "SyncJSExtractor",
+    "SyncExtractorFactory",
+    
+    # ========================================
+    # Crawl Methods
+    # ========================================
+    "CrawlProductDetail",
+    "CrawlProductSearch",
+    "CrawlMethodFactory",
 ]
 
 

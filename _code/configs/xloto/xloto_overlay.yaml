@@ -1,0 +1,178 @@
+# ============================================================================
+# ImageOverlay - OTO Configuration
+# ============================================================================
+# OTO 파이프라인에서 사용하는 ImageOverlay 설정
+# 필수 항목만 활성화, 고급 옵션은 주석 처리
+
+xloto_overlay:
+  # --------------------------------------------------------------------------
+  # 1. Source - 소스 이미지 설정 (런타임에서 Image 객체 전달)
+  # --------------------------------------------------------------------------
+  source:
+    # path: "${temp_input_dir}/01.jpg"              # 기본값 (런타임 오버라이드)
+    # must_exist: false
+    # convert_mode: "RGB"
+  
+  # --------------------------------------------------------------------------
+  # 1.5. Global Settings - 전역 설정 (모든 아이템에 적용)
+  # --------------------------------------------------------------------------
+  
+  # 전역 폰트 설정
+  font:
+    font_dir: "M:/CALife/CAShop - 구매대행/_code/data/fonts"
+    family: "HMKMMAG.TTF"           # 한글 폰트
+    # size: 10                        # 기본 크기
+    fill: "#000000"                 # 검은색
+    stroke_fill: "#FFFFFF"          # 흰색 외곽선
+    stroke_width: 3                 # 외곽선 두께
+  
+  # 전역 마스킹 불투명도 (개별 아이템이 mask_opacity 미설정 시 사용)
+  mask_opacity: 0.5                 # 기본 50% 불투명 (0.0=투명, 1.0=불투명)
+  
+  # --------------------------------------------------------------------------
+  # 3. Background Opacity - 전체 레이어 불투명도 (모든 오버레이 요소에 일괄 적용)
+  # --------------------------------------------------------------------------
+  background_opacity: 1.0           # 기본 100% 불투명 (0.0=투명, 1.0=불투명)
+  
+  # --------------------------------------------------------------------------
+  # 2. Items - 텍스트 오버레이 목록 (런타임에서 OverlayItem 전달)
+  # --------------------------------------------------------------------------
+  items:
+    # 예제 1: 전역 설정 사용 (font, mask_opacity 모두 전역 사용)
+    # - text: "TEST0 한글테스트"          # 예제 (런타임에서 교체됨)
+    #   polygon:
+    #     - [100, 100]
+    #     - [400, 100]
+    #     - [400, 200]
+    #     - [100, 200]
+    #   # font 없음 → 전역 font 사용
+    #   # mask_opacity 없음 → 전역 mask_opacity (0.8) 사용
+    
+    # # 예제 2: 폰트와 마스킹 투명도 개별 설정
+    # - text: "TEST1 English"          # 예제 (런타임에서 교체됨)
+    #   polygon:
+    #     - [150, 300]
+    #     - [500, 300]
+    #     - [500, 400]
+    #     - [150, 400]
+    #   mask_opacity: 0.5                 # 배경 마스킹 50% 불투명 (반투명)
+    #   font:
+    #     size: 60                        # 크기만 변경
+    #     fill: "#0000FF"                 # 파란색
+    
+    # # 예제 3: 전체 font 설정 오버라이드
+    # - text: "TEST2 マルコ"          # 예제 (런타임에서 교체됨)
+    #   polygon:
+    #     - [200, 500]
+    #     - [600, 500]
+    #     - [600, 600]
+    #     - [200, 600]
+    #   mask_opacity: 1.0                 # 배경 마스킹 100% 불투명 (완전 불투명)
+    #   font:
+    #     font_dir: "${fonts_dir}"
+    #     family: "HMKMMAG.TTF"           # 폰트 패밀리
+    #     size: 72                        # 더 큰 크기
+    #     fill: "#00FF00"                 # 초록색
+    #     stroke_fill: "#000000"          # 검은색 외곽선
+    #     stroke_width: 5                 # 더 굵은 외곽선
+      
+      # 텍스트 배치 설정
+      # anchor: "mm"
+      # offset: [0.0, 0.0]
+      # max_width_ratio: 0.95
+
+  
+  # --------------------------------------------------------------------------
+  # 4. Save - 이미지 저장 설정
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true                    # 오버레이된 이미지 저장 (임시로 비활성화)
+    directory: "${temp_input_dir}"      # 저장 디렉토리
+    
+    name:
+      # as_type: "file"
+      # prefix: null
+      # name: ""
+      suffix: "overlay"
+      # tail: null
+      # extension: null
+      # delimiter: "_"
+      tail_mode: "counter"
+      # date_format: "%Y-%m-%d"
+      # counter_width: 3
+      # auto_expand: true
+      # tail_suffix: null
+      # sanitize: true
+      # case: "keep"
+      ensure_unique: false
+    
+    # ops:
+    #   as_type: "file"
+    #   exist:
+    #     must_exist: false
+    #     create_if_missing: true
+    #     overwrite: false
+    #   ext:
+    #     require_ext: false
+    #     default_ext: null
+    #     allowed_exts: null
+    
+    # format: null
+    quality: 95
+  
+  # --------------------------------------------------------------------------
+  # 5. Meta - 메타데이터 저장 설정
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true                     # 메타 저장 활성화
+    directory: "${temp_input_dir}"      # 메타 저장 디렉토리
+    
+    name:
+    #   as_type: "file"
+    #   prefix: null
+      # name: ""
+      suffix: "overlay_meta"
+    #   tail: null
+    #   extension: ".json"
+    #   delimiter: "_"
+      tail_mode: "counter"
+    #   date_format: "%Y-%m-%d"
+    #   counter_width: 3
+    #   auto_expand: true
+    #   tail_suffix: null
+    #   sanitize: true
+    #   case: "keep"
+      ensure_unique: false
+    # ops:
+    #   as_type: "file"
+    #   exist:
+    #     must_exist: false
+    #     create_if_missing: true
+    #     overwrite: true
+    #   ext:
+    #     require_ext: false
+    #     default_ext: ".json"
+    #     allowed_exts: null
+  
+  # --------------------------------------------------------------------------
+  # 6. Log - 로그 설정
+  # --------------------------------------------------------------------------
+log:
+  enabled: true
+  name: "xloto_overlay"
+  level: "INFO"
+  sinks:
+    - sink_type: "file"
+      file_path: "${logs_dir}/xloto_overlay/_{time:YYYY-MM-DD}.log"
+      level: "INFO"
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+      rotation: Optional[Union[str, int]] = "10 MB"
+      retention: Optional[Union[str, int]] = "7 days"
+      compression: Optional[str] = None
+      enqueue: bool = True
+      serialize: bool = False
+      backtrace: bool = True
+      diagnose: bool = True
+      colorize: bool = True
+      catch: bool = True
+  context: {}

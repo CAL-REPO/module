@@ -1,0 +1,84 @@
+# ============================================================
+# ConfigLoaderPolicy - crawl_utils Module
+# ============================================================
+source:
+  # Firefox WebDriver Configs
+  - src: ["{{configs_crawl_dir}}/firefox_aliexpress.yaml", "webdriver__aliexpress"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+  
+  - src: ["{{configs_crawl_dir}}/firefox_taobao.yaml", "webdriver__taobao"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+  
+  # AliExpress Crawl Configs
+  - src: ["{{configs_crawl_dir}}/crawl_site_aliexpress_detail.yaml", "crawl__aliexpress__detail"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+  
+  - src: ["{{configs_crawl_dir}}/crawl_site_aliexpress_search.yaml", "crawl__aliexpress__search"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+  
+  # Taobao Crawl Configs
+  - src: ["{{configs_crawl_dir}}/crawl_site_taobao_detail.yaml", "crawl__taobao__detail"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+  
+  - src: ["{{configs_crawl_dir}}/crawl_site_taobao_search.yaml", "crawl__taobao__search"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+
+keypath:
+  separator: "__"
+
+log:
+  enabled: false
+  name: "crawl_cfg_loader"
+  level: "INFO"
+  sinks:
+    - sink_type: "console"
+      level: "INFO"
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+      colorize: true
+      enqueue: true
+      backtrace: true
+      diagnose: true
+      catch: true
+  context: {}

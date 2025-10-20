@@ -20,6 +20,7 @@ from crawl_utils.core.policy import (
 # Crawl Policies
 from crawl_utils.core.policy import (
     CrawlPolicy,
+    CrawlSourcePolicy,
     NavigationPolicy,
     ScrollPolicy,
     ExtractorPolicy,
@@ -39,6 +40,14 @@ from crawl_utils.services.fetcher import HTTPFetcher, DummyFetcher
 from crawl_utils.services.saver import FileSaver
 from crawl_utils.services.normalizer import DataNormalizer
 from crawl_utils.services.smart_normalizer import SmartNormalizer
+
+# URL Analysis & Method Resolution (XLOTO pattern)
+from crawl_utils.services.url_analyzer import UrlAnalyzer
+from crawl_utils.services.method_resolver import MethodResolver
+
+# Adapter & EntryPoint (XLOTO pattern)
+from crawl_utils.adapter import Crawl
+from crawl_utils.entry_point import Crawler
 
 # Note: 고수준 오케스트레이션(CrawlPipeline/SyncRunner/EntryPoints/SiteCrawler)
 # 은 현재 패키지에서 제공하지 않습니다.
@@ -65,7 +74,7 @@ __all__ = [
     "WebDriverPolicy", "FirefoxPolicy", "ChromePolicy", "ProviderType",
     
     # Crawl Policies
-    "CrawlPolicy", "NavigationPolicy", "ScrollPolicy",
+    "CrawlPolicy", "CrawlSourcePolicy", "NavigationPolicy", "ScrollPolicy",
     "ExtractorPolicy", "WaitPolicy", "NormalizationPolicy",
     "NormalizationRule", "StoragePolicy", "StorageTargetPolicy",
     "HttpSessionPolicy", "ExecutionMode",
@@ -75,6 +84,12 @@ __all__ = [
 
     # Storage and normalization
     "FileSaver", "DataNormalizer", "SmartNormalizer",
+    
+    # URL Analysis & Method Resolution (XLOTO pattern)
+    "UrlAnalyzer", "MethodResolver",
+    
+    # Adapter & EntryPoint (XLOTO pattern)
+    "Crawl", "Crawler",
     
     # (고수준 오케스트레이션은 미노출)
     

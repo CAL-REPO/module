@@ -1,0 +1,44 @@
+# ============================================================
+# ConfigLoaderPolicy - crawl_utils Module Test
+# ============================================================
+source:
+  # Firefox WebDriver Config (Test - AliExpress only)
+  - src: ["{{configs_crawl_dir}}/firefox_aliexpress.yaml", "webdriver_firefox"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+  
+  # AliExpress Detail Crawl Config (Test)
+  - src: ["{{configs_crawl_dir}}/crawl_site_aliexpress_detail.yaml", "crawl"]
+    yaml_parser:
+      enable_env: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+
+keypath:
+  separator: "__"
+
+log:
+  enabled: false
+  name: "crawl_cfg_loader_test"
+  level: "DEBUG"
+  sinks:
+    - sink_type: "console"
+      level: "DEBUG"
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+      colorize: true
+      enqueue: true
+      backtrace: true
+      diagnose: true
+      catch: true
+  context:
+    test_mode: true

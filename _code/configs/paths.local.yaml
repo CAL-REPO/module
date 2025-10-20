@@ -7,19 +7,27 @@
 root: "M:/CALife/CAShop - 구매대행"
 base_path: "M:/CALife/CAShop - 구매대행/_code"
 
-scripts_dir: "{{base_path}}/scripts"
+data_dir: "{{base_path}}/data"
+db_dir: "{{data_dir}}/db"
+fonts_dir: "{{data_dir}}/fonts"
+
 modules_dir: "{{base_path}}/modules"
-db_dir: "{{base_path}}/data/db"
-fonts_dir: "{{base_path}}/data/fonts"
+scripts_dir: "{{base_path}}/scripts"
+logs_dir: "{{base_path}}/logs"
+input_dir: "{{base_path}}/input"
+output_dir: "{{base_path}}/output"
 
 configs_dir: "{{base_path}}/configs"
-configs_loader_dir: "{{configs_dir}}/loader"
-configs_loader_oto: "{{configs_loader_dir}}/config_loader_oto.yaml"
 
-configs_oto_dir: "{{configs_dir}}/oto"
-configs_xl_dir: "{{configs_dir}}/xl"
+configs_xloto_dir: "{{configs_dir}}/xloto"
+configs_xlcrawl_dir: "{{configs_dir}}/xlcrawl"
 
-temp_input_dir: "{{base_path}}/input"
-temp_output_dir: "{{base_path}}/output/temp"
-output_data_dir: "{{root}}/_data"
 public_dir: "{{root}}/_public"
+configs_xloto_product_detail_base_dir: "{{public_dir}}/01.IMAGE"
+configs_xlcrawl_product_detail_base_dir: "{{public_dir}}/01.IMAGE"
+
+temp_input_dir: "{{input_dir}}/temp"
+temp_output_dir: "{{output_dir}}/temp"
+
+# Module configs
+configs_crawl_dir: "{{modules_dir}}/crawl_utils/configs"
