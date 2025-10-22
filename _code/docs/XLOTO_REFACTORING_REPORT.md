@@ -518,10 +518,10 @@ results = crawl.run(urls)  # URL 자동 분석 → preset 선택 → 크롤링
 
 ## 📚 관련 문서
 
-- [XLOTO Pattern Guide](./TODO_XLOTO_REFACTORING.md)
-- [ConfigLoader 사용법](./modules/cfg_utils/README.md)
-- [Environment Variables](./ENVIRONMENT_VARIABLES.md)
-- [crawl_utils README](./modules/crawl_utils/README.md)
+- [XLOTO Pattern Guide](../modules/crawl_utils/TODO_XLOTO_REFACTORING.md)
+- [ConfigLoader 사용법](../modules/crawl_utils/modules/cfg_utils/README.md)
+- [Environment Variables](../modules/crawl_utils/ENVIRONMENT_VARIABLES.md)
+- [crawl_utils README](../modules/crawl_utils/modules/crawl_utils/README.md)
 
 ---
 

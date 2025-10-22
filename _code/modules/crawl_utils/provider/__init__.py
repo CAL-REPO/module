@@ -1,13 +1,21 @@
 # -*- coding: utf-8 -*-
 # crawl_utils/provider/__init__.py
+"""Pure WebDriver logic providers (ImageLoad pattern)."""
 
-from crawl_utils.provider.base import BaseWebDriver
 from crawl_utils.provider.firefox import FirefoxWebDriver
-from crawl_utils.provider.factory import create_webdriver, webdriver_factory
+from crawl_utils.provider.policy import (
+    WebDriverManagerPolicy,
+    FirefoxConfig,
+    ChromeConfig,
+    EdgeConfig,
+    ProviderType,
+)
 
 __all__ = [
-    "BaseWebDriver",
     "FirefoxWebDriver",
-    "create_webdriver",
-    "webdriver_factory",
+    "WebDriverManagerPolicy",
+    "FirefoxConfig",
+    "ChromeConfig",
+    "EdgeConfig",
+    "ProviderType",
 ]

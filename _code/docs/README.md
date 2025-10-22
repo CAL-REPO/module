@@ -331,9 +331,9 @@ with FirefoxWebDriver(config) as driver:
 
 ## 📚 관련 문서
 
-- [logs_utils 사용 가이드](../logs_utils/config/README.md)
-- [FirefoxPolicy 정의](../crawl_utils/core/policy.py)
-- [BaseWebDriver 구현](../crawl_utils/provider/base.py)
+- [logs_utils 사용 가이드](../modules/logs_utils/config/README.md)
+- [FirefoxPolicy 정의](../modules/crawl_utils/core/policy.py)
+- [BaseWebDriver 구현](../modules/crawl_utils/provider/base.py)
 
 ---
 

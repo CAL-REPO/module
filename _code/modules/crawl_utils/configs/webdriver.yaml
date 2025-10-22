@@ -1,0 +1,49 @@
+# -*- coding: utf-8 -*-
+# 글로벌 지역 WebDriver 설정
+# 지원 브라우저: Firefox (Chrome 향후 추가 가능)
+# 적용 사이트: aliexpress, alibaba
+
+webdriver:
+  # -------------------------------------------------------------------------
+  # 공통 설정 (모든 브라우저)
+  # -------------------------------------------------------------------------
+  provider: "firefox"  # firefox, chrome, edge
+  region: "global"
+  
+  headless: false
+  window_size: [1920, 1080]
+  
+  # -------------------------------------------------------------------------
+  # Accept-Language (지역별 고정값)
+  # -------------------------------------------------------------------------
+  accept_languages: ""
+  
+  # -------------------------------------------------------------------------
+  # User-Agent (browser_versions.json에서 런타임 주입)
+  # ⚠️  자주 변경되므로 JSON 파일에서 관리!
+  # -------------------------------------------------------------------------
+  # user_agent: ""  # 런타임에 get_user_agent() 사용
+  
+  # -------------------------------------------------------------------------
+  # 자동화 탐지 회피
+  # -------------------------------------------------------------------------
+  disable_automation: true
+  
+  # -------------------------------------------------------------------------
+  # Firefox 전용 설정
+  # -------------------------------------------------------------------------
+  firefox:
+    binary_path: "C:/Program Files/Mozilla Firefox/firefox.exe"
+    profile_path: ""
+    driver_path: "M:/WebDriver/geckodriver_win32.exe"
+    use_webdriver_manager: true
+    
+    # Firefox preferences
+    dom_enabled: false
+    resist_fingerprint_enabled: false
+    
+    # 추가 옵션
+    enable_cookies: true
+    enable_cache: true
+    load_images: true
+    enable_javascript: true

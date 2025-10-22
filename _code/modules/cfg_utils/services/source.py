@@ -237,14 +237,47 @@ class UnifiedSource(SourceBase):
         text = path.read_text(encoding=parser_policy.encoding)
         data = parser.parse(text, base_path=path.parent)
         
-        # 2. Section 처리
+        # 2. Section 처리 및 검증
         if section:
+            yaml_keys = list(data.keys())
+            
             if section in data:
-                # Section이 YAML에 존재: 해당 section만 추출 후 wrap
+                # Case 1: Section이 YAML에 존재 → 해당 section만 추출 후 wrap
                 data = {section: data[section]}
+            
             else:
-                # Section이 YAML에 없음: 전체를 해당 section으로 wrap
-                data = {section: data}
+                # Case 2: Section이 YAML에 없음
+                
+                # 2-1: YAML이 Flat 구조인지 확인 (최상위 키가 없는 경우)
+                # 모든 값이 dict가 아니면 Flat 구조로 판단
+                is_flat_structure = any(not isinstance(data[k], dict) for k in yaml_keys)
+                
+                if is_flat_structure:
+                    # Flat 구조 → section으로 wrap
+                    data = {section: data}
+                
+                elif len(yaml_keys) == 1:
+                    # 2-2: 최상위 키가 1개이고 Section과 불일치 → Raise!
+                    yaml_top_key = yaml_keys[0]
+                    raise ValueError(
+                        f"Section mismatch in YAML file '{path.name}': "
+                        f"YAML top-level key is '{yaml_top_key}', "
+                        f"but section='{section}' was specified. "
+                        f"\n\nOptions to fix:"
+                        f"\n  1. Change YAML top-level key from '{yaml_top_key}' to '{section}'"
+                        f"\n  2. Change section parameter to '{yaml_top_key}'"
+                        f"\n  3. Use src=(path, '{yaml_top_key}') in ConfigLoader"
+                    )
+                
+                else:
+                    # 2-3: 최상위 키가 여러 개 → section이 없음 → Raise!
+                    raise ValueError(
+                        f"Section '{section}' not found in YAML file '{path.name}'. "
+                        f"Available top-level keys: {yaml_keys}. "
+                        f"\n\nOptions to fix:"
+                        f"\n  1. Add '{section}:' section to YAML file"
+                        f"\n  2. Use one of the existing sections: {yaml_keys}"
+                    )
         
         # 3. 정규화 (yaml_normalizer)
         kpd = KeyPathDict(data=data)

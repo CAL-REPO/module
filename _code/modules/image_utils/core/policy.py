@@ -177,15 +177,15 @@ class ImageLoaderPolicy(BaseModel):
     
     translate_utils의 TranslatorPolicy와 동일한 구조:
     - source: 소스 이미지 로딩 설정 (파일 경로)
-    - image_load: ImageLoad 내부 Policy (ImageLoadPolicy 포함)
+    - image_loader: ImageLoad 내부 Policy (ImageLoadPolicy 포함)
     
     Attributes:
         source: 소스 이미지 파일 설정
-        image_load: ImageLoad adapter 설정 (ImageLoadPolicy)
+        image_loader: ImageLoad adapter 설정 (ImageLoadPolicy)
     """
     name: str = Field(default="image_loader", description="Section name in YAML config")
     source: ImageSourcePolicy
-    image_load: ImageLoadPolicy = Field(default_factory=ImageLoadPolicy)  # type: ignore
+    image: ImageLoadPolicy = Field(default_factory=ImageLoadPolicy)  # type: ignore
 
 
 # ==============================================================================

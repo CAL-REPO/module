@@ -258,7 +258,7 @@ normalization:
 
 ## 📚 관련 문서
 
-- [crawl_utils README](../README.md)
+- [crawl_utils README](../../../docs/README.md)
 - [CrawlPolicy 정의](../core/policy.py)
 - [SyncCrawlRunner 구현](../services/sync_runner.py)
 

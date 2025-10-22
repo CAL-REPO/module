@@ -3,17 +3,17 @@
 # crawl_utils/__init__.py
 # Web crawling, navigation, extraction, and normalization utilities.
 
-# WebDriver Factory
-from crawl_utils.provider import create_webdriver
+# WebDriver Manager (ImageLoad pattern)
+from crawl_utils.adapter import WebDriverManager
 
-# WebDriver Base & Implementations
-from crawl_utils.provider import BaseWebDriver, FirefoxWebDriver
+# WebDriver Provider (Pure logic)
+from crawl_utils.provider import FirefoxWebDriver
 
 # WebDriver Policies
-from crawl_utils.core.policy import (
-    WebDriverPolicy,
-    FirefoxPolicy,
-    ChromePolicy,
+from crawl_utils.provider.policy import (
+    WebDriverManagerPolicy,
+    FirefoxConfig,
+    ChromeConfig,
     ProviderType,
 )
 
@@ -64,14 +64,14 @@ from crawl_utils.utils.filter_utils import (
 from crawl_utils.core.models import NormalizedItem, SaveSummary, SavedArtifact
 
 __all__ = [
-    # WebDriver Factory
-    "create_webdriver",
+    # WebDriver Manager (Recommended)
+    "WebDriverManager",
     
-    # WebDriver Base & Implementations
-    "BaseWebDriver", "FirefoxWebDriver",
+    # WebDriver Provider (Pure logic)
+    "FirefoxWebDriver",
     
     # WebDriver Policies
-    "WebDriverPolicy", "FirefoxPolicy", "ChromePolicy", "ProviderType",
+    "WebDriverManagerPolicy", "FirefoxConfig", "ChromeConfig", "ProviderType",
     
     # Crawl Policies
     "CrawlPolicy", "CrawlSourcePolicy", "NavigationPolicy", "ScrollPolicy",

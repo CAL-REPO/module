@@ -1,0 +1,18 @@
+{
+  "_comment": "Taobao 크롤링 세션 (2025-10-21)",
+  "_note": "쿠키는 Profile에 자동 저장되므로 이 파일에 저장 안 함!",
+  
+  "metadata": {
+    "site": "taobao",
+    "region": "china",
+    "timestamp": "2025-10-21T14:30:00",
+    "browser": "firefox",
+    "browser_version": "144.0"
+  },
+  
+  "webdriver_settings": {
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0",
+    "accept_languages": "zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+    "profile_path": "M:/Firefox_Profile/CRAWL_CHINA"
+  }
+}

@@ -8,6 +8,11 @@
 2. product_search - 상품 검색 결과 크롤링
 3. 각 메서드는 Navigator, Extractor를 사용하여 데이터 추출
 
+리팩토링:
+- Template Method 패턴 적용 (BaseCrawlMethod)
+- 타입 힌트 완성 (TYPE_CHECKING)
+- 공통 로직 추출
+
 사용 예시:
 ```python
 from crawl_utils.services.crawl_methods import CrawlProductDetail
@@ -27,30 +32,55 @@ results = detail_service.crawl(urls, runtime_context)
 
 from __future__ import annotations
 
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Optional, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from loguru import Logger
     from ..core.policy import CrawlPolicy
     from .navigator import SyncNavigator
+    from .sync_extractor import SyncDOMExtractor, SyncJSExtractor
 
 
-class CrawlProductDetail:
-    """상품 상세 페이지 크롤링 서비스.
+# ============================================================================
+# Base Class (Template Method Pattern)
+# ============================================================================
+
+class BaseCrawlMethod(ABC):
+    """크롤링 메서드 베이스 클래스 (Template Method 패턴).
     
-    Pipeline:
-    1. Navigator로 페이지 로드
-    2. Wait hook 실행 (policy 기반)
-    3. Extractor로 데이터 추출
-    4. 결과 반환
+    공통 크롤링 흐름을 정의하고, 서브클래스에서 세부 구현을 담당합니다.
+    
+    Template Method:
+        1. crawl() - 전체 URL 리스트 순회
+        2. _crawl_single_url() - 단일 URL 크롤링 (공통 흐름)
+            - 페이지 로드
+            - _pre_extract() Hook (서브클래스에서 오버라이드 가능)
+            - DOM 가져오기
+            - _extract() Abstract method (서브클래스에서 구현 필수)
+        
+    Hook Methods:
+        - _pre_extract(): Wait, Scroll 등 추출 전 작업 (기본 구현 제공)
+        
+    Abstract Methods:
+        - _extract(): 데이터 추출 로직 (서브클래스에서 구현 필수)
     """
     
     def __init__(
         self,
         navigator: Optional['SyncNavigator'],
-        extractor: Optional[Any],  # SyncExtractor (TODO: 타입 정의)
+        extractor: Optional[Union['SyncDOMExtractor', 'SyncJSExtractor']],
         policy: 'CrawlPolicy',
-        logger: Any  # loguru logger
+        logger: 'Logger'
     ):
+        """Initialize base crawl method.
+        
+        Args:
+            navigator: SyncNavigator 인스턴스
+            extractor: SyncExtractor 인스턴스
+            policy: CrawlPolicy
+            logger: loguru Logger
+        """
         self.navigator = navigator
         self.extractor = extractor
         self.policy = policy
@@ -61,7 +91,7 @@ class CrawlProductDetail:
         urls: List[str],
         runtime_context: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """상품 상세 페이지 크롤링.
+        """크롤링 실행 (Template Method).
         
         Args:
             urls: 크롤링할 URL 리스트
@@ -73,12 +103,14 @@ class CrawlProductDetail:
         results: List[Dict[str, Any]] = []
         
         for idx, url in enumerate(urls, 1):
-            self.log.info(f"[Detail {idx}/{len(urls)}] Processing: {url}")
+            self.log.info(f"[{self._get_method_name()} {idx}/{len(urls)}] Processing: {url}")
             
             try:
                 data = self._crawl_single_url(url, idx, runtime_context)
-                results.append(data)
-                self.log.success(f"  Loaded: {data.get('page_title', 'Unknown')[:50]}")
+                results.extend(data if isinstance(data, list) else [data])
+                
+                count = len(data) if isinstance(data, list) else 1
+                self.log.success(f"  Extracted: {count} items")
                 
             except Exception as e:
                 self.log.error(f"  Failed to crawl {url}: {e}")
@@ -86,13 +118,14 @@ class CrawlProductDetail:
                 self.log.debug(f"  Traceback: {traceback.format_exc()}")
                 
                 # 에러 데이터 추가
-                results.append({
+                error_data = {
                     "_url": url,
                     "_index": idx,
-                    "_method": "product_detail",
+                    "_method": self._get_method_name(),
                     "_error": str(e),
                     **runtime_context
-                })
+                }
+                results.append(error_data)
                 continue
         
         return results
@@ -102,218 +135,211 @@ class CrawlProductDetail:
         url: str,
         index: int,
         runtime_context: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """단일 URL 크롤링.
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """단일 URL 크롤링 (Template Method - 공통 흐름).
         
         Args:
             url: 크롤링할 URL
             index: URL 인덱스
+            runtime_context: 런타임 컨텍스트
+        
+        Returns:
+            추출된 데이터 (단일 Dict 또는 List[Dict])
+        """
+        # Navigator 확인
+        if not self.navigator:
+            raise ValueError(f"Navigator is required for {self._get_method_name()} crawling")
+        
+        # 1. 페이지 로드
+        self.log.debug(f"[{self._get_method_name()}] Loading URL: {url}")
+        self.navigator.load(url)
+        
+        # 2. Pre-extract Hook (Wait, Scroll 등)
+        self._pre_extract()
+        
+        # 3. DOM 가져오기
+        dom = self.navigator.get_dom()
+        
+        # 4. 데이터 추출 (Abstract method - 서브클래스에서 구현)
+        return self._extract(url, index, dom, runtime_context)
+    
+    def _pre_extract(self) -> None:
+        """추출 전 Hook 메서드 (Wait, Scroll 등).
+        
+        기본 구현: Wait hook 실행
+        서브클래스에서 오버라이드하여 추가 작업 수행 가능
+        """
+        # Navigator 확인
+        if not self.navigator:
+            return
+        
+        # Wait hook 실행
+        if hasattr(self.policy, 'wait') and self.policy.wait:
+            wait_cfg = self.policy.wait
+            timeout = getattr(wait_cfg, 'timeout_sec', 10.0)
+            hook = getattr(wait_cfg, 'hook', None)
+            selector = getattr(wait_cfg, 'selector', None)
+            condition = getattr(wait_cfg, 'condition', 'presence')
+            
+            if hook:
+                self.log.debug(f"[{self._get_method_name()}] Waiting: hook={hook}, timeout={timeout}s")
+                self.navigator.wait(hook, selector, timeout, condition)
+    
+    @abstractmethod
+    def _extract(
+        self,
+        url: str,
+        index: int,
+        dom: str,
+        runtime_context: Dict[str, Any]
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+        """데이터 추출 (Abstract method - 서브클래스에서 구현).
+        
+        Args:
+            url: 크롤링한 URL
+            index: URL 인덱스
+            dom: HTML DOM
+            runtime_context: 런타임 컨텍스트
+        
+        Returns:
+            추출된 데이터 (단일 Dict 또는 List[Dict])
+        """
+        pass
+    
+    @abstractmethod
+    def _get_method_name(self) -> str:
+        """메서드 이름 반환 (Abstract method - 서브클래스에서 구현).
+        
+        Returns:
+            메서드 이름 (예: "Detail", "Search")
+        """
+        pass
+
+
+# ============================================================================
+# Concrete Implementations
+# ============================================================================
+
+class CrawlProductDetail(BaseCrawlMethod):
+    """상품 상세 페이지 크롤링 서비스.
+    
+    Template Method Pattern 적용:
+    - crawl() 메서드는 BaseCrawlMethod에서 상속
+    - _extract() 메서드로 데이터 추출 로직 구현
+    """
+    
+    def _get_method_name(self) -> str:
+        """메서드 이름 반환."""
+        return "Detail"
+    
+    def _extract(
+        self,
+        url: str,
+        index: int,
+        dom: str,
+        runtime_context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """데이터 추출 (상세 페이지).
+        
+        Args:
+            url: 크롤링한 URL
+            index: URL 인덱스
+            dom: HTML DOM
             runtime_context: 런타임 컨텍스트
         
         Returns:
             추출된 데이터
         """
-        # Navigator 확인
-        if not self.navigator:
-            raise ValueError("Navigator is required for product_detail crawling")
+        # Extractor 없으면 최소 데이터 반환
+        if not self.extractor:
+            return {
+                "_url": url,
+                "_index": index,
+                "_method": "product_detail",
+                **runtime_context
+            }
         
-        # 1. 페이지 로드
-        self.log.debug(f"[Detail] Loading URL with Navigator: {url}")
-        self.navigator.load(url)
+        # Extractor로 데이터 추출
+        self.log.debug(f"[Detail] Extracting data with Extractor")
+        extracted = self.extractor.extract(dom)
         
-        # 2. Wait hook 실행 (policy 설정 기반)
-        if hasattr(self.policy, 'wait') and self.policy.wait:
-            wait_cfg = self.policy.wait
-            timeout = getattr(wait_cfg, 'timeout_sec', 10.0)
-            hook = getattr(wait_cfg, 'hook', None)
-            selector = getattr(wait_cfg, 'selector', None)
-            condition = getattr(wait_cfg, 'condition', 'presence')
-            
-            if hook:
-                self.log.debug(f"[Detail] Waiting: hook={hook}, timeout={timeout}s")
-                self.navigator.wait(hook, selector, timeout, condition)
+        # 메타데이터 추가
+        extracted["_url"] = url
+        extracted["_index"] = index
+        extracted["_method"] = "product_detail"
+        extracted.update(runtime_context)
         
-        # 3. DOM 가져오기
-        dom = self.navigator.get_dom()
-        
-        # 4. 기본 데이터 구성
-        data = {
-            "_url": url,
-            "_index": index,
-            "_method": "product_detail",
-            "_site": self.policy.site,
-            "dom_length": len(dom),
-            "loaded_url": self.navigator._current_url or url,
-        }
-        
-        # 5. Extractor로 데이터 추출
-        if self.extractor:
-            self.log.debug("[Detail] Extracting data with Extractor")
-            try:
-                extracted_data = self.extractor.extract(dom)
-                data.update(extracted_data)
-            except Exception as e:
-                self.log.warning(f"[Detail] Extractor failed: {e}")
-                data["_extractor_error"] = str(e)
-        else:
-            self.log.debug("[Detail] No extractor available - basic data only")
-        
-        # 6. Runtime context 추가
-        data.update(runtime_context)
-        
-        return data
+        return extracted
 
 
-class CrawlProductSearch:
+class CrawlProductSearch(BaseCrawlMethod):
     """상품 검색 결과 페이지 크롤링 서비스.
     
-    Pipeline:
-    1. Navigator로 페이지 로드
-    2. Scroll (선택사항)
-    3. Extractor로 리스트 아이템 추출
-    4. Pagination (선택사항)
-    5. 결과 반환
+    Template Method Pattern 적용:
+    - crawl() 메서드는 BaseCrawlMethod에서 상속
+    - _pre_extract() Hook으로 Scroll 로직 구현
+    - _extract() 메서드로 리스트 아이템 추출 구현
     """
     
-    def __init__(
-        self,
-        navigator: Optional['SyncNavigator'],
-        extractor: Optional[Any],  # SyncExtractor
-        policy: 'CrawlPolicy',
-        logger: Any  # loguru logger
-    ):
-        self.navigator = navigator
-        self.extractor = extractor
-        self.policy = policy
-        self.log = logger
+    def _get_method_name(self) -> str:
+        """메서드 이름 반환."""
+        return "Search"
     
-    def crawl(
-        self,
-        urls: List[str],
-        runtime_context: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """상품 검색 결과 페이지 크롤링.
+    def _pre_extract(self) -> None:
+        """추출 전 Hook 메서드 (Wait, Scroll).
         
-        Args:
-            urls: 크롤링할 URL 리스트
-            runtime_context: 런타임 컨텍스트
-        
-        Returns:
-            추출된 데이터 리스트 (각 URL당 여러 상품)
+        BaseCrawlMethod의 Wait 로직 실행 후, Scroll 로직 추가 실행.
         """
-        results: List[Dict[str, Any]] = []
+        # 1. 부모 클래스의 Wait hook 실행
+        super()._pre_extract()
         
-        for idx, url in enumerate(urls, 1):
-            self.log.info(f"[Search {idx}/{len(urls)}] Processing: {url}")
-            
-            try:
-                items = self._crawl_single_url(url, idx, runtime_context)
-                
-                # Runtime context를 각 아이템에 추가
-                for item in items:
-                    item.update(runtime_context)
-                    results.append(item)
-                
-                self.log.success(f"  Extracted: {len(items)} items")
-                
-            except Exception as e:
-                self.log.error(f"  Failed to crawl {url}: {e}")
-                import traceback
-                self.log.debug(f"  Traceback: {traceback.format_exc()}")
-                continue
-        
-        return results
-    
-    def _crawl_single_url(
-        self,
-        url: str,
-        index: int,
-        runtime_context: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """단일 URL 크롤링.
-        
-        Args:
-            url: 크롤링할 URL
-            index: URL 인덱스
-            runtime_context: 런타임 컨텍스트
-        
-        Returns:
-            추출된 아이템 리스트
-        """
-        # Navigator 확인
-        if not self.navigator:
-            raise ValueError("Navigator is required for product_search crawling")
-        
-        # 1. 페이지 로드
-        self.log.debug(f"[Search] Loading URL with Navigator: {url}")
-        self.navigator.load(url)
-        
-        # 2. Wait hook 실행
-        if hasattr(self.policy, 'wait') and self.policy.wait:
-            wait_cfg = self.policy.wait
-            timeout = getattr(wait_cfg, 'timeout_sec', 10.0)
-            hook = getattr(wait_cfg, 'hook', None)
-            selector = getattr(wait_cfg, 'selector', None)
-            condition = getattr(wait_cfg, 'condition', 'presence')
-            
-            if hook:
-                self.log.debug(f"[Search] Waiting: hook={hook}, timeout={timeout}s")
-                self.navigator.wait(hook, selector, timeout, condition)
-        
-        # 3. Scroll (선택사항)
+        # 2. Scroll 로직 (선택사항)
         if hasattr(self.policy, 'scroll') and self.policy.scroll:
             scroll_cfg = self.policy.scroll
             strategy = getattr(scroll_cfg, 'strategy', 'none')
             max_scrolls = getattr(scroll_cfg, 'max_scrolls', 0)
             pause_sec = getattr(scroll_cfg, 'scroll_pause_sec', 0.5)
             
-            if max_scrolls > 0:
+            if max_scrolls > 0 and self.navigator:
                 self.log.debug(f"[Search] Scrolling: {max_scrolls} times")
                 self.navigator.scroll(strategy, max_scrolls, pause_sec)
+    
+    def _extract(
+        self,
+        url: str,
+        index: int,
+        dom: str,
+        runtime_context: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """데이터 추출 (검색 결과 리스트).
         
-        # 4. DOM 가져오기
-        dom = self.navigator.get_dom()
+        Args:
+            url: 크롤링한 URL
+            index: URL 인덱스
+            dom: HTML DOM
+            runtime_context: 런타임 컨텍스트
         
-        # 5. Extractor로 리스트 아이템 추출
-        if self.extractor:
-            self.log.debug("[Search] Extracting list items with Extractor")
-            try:
-                items = self.extractor.extract_list(dom)
-                
-                # 각 아이템에 메타 정보 추가
-                for item_idx, item in enumerate(items, 1):
-                    item["_url"] = url
-                    item["_list_index"] = index
-                    item["_item_index"] = item_idx
-                    item["_method"] = "product_search"
-                    item["_site"] = self.policy.site
-                
-                return items
-                
-            except Exception as e:
-                self.log.warning(f"[Search] Extractor failed: {e}")
-                # Placeholder 데이터 반환
-                return [{
-                    "_url": url,
-                    "_list_index": index,
-                    "_method": "product_search",
-                    "_extractor_error": str(e)
-                }]
-        else:
-            self.log.debug("[Search] No extractor available - placeholder data")
-            # Placeholder 데이터 (3개 상품 시뮬레이션)
-            return [
-                {
-                    "_url": url,
-                    "_list_index": index,
-                    "_item_index": i,
-                    "_method": "product_search",
-                    "_site": self.policy.site,
-                    "title": f"Product {i}",
-                    "price": 10.0 * i,
-                }
-                for i in range(1, 4)
-            ]
+        Returns:
+            추출된 아이템 리스트
+        """
+        # Extractor 없으면 빈 리스트 반환
+        if not self.extractor:
+            self.log.debug("[Search] No extractor available - empty list")
+            return []
+        
+        # Extractor로 리스트 아이템 추출
+        self.log.debug("[Search] Extracting list items with Extractor")
+        items = self.extractor.extract_list(dom)
+        
+        # 각 아이템에 메타 정보 추가
+        for item_idx, item in enumerate(items, 1):
+            item["_url"] = url
+            item["_list_index"] = index
+            item["_item_index"] = item_idx
+            item["_method"] = "product_search"
+            item.update(runtime_context)
+        
+        return items
 
 
 # ============================================================================

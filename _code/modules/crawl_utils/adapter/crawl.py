@@ -39,7 +39,7 @@ from typing import List, Dict, Optional, Any, Union
 from modules.logs_utils import LogManager
 
 from ..core.policy import CrawlPolicy
-from ..provider.base import BaseWebDriver
+# from ..provider.base import BaseWebDriver  # Deprecated - Use WebDriverAdapter
 from ..services.url_analyzer import UrlAnalyzer
 from ..services.method_resolver import MethodResolver
 
@@ -109,7 +109,8 @@ class Crawl:
         self.url_analyzer = UrlAnalyzer(url_patterns)
         
         # Services는 lazy-load
-        self._webdriver: Optional[BaseWebDriver] = None
+        # Lazy-loaded components
+        self._webdriver: Optional[Any] = None  # WebDriverAdapter or Legacy
         self._adapter = None  # SyncSeleniumAdapter
         self._navigator = None  # SyncNavigator
         self._extractor = None  # SyncExtractor (DOM or JS)
@@ -144,25 +145,24 @@ class Crawl:
     # ==========================================================================
     
     @property
-    def webdriver(self) -> BaseWebDriver:
+    def webdriver(self) -> Any:
         """Lazy webdriver creation.
         
         Returns:
-            BaseWebDriver instance
+            WebDriver instance (WebDriverAdapter or Legacy)
         """
         if self._webdriver is None:
             self.log.debug("[Crawl] Creating WebDriver")
-            from ..provider import create_webdriver
             
-            # 기본 Firefox WebDriver 생성
-            try:
-                self._webdriver = create_webdriver("firefox")
-                self.log.debug(f"[Crawl] WebDriver created: {type(self._webdriver).__name__}")
-            except Exception as e:
-                self.log.warning(f"[Crawl] Failed to create WebDriver: {e}")
-                self._webdriver = None  # type: ignore
+            # TODO: WebDriverAdapter로 마이그레이션 필요
+            # from ..adapter import WebDriverAdapter
+            # self._webdriver = WebDriverAdapter()
+            
+            self.log.warning("[Crawl] WebDriver lazy loading is deprecated. "
+                           "Please provide webdriver instance directly.")
+            self._webdriver = None
         
-        return self._webdriver  # type: ignore
+        return self._webdriver
     
     @property
     def adapter(self):

@@ -1,0 +1,9 @@
+{
+  "_comment": "Browser versions for User-Agent generation",
+  "_last_updated": "2025-10-21",
+  "versions": {
+    "firefox": "144.0",
+    "chrome": "130.0.0.0",
+    "edge": "131.0.0.0"
+  }
+}

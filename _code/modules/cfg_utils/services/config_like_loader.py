@@ -166,8 +166,28 @@ class ConfigLikeLoader:
         
         # 3. ConfigLoader로 로드
         from cfg_utils import ConfigLoader
+        import yaml
         
-        section_name = policy_class().name
+        # 섹션 이름 자동 인식
+        section_name = policy_class().name  # 기본값 (예: "webdriver")
+        
+        # YAML 파일의 실제 섹션 이름 확인
+        if isinstance(cfg_like, (str, Path)):
+            yaml_path = Path(cfg_like)
+            if yaml_path.exists() and yaml_path.suffix in ['.yaml', '.yml']:
+                try:
+                    with open(yaml_path, 'r', encoding='utf-8') as f:
+                        yaml_data = yaml.safe_load(f)
+                        if yaml_data and isinstance(yaml_data, dict):
+                            # 기본 섹션 이름으로 시작하는 키 찾기
+                            # 예: "webdriver", "webdriver_china", "webdriver_global"
+                            base_section = section_name.split('_')[0]  # "webdriver"
+                            matching_keys = [k for k in yaml_data.keys() if k.startswith(base_section)]
+                            if matching_keys:
+                                section_name = matching_keys[0]  # 실제 YAML의 최상위 키 사용
+                except Exception:
+                    pass  # YAML 파싱 실패 시 기본값 유지
+        
         src = (cfg_like, section_name)
         
         loader = ConfigLoader(src=src)
