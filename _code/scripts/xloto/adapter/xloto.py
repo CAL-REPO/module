@@ -1,15 +1,30 @@
 # -*- coding: utf-8 -*-
 """XLOTO Adapter - Excel + OTO Pipeline Integration.
 
-책임:
-1. Excel에서 CAS No 리스트 추출 (DataFrame 필터링)
-2. 각 CAS No별 이미지 처리 (Oto adapter 위임)
-3. Excel에 처리 결과 기록
+Pass-through Pattern (Oto와 동일):
+1. ConfigLoader 실행은 EntryPoint/external script 책임
+2. XlOto는 cfg_like dict만 받음 (excel + xloto + oto 전체)
+3. SectionExtractor로 excel, oto 섹션 동적 추출
+4. Lazy-load로 성능 최적화
+5. 인스턴스 재사용 가능
 
 Adapter Pattern:
-- Policy에 source 없음
-- run()에서 config 경로 받음
+- __init__에서 cfg_like (통합 dict), cfg_like_excel, cfg_like_oto 받음
+- SectionExtractor로 개별 섹션 추출 (Cascading Priority)
+- run()에 excel_controller, cas_list_override만 전달
 - Standalone 사용 가능
+
+Example:
+    >>> # EntryPoint에서 ConfigLoader 실행
+    >>> from cfg_utils import ConfigLoader
+    >>> config = ConfigLoader(
+    ...     config_loader_cfg_path="configs/loader/config_loader_xloto.yaml",
+    ...     env_os=["CASHOP_PATHS"]
+    ... )
+    >>> 
+    >>> # XlOto는 merged dict만 받음
+    >>> xloto = XlOto(cfg_like=config.to_dict())
+    >>> result = xloto.run(excel_controller=xl)
 """
 
 from __future__ import annotations
@@ -18,43 +33,61 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime
 
-from PIL import Image
 from pydantic import BaseModel
 
-from cfg_utils import ConfigLoader
+from cfg_utils.services.config_like_loader import ConfigLikeLoader
+from cfg_utils.services.section_extractor import SectionExtractor
 from logs_utils import LogManager
 
 from xloto.policy.xloto_policy import XlOtoPolicy
 from oto.adapter.oto import Oto
+from oto.policy.oto_policy import OTOPolicy
 
 # Services
-from xloto.services import CasExtractor, ImageFileManager
+from xloto.services import ImageFileManager
 
 # xl_utils는 필요시 lazy import
 # from xl_utils import XlController
 
 
 class XlOto:
-    """XLOTO Pipeline Adapter (Standalone).
+    """XLOTO Pipeline Adapter (Pass-through Pattern).
     
     Excel + OTO 파이프라인 통합:
     1. Excel에서 CAS No 추출
     2. 이미지 OTO 처리
     3. Excel 업데이트
     
-    Adapter Pattern:
-    - Policy에 source 없음
-    - run()에서 config 경로와 Excel controller 받음
+    Pass-through Pattern (SectionExtractor 사용):
+    - ConfigLoader는 EntryPoint에서 실행
+    - XlOto는 merged dict만 받음
+    - SectionExtractor로 excel, oto 섹션 동적 추출
+    - Cascading Priority: individual cfg_like > merged_config[section] > None
     
     Attributes:
-        policy: XlOtoPolicy 설정
+        policy: XlOtoPolicy 설정 (paths, log)
         log: loguru logger
         oto: Oto adapter (lazy-loaded)
+        _cfg_like_excel: Excel 설정 (extracted)
+        _cfg_like_oto: OTO 설정 (extracted)
     
     Example:
-        >>> xloto = XlOto(cfg_like="configs/xloto.yaml")
-        >>> result = xloto.run(
-        ...     config_path="configs/loader/config_loader_xloto.yaml"
+        >>> # EntryPoint에서 ConfigLoader 실행
+        >>> from cfg_utils import ConfigLoader
+        >>> config = ConfigLoader(
+        ...     config_loader_cfg_path="configs/loader/config_loader_xloto.yaml",
+        ...     env_os=["CASHOP_PATHS"]
+        ... )
+        >>> 
+        >>> # XlOto는 merged dict만 받음
+        >>> xloto = XlOto(cfg_like=config.to_dict())
+        >>> result = xloto.run(excel_controller=xl)
+        
+        >>> # Individual cfg_like 우선 (Cascading Priority)
+        >>> xloto = XlOto(
+        ...     cfg_like=config.to_dict(),
+        ...     cfg_like_excel="custom_excel.yaml",  # Override
+        ...     cfg_like_oto={"image_load": {...}}   # Override
         ... )
     """
     
@@ -62,25 +95,82 @@ class XlOto:
         self,
         cfg_like: Union[BaseModel, Path, str, dict, None] = None,
         *,
+        cfg_like_excel: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_oto: Union[BaseModel, Path, str, dict, None] = None,
         log_manager: Optional[LogManager] = None,
         **overrides: Any
     ):
         """Initialize XlOto adapter.
         
+        Pass-through Pattern:
+        - cfg_like: ConfigLoader merged dict (전체 통합 설정)
+        - cfg_like_excel: Excel 개별 설정 (우선순위 높음)
+        - cfg_like_oto: OTO 개별 설정 (우선순위 높음)
+        - overrides: 런타임 오버라이드
+        
+        SectionExtractor 동작:
+        1. merged_config = cfg_like or {}
+        2. overrides 병합 (KeyPathDict)
+        3. SectionExtractor.extract_batch()로 섹션 추출
+           - excel: "excel" 섹션 (XlController용)
+           - oto: "oto" 섹션 (Oto adapter용)
+        4. Cascading Priority: individual > merged > None
+        
         Args:
             cfg_like: XlOtoPolicy, YAML 경로, dict, 또는 None
+            cfg_like_excel: Excel 개별 설정 (ConfigLikeLoader로 로드 가능)
+            cfg_like_oto: OTO 개별 설정 (ConfigLikeLoader로 로드 가능)
             log_manager: 외부 LogManager (선택사항)
-            **overrides: 런타임 오버라이드
-        """
-        # Load policy
-        self.policy = self._load_config(cfg_like, **overrides)
+            **overrides: 런타임 오버라이드 (KeyPathDict 형식, 예: excel__aliases__cas="CAS번호")
         
-        # LogManager 초기화
+        Note:
+            ⚠️ ConfigLoader 실행은 EntryPoint/external script 책임!
+            ⚠️ cfg_like=None이면 빈 dict로 처리 (Pydantic 기본값 사용)
+        """
+        from data_utils.keypath_dict import KeyPathDict
+        
+        # Merge overrides into cfg_like
+        merged_config = cfg_like or {}
+        if overrides:
+            override_dict = KeyPathDict.to_nested_dict(overrides)
+            merged_config = {**merged_config, **override_dict}
+        
+        # SectionExtractor로 섹션 추출 (Cascading Priority)
+        # - "excel": XlController용 설정
+        # - "oto": Oto adapter용 설정 (image_load, translate, overlay 등 포함)
+        # Note: excel, oto는 하드코딩이 아닌 섹션명 (ConfigLoader source[1]과 일치)
+        extracted = {
+            "excel": SectionExtractor.extract(
+                merged_config=merged_config,
+                individual_cfg=cfg_like_excel,
+                policy_class=None,  # Excel은 Policy 없음 (dict만 사용)
+                section_name="excel"
+            ),
+            "oto": SectionExtractor.extract(
+                merged_config=merged_config,
+                individual_cfg=cfg_like_oto,
+                policy_class=OTOPolicy
+            )
+        }
+        
+        self._cfg_like_excel = extracted["excel"]
+        self._cfg_like_oto = extracted["oto"]
+        
+        # XlOtoPolicy 생성 (paths, log만 관리)
+        try:
+            self.policy = XlOtoPolicy(**merged_config)
+        except Exception:
+            self.policy = XlOtoPolicy()
+        
+        # LogManager 초기화 (parent logger only)
         if log_manager:
             self.log = log_manager.logger
+            self._parent_log_manager = log_manager
         elif self.policy.log:
-            self.log = LogManager(self.policy.log).logger
+            self._parent_log_manager = LogManager(self.policy.log)
+            self.log = self._parent_log_manager.logger
         else:
+            self._parent_log_manager = None
             self.log = LogManager({"enabled": False}).logger
         
         # Oto adapter는 lazy-load
@@ -93,44 +183,27 @@ class XlOto:
         self.log.debug("XlOto adapter initialized")
     
     # ==========================================================================
-    # Config Loading
-    # ==========================================================================
-    
-    @staticmethod
-    def _load_config(
-        cfg_like: Union[BaseModel, Path, str, dict, None],
-        **overrides: Any
-    ) -> XlOtoPolicy:
-        """Load XlOtoPolicy from various sources."""
-        from cfg_utils.services.config_like_loader import ConfigLikeLoader
-        
-        return ConfigLikeLoader.load_with_caller_path(
-            cfg_like=cfg_like,
-            policy_class=XlOtoPolicy,
-            caller_file=__file__,
-            default_config_filename="xloto.yaml",
-            **overrides
-        )
-    
-    # ==========================================================================
     # Service Lazy Loading
     # ==========================================================================
     
-    def get_cas_extractor(self, excel_config: Dict[str, Any]) -> CasExtractor:
+    def get_cas_extractor(self) -> CasExtractor:
         """CasExtractor service lazy-loading.
         
-        Args:
-            excel_config: Excel 설정 (aliases 포함)
+        Note:
+            ⚠️ Excel config는 __init__에서 이미 추출됨 (_cfg_like_excel)
         
         Returns:
             CasExtractor 인스턴스
         """
         if self._cas_extractor is None:
+            # __init__에서 추출한 excel config 사용
+            excel_config = self._cfg_like_excel or {}
+            
             self._cas_extractor = CasExtractor(
                 aliases=excel_config.get("aliases", {}),
-                cas_column=self.policy.filter.cas_column,
-                download_column=self.policy.filter.download_column,
-                translation_column=self.policy.filter.translation_column
+                cas_column=self.policy.filter.cas_column if hasattr(self.policy, 'filter') else "cas",
+                download_column=self.policy.filter.download_column if hasattr(self.policy, 'filter') else "download",
+                translation_column=self.policy.filter.translation_column if hasattr(self.policy, 'filter') else "translation"
             )
         return self._cas_extractor
     
@@ -152,24 +225,25 @@ class XlOto:
     # Oto Adapter Lazy Loading
     # ==========================================================================
     
-    def get_oto(self, config_path: Union[Path, str]) -> Oto:
-        """Oto adapter lazy-loading with config.
+    def get_oto(self) -> Oto:
+        """Oto adapter lazy-loading.
         
-        Args:
-            config_path: ConfigLoader 설정 파일 경로 (config_loader_xloto.yaml)
+        Pass-through Pattern:
+        - __init__에서 이미 추출한 _cfg_like_oto 사용
+        - ConfigLoader 실행은 EntryPoint 책임
         
         Returns:
             Oto adapter 인스턴스
+        
+        Note:
+            ⚠️ ConfigLoader 실행 제거 (EntryPoint에서 실행)
+            ⚠️ _cfg_like_oto는 __init__에서 SectionExtractor로 추출됨
         """
         if self._oto is None:
-            # ConfigLoader로 OTO 설정 로드
-            # env_os: CASHOP_PATHS 환경변수 → paths.local.yaml 참조 해석
-            config = ConfigLoader(config_loader_cfg_path=str(config_path))
-            oto_config = config.to_dict()  # 전체 통합 설정
-            
-            # Oto adapter 생성 (image_load, text_recognize, translate, overlay 포함)
+            # __init__에서 추출한 oto config 사용
+            # - image_load, text_recognize, translate, overlay 섹션 모두 포함
             self._oto = Oto(
-                cfg_like=oto_config,
+                cfg_like=self._cfg_like_oto,
                 log_manager=None,  # Oto가 자체 LogManager 생성
             )
             
@@ -183,10 +257,10 @@ class XlOto:
     
     def run(
         self,
-        config_path: Union[Path, str],
         *,
         excel_controller = None,  # Type: Optional[XlController] (lazy import)
         cas_list_override: Optional[List[str]] = None,
+        **overrides: Any
     ) -> Dict[str, Any]:
         """XLOTO Pipeline 실행.
         
@@ -195,10 +269,16 @@ class XlOto:
             2. 각 CAS No별 이미지 OTO 처리
             3. Excel translation 셀에 날짜 기록
         
+        Pass-through Pattern:
+            - ConfigLoader 실행 제거 (EntryPoint 책임)
+            - __init__에서 추출한 _cfg_like_excel, _cfg_like_oto 사용
+        
         Args:
-            config_path: ConfigLoader 설정 파일 경로 (config_loader_xloto.yaml)
             excel_controller: 외부 XlController (선택사항, 없으면 생성)
             cas_list_override: CAS No 리스트 강제 지정 (테스트용)
+            **overrides: Oto Adapter로 전달할 runtime overrides
+                예: image_load__save__name__suffix="step1"
+                    image_overlay__save__name__suffix="final"
         
         Returns:
             결과 딕셔너리:
@@ -209,6 +289,10 @@ class XlOto:
                 "cas_results": List[Dict],
                 "error": Optional[str]
             }
+        
+        Note:
+            ⚠️ ConfigLoader는 EntryPoint에서 실행 (xloto.py 등)
+            ⚠️ Excel config는 __init__에서 추출된 _cfg_like_excel 사용
         """
         result = {
             "success": False,
@@ -223,10 +307,8 @@ class XlOto:
             self.log.info("🚀 XLOTO Pipeline Starting")
             self.log.info("="*80)
             
-            # ConfigLoader로 통합 설정 로드
-            # CASHOP_PATHS 환경변수 → paths.local.yaml → 참조 해석
-            config = ConfigLoader(config_loader_cfg_path=str(config_path))
-            excel_config = config.to_dict(section="excel")
+            # __init__에서 추출한 excel config 사용
+            excel_config = self._cfg_like_excel or {}
             
             # ================================================================
             # Step 1: Excel에서 CAS No 추출
@@ -241,6 +323,7 @@ class XlOto:
                     xl = excel_controller
                     close_excel = False
                 else:
+                    from xl_utils import XlController
                     xl = XlController(cfg_like=excel_config)
                     xl.__enter__()
                     close_excel = True
@@ -253,7 +336,7 @@ class XlOto:
                     self.log.info(f"  Loaded DataFrame: {len(df)} rows")
                     
                     # CAS No 추출 (Service 사용)
-                    cas_extractor = self.get_cas_extractor(excel_config)
+                    cas_extractor = self.get_cas_extractor()
                     cas_list = cas_extractor.extract(df)
                     
                     self.log.success(f"  ✅ Extracted {len(cas_list)} CAS No")
@@ -274,8 +357,8 @@ class XlOto:
             # ================================================================
             self.log.info(f"\n[2/3] Processing {len(cas_list)} CAS No...")
             
-            # Oto adapter 생성
-            oto = self.get_oto(config_path)
+            # Oto adapter 생성 (lazy-load)
+            oto = self.get_oto()
             
             # ImageFileManager 생성
             image_manager = self.get_image_manager()
@@ -311,11 +394,11 @@ class XlOto:
                     self.log.info(f"\n     [{img_idx}/{len(missing_images)}] {img_path.name}")
                     
                     try:
-                        # 이미지 로드
-                        image = Image.open(img_path)
-                        
-                        # Oto adapter 실행
-                        oto_result = oto.run(image=image, source_path=img_path)
+                        # Oto adapter 실행 (overrides 전달)
+                        oto_result = oto.run(
+                            source_path=img_path,
+                            **overrides
+                        )
                         
                         if oto_result.get("success"):
                             # 번역된 이미지 저장 (Service 사용)

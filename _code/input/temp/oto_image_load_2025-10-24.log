@@ -1,0 +1,33 @@
+05:25:47.879 | DEBUG    | image_utils.adapter.load:__init__:65 - Module-specific logger enabled for detailed debugging
+05:25:47.882 | INFO     | image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\input\01.jpg
+05:25:48.013 | DEBUG    | image_utils.adapter.load:run:139 - Original size: (1500, 2322), mode: RGB
+05:25:48.018 | SUCCESS  | image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+05:25:48.236 | ERROR    | image_utils.adapter.load:_log_both:92 - Failed to save image: unknown file extension: 
+05:25:48.240 | INFO     | image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\input\temp\image_meta_01_2025-10-24_05-25-48
+05:26:54.941 | INFO     | image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\input\02.jpg
+05:26:54.966 | DEBUG    | image_utils.adapter.load:run:139 - Original size: (1500, 2322), mode: RGB
+05:26:54.973 | SUCCESS  | image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+05:26:54.978 | ERROR    | image_utils.adapter.load:_log_both:92 - Failed to save image: unknown file extension: 
+05:26:54.983 | INFO     | image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\input\temp\image_meta_01_2025-10-24_05-26-54
+05:30:51.853 | DEBUG    | image_utils.adapter.load:__init__:65 - Module-specific logger enabled for detailed debugging
+05:30:51.855 | INFO     | image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\input\01.jpg
+05:30:51.891 | DEBUG    | image_utils.adapter.load:run:139 - Original size: (1500, 2322), mode: RGB
+05:30:51.896 | SUCCESS  | image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+05:30:51.919 | INFO     | image_utils.adapter.load:_log_both:92 - Image saved: M:\CALife\CAShop - 구매대행\_code\input\temp\copy_01_2025-10-24_05-30-51.jpg
+05:30:51.923 | INFO     | image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\input\temp\image_meta_01_2025-10-24_05-30-51
+05:31:29.306 | INFO     | image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\input\02.jpg
+05:31:29.332 | DEBUG    | image_utils.adapter.load:run:139 - Original size: (1500, 2322), mode: RGB
+05:31:29.338 | SUCCESS  | image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+05:31:29.355 | INFO     | image_utils.adapter.load:_log_both:92 - Image saved: M:\CALife\CAShop - 구매대행\_code\input\temp\copy_01_2025-10-24_05-31-29.jpg
+05:31:29.359 | INFO     | image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\input\temp\image_meta_01_2025-10-24_05-31-29
+05:34:02.809 | DEBUG    | image_utils.adapter.load:__init__:65 - Module-specific logger enabled for detailed debugging
+05:34:02.812 | INFO     | image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\input\01.jpg
+05:34:02.852 | DEBUG    | image_utils.adapter.load:run:139 - Original size: (1500, 2322), mode: RGB
+05:34:02.858 | SUCCESS  | image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+05:34:02.876 | INFO     | image_utils.adapter.load:_log_both:92 - Image saved: M:\CALife\CAShop - 구매대행\_code\input\temp\copy_01_2025-10-24_05-34-02.jpg
+05:34:02.881 | INFO     | image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\input\temp\image_meta_01_2025-10-24_05-34-02
+05:34:36.858 | INFO     | image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\input\02.jpg
+05:34:36.881 | DEBUG    | image_utils.adapter.load:run:139 - Original size: (1500, 2322), mode: RGB
+05:34:36.886 | SUCCESS  | image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+05:34:36.902 | INFO     | image_utils.adapter.load:_log_both:92 - Image saved: M:\CALife\CAShop - 구매대행\_code\input\temp\copy_01_2025-10-24_05-34-36.jpg
+05:34:36.906 | INFO     | image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\input\temp\image_meta_01_2025-10-24_05-34-36

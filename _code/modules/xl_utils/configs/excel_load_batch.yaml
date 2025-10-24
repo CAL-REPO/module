@@ -1,0 +1,63 @@
+# xl_utils batch processing config
+# 대용량 데이터 처리 최적화
+
+name: "excel"
+
+# ===== 성능 최적화 (대용량 처리) =====
+
+save:
+  strategy: "on_exit"  # 쓰기마다 저장 X, 종료 시 한 번만
+  target: "current_wb"
+  backup: false
+
+performance:
+  screen_updating: false  # ✅ 화면 갱신 OFF (속도 향상)
+  display_alerts: false
+  calculation: "manual"  # ✅ 수식 계산 OFF (속도 향상)
+  enable_events: false  # ✅ 이벤트 핸들러 OFF
+  interactive: true
+  clear_clipboard: true
+
+error_handling:
+  on_file_not_found: "create"  # 파일 없으면 생성
+  on_sheet_not_found: "create"
+  on_save_error: "retry"
+  retry_count: 3
+  retry_delay: 1.0
+
+path_validation:
+  fso:
+    as_type: "file"
+    exist:
+      must_exist: false
+      create_if_missing: true  # ✅ 파일 자동 생성
+      overwrite: true  # ✅ 덮어쓰기 허용
+
+# ===== 기존 정책 (무시됨 - 통합 정책 우선) =====
+
+xw_app:
+  visible: false  # ✅ 백그라운드 실행
+  display_alerts: false
+  screen_updating: false
+  add_book: false
+
+xw_lifecycle:
+  quit_on_exit: true
+  save_on_exit: false  # save.strategy가 제어
+
+xw_wb:
+  auto_save: false
+  must_exist: false
+  create_if_missing: true
+
+xw_ws:
+  create_if_missing: true
+  auto_save_on_write: false  # ✅ 쓰기마다 저장 OFF
+  clear_before_dataframe: true
+  drop_empty_rows: true
+
+log:
+  enabled: true
+  level: "WARNING"  # ✅ 에러만 로깅
+  console: true
+  file: false

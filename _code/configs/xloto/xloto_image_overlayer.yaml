@@ -1,0 +1,144 @@
+# ============================================================================
+# ImageOverlayer - XLOTO Configuration
+# ============================================================================
+# XLOTO 파이프라인에서 사용하는 ImageOverlayer 설정 (EntryPoint)
+# 필수 항목만 활성화, 고급 옵션은 주석 처리
+
+xloto_image_overlayer:
+  # --------------------------------------------------------------------------
+  # 1. Source - 소스 이미지 설정 (런타임에서 Image 객체 전달)
+  # --------------------------------------------------------------------------
+  source:
+    # path: "{{temp_input_dir}}/01.jpg"              # 기본값 (런타임 오버라이드)
+    # must_exist: false
+    # convert_mode: "RGB"
+  
+  # --------------------------------------------------------------------------
+  # 2. overlay - ImageOverlay Adapter Policy
+  # --------------------------------------------------------------------------
+  overlay:
+    # Global Font Settings - 전역 설정 (모든 아이템에 적용)
+    font:
+      font_dir: "M:/CALife/CAShop - 구매대행/_code/data/fonts"
+      family: "HMKMMAG.TTF"           # 한글 폰트
+      # size: 10                        # 기본 크기
+      fill: "#000000"                 # 검은색
+      stroke_fill: "#FFFFFF"          # 흰색 외곽선
+      stroke_width: 3                 # 외곽선 두께
+    
+    # 전역 마스킹 불투명도 (개별 아이템이 mask_opacity 미설정 시 사용)
+    mask_opacity: 0.5                 # 기본 50% 불투명 (0.0=투명, 1.0=불투명)
+    
+    # Background Opacity - 전체 레이어 불투명도 (모든 오버레이 요소에 일괄 적용)
+    background_opacity: 1.0           # 기본 100% 불투명 (0.0=투명, 1.0=불투명)
+    
+    # Items - 텍스트 오버레이 목록 (런타임에서 OverlayItem 전달)
+    items:
+      # 예제: 런타임에서 교체됨
+      # - text: "TEST0 한글테스트"
+      #   polygon:
+      #     - [100, 100]
+      #     - [400, 100]
+      #     - [400, 200]
+      #     - [100, 200]
+    
+    # Save - 이미지 저장 설정
+    save:
+      save_copy: true                    # 오버레이된 이미지 저장
+      directory: "{{temp_input_dir}}"      # 저장 디렉토리
+      
+      name:
+        # as_type: "file"
+        # prefix: null
+        # name: ""
+        suffix: "overlay"
+        # tail: null
+        # extension: null
+        # delimiter: "_"
+        tail_mode: "counter"
+        # date_format: "%Y-%m-%d"
+        # counter_width: 3
+        # auto_expand: true
+        # tail_suffix: null
+        # sanitize: true
+        # case: "keep"
+        ensure_unique: false
+      
+      # ops:
+      #   as_type: "file"
+      #   exist:
+      #     must_exist: false
+      #     create_if_missing: true
+      #     overwrite: false
+      #   ext:
+      #     require_ext: false
+      #     default_ext: null
+      #     allowed_exts: null
+      
+      # format: null
+      quality: 95
+    
+    # Meta - 메타데이터 저장 설정
+    meta:
+      save_meta: true                     # 메타 저장 활성화
+      directory: "{{temp_input_dir}}"      # 메타 저장 디렉토리
+      
+      name:
+      #   as_type: "file"
+      #   prefix: null
+        # name: ""
+        suffix: "overlay_meta"
+      #   tail: null
+      #   extension: ".json"
+      #   delimiter: "_"
+        tail_mode: "counter"
+      #   date_format: "%Y-%m-%d"
+      #   counter_width: 3
+      #   auto_expand: true
+      #   tail_suffix: null
+      #   sanitize: true
+      #   case: "keep"
+        ensure_unique: false
+      # ops:
+      #   as_type: "file"
+      #   exist:
+      #     must_exist: false
+      #     create_if_missing: true
+      #     overwrite: true
+      #   ext:
+      #     require_ext: false
+      #     default_ext: ".json"
+      #     allowed_exts: null
+    
+    # Log - ImageOverlay Adapter 전용 로그 (Dual Logging - Secondary)
+    log:
+      enabled: true
+      name: "xloto_image_overlayer_adapter"
+      level: "DEBUG"
+      sinks:
+        - sink_type: "file"
+          file_path: "{{logs_dir}}/xloto_image_overlayer_adapter_{time:YYYY-MM-DD}.log"
+          level: "DEBUG"
+          format: "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+          rotation: "10 MB"
+          retention: "7 days"
+          enqueue: true
+  
+  # --------------------------------------------------------------------------
+  # 3. Log - EntryPoint 통합 로그 (Dual Logging - Primary)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true
+    name: "xloto_image_overlayer"
+    level: "INFO"
+    sinks:
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto_image_overlayer_{time:YYYY-MM-DD}.log"
+        level: "INFO"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "7 days"
+        enqueue: true
+      - sink_type: "console"
+        level: "INFO"
+        colorize: true

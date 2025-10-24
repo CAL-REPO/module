@@ -77,11 +77,11 @@ class LogManager:
         from logs_utils.core.policy import LogPolicy
         from cfg_utils.services import ConfigLikeLoader
         
-        return ConfigLikeLoader.load_with_caller_path(
+        return ConfigLikeLoader.load(
             cfg_like=cfg_like,
             policy_class=LogPolicy,
-            caller_file=__file__,
-            default_config_filename="log.yaml",
+            module_file=__file__,
+            config_filename="log.yaml",
             **overrides
         )
     

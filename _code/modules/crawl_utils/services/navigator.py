@@ -24,7 +24,14 @@ class AsyncNavigator:
         self._current_url: str | None = None
 
     def _build_url(self, page: int | None = None, query: str | None = None, extra: dict | None = None) -> str:
+        """Build URL from navigation policy.
+        
+        Note: Should only be called when self._policy.navigation is not None.
+        """
         nav = self._policy.navigation
+        if not nav:
+            raise ValueError("Cannot build URL: navigation policy is None")
+        
         if nav.url_template:
             base = dict(nav.params)
             if page is not None:
@@ -42,7 +49,23 @@ class AsyncNavigator:
         return str(nav.base_url) + ("?" + "&".join(suffix) if suffix else "")
 
     async def load(self, base_url: str, query: str | None = None, params: dict | None = None) -> str:
-        url = base_url or str(self._policy.navigation.base_url)
+        """Navigate to URL (async version).
+        
+        Args:
+            base_url: Target URL to load
+            query: Search query (optional, for search method)
+            params: Additional URL parameters (optional)
+        
+        Returns:
+            Final loaded URL
+        """
+        # Detail 크롤링: base_url을 직접 사용
+        if not self._policy.navigation:
+            await self._driver.get(base_url)
+            self._current_url = base_url
+            return base_url
+        
+        # Search 크롤링: navigation policy로 URL 구성
         url = self._build_url(page=self._policy.navigation.start_page, query=query, extra=params)
         await self._driver.get(url)
         self._current_url = url
@@ -94,7 +117,14 @@ class SyncNavigator:
         self._current_url: str | None = None
 
     def _build_url(self, page: int | None = None, query: str | None = None, extra: dict | None = None) -> str:
+        """Build URL from navigation policy.
+        
+        Note: Should only be called when self._policy.navigation is not None.
+        """
         nav = self._policy.navigation
+        if not nav:
+            raise ValueError("Cannot build URL: navigation policy is None")
+        
         if nav.url_template:
             base = dict(nav.params)
             if page is not None:
@@ -112,10 +142,25 @@ class SyncNavigator:
         return str(nav.base_url) + ("?" + "&".join(suffix) if suffix else "")
 
     def load(self, base_url: str, query: str | None = None, params: dict | None = None) -> str:
-        """Navigate to URL (sync version)."""
-        url = base_url or str(self._policy.navigation.base_url)
+        """Navigate to URL (sync version).
+        
+        Args:
+            base_url: Target URL to load
+            query: Search query (optional, for search method)
+            params: Additional URL parameters (optional)
+        
+        Returns:
+            Final loaded URL
+        """
+        # Detail 크롤링: base_url을 직접 사용
+        if not self._policy.navigation:
+            self._driver.get(base_url)
+            self._current_url = base_url
+            return base_url
+        
+        # Search 크롤링: navigation policy로 URL 구성
         url = self._build_url(page=self._policy.navigation.start_page, query=query, extra=params)
-        self._driver.get(url)  # Direct call
+        self._driver.get(url)
         self._current_url = url
         return url
 
@@ -156,8 +201,4 @@ class SyncNavigator:
         return self._driver.execute_js(script)  # Direct call
 
 
-# ============================================================================
-# Backward compatibility aliases
-# ============================================================================
-SeleniumNavigator = AsyncNavigator  # Old name
-Navigator = AsyncNavigator  # Generic alias
+

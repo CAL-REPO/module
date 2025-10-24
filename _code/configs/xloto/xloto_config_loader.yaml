@@ -1,143 +1,121 @@
+﻿# ============================================================
+# ConfigLoader for XLOTO Pipeline
 # ============================================================
-# ConfigLoaderPolicy - XLOTO Pipeline Configuration
-# ============================================================
-xloto_cfg_loader:
 
-  source:
-    # Excel 설정
-    - src: ["{{configs_xloto_dir}}/excel.yaml", "excel"]
-      yaml_parser:
-        safe_mode: true
-        encoding: "utf-8"
-        enable_env: true              # ✅ 환경변수 resolving 활성화
-        enable_include: true
-        enable_placeholder: true
-        enable_reference: true
-      
-      yaml_normalizer:
-        normalize_keys: true
-        drop_blanks: true
-        resolve_vars: true
-      
-      yaml_merge:
-        deep: true
-        overwrite: true
+source:
+  # 1. XlOtoPolicy 설정 (Filter/Paths/Log 정책)
+  - src: ["{{configs_xloto_dir}}/xloto.yaml", "xloto"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
 
-    # OTO - Image (ImageLoad Adapter Policy)
-    - src: ["{{configs_xloto_dir}}/image.yaml", "image_load"]
-      yaml_parser:
-        safe_mode: true
-        encoding: "utf-8"
-        enable_env: true              # ✅ 환경변수 resolving 활성화
-        enable_include: true
-        enable_placeholder: true
-        enable_reference: true
-      
-      yaml_normalizer:
-        normalize_keys: true
-        drop_blanks: true
-        resolve_vars: true
-      
-      yaml_merge:
-        deep: true
-        overwrite: true
+  # 2. ExcelLoader EntryPoint 설정
+  - src: ["{{configs_xloto_dir}}/xloto_excel_loader.yaml", "xloto_excel_loader"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
 
-    # OTO - Text Recognize (OCR Adapter Policy)
-    - src: ["{{configs_xloto_dir}}/text_recognize.yaml", "text_recognize"]
-      yaml_parser:
-        safe_mode: true
-        encoding: "utf-8"
-        enable_env: true              # ✅ 환경변수 resolving 활성화
-        enable_include: true
-        enable_placeholder: true
-        enable_reference: true
-      
-      yaml_normalizer:
-        normalize_keys: true
-        drop_blanks: true
-        resolve_vars: true
-      
-      yaml_merge:
-        deep: true
-        overwrite: true
+  # 3. ImageLoader EntryPoint 설정
+  - src: ["{{configs_xloto_dir}}/xloto_image_loader.yaml", "xloto_image_loader"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
 
-    # OTO - Translate (Translate Adapter Policy)
-    - src: ["{{configs_xloto_dir}}/translate.yaml", "translate"]
-      yaml_parser:
-        safe_mode: true
-        encoding: "utf-8"
-        enable_env: true              # ✅ 환경변수 resolving 활성화
-        enable_include: true
-        enable_placeholder: true
-        enable_reference: true
-      
-      yaml_normalizer:
-        normalize_keys: true
-        drop_blanks: true
-        resolve_vars: true
-      
-      yaml_merge:
-        deep: true
-        overwrite: true
+  # 4. ImageTextRecognizer EntryPoint 설정
+  - src: ["{{configs_xloto_dir}}/xloto_image_text_recognizer.yaml", "xloto_image_text_recognizer"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
 
-    # OTO - Overlay (Overlay Adapter Policy)
-    - src: ["{{configs_xloto_dir}}/overlay.yaml", "overlay"]
-      yaml_parser:
-        safe_mode: true
-        encoding: "utf-8"
-        enable_env: true              # ✅ 환경변수 resolving 활성화
-        enable_include: true
-        enable_placeholder: true
-        enable_reference: true
-      
-      yaml_normalizer:
-        normalize_keys: true
-        drop_blanks: true
-        resolve_vars: true
-      
-      yaml_merge:
-        deep: true
-        overwrite: true
+  # 5. Translate EntryPoint 설정
+  - src: ["{{configs_xloto_dir}}/xloto_translate.yaml", "xloto_translate"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 6. ImageOverlayer EntryPoint 설정
+  - src: ["{{configs_xloto_dir}}/xloto_image_overlayer.yaml", "xloto_image_overlayer"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
 
 keypath:
   separator: "__"
 
 log:
-  enabled: true
-  name: "log_xloto_cfg_loader"
-  level: "INFO"
+  enabled: false
+  name: xloto_cfg_loader
+  level: INFO
   sinks:
-    - sink_type: "file"
-      file_path: "${logs_dir}/xloto_cfg_loader/_{time:YYYY-MM-DD}.log"
-      level: "INFO"
-      format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-      rotation: Optional[Union[str, int]] = "10 MB"
-      retention: Optional[Union[str, int]] = "7 days"
-      compression: Optional[str] = None
-      enqueue: bool = True
-      serialize: bool = False
-      backtrace: bool = True
-      diagnose: bool = True
-      colorize: bool = True
-      catch: bool = True
+    - sink_type: console
+      level: INFO
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+      colorize: true
+      enqueue: true
   context: {}
-
-# BaseModel 정책
-# base_model_normalizer:
-#   normalize_keys: true
-#   drop_blanks: false
-#   resolve_vars: false
-
-# base_model_merge:
-#   deep: false
-#   overwrite: false
-
-# # Dict 정책
-# dict_normalizer:
-#   normalize_keys: true
-#   drop_blanks: true
-#   resolve_vars: false
-
-# dict_merge:
-#   deep: false
-#   overwrite: true

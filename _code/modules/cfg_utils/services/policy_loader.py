@@ -41,7 +41,8 @@ class PolicyLoader:
     @staticmethod
     def load_from_yaml(
         config_path: Union[str, Path, tuple[Union[str, Path], str]],
-        placeholder_enabled: bool = False
+        placeholder_enabled: bool = False,
+        env_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """ConfigLoader 정책 파일 로드.
         
@@ -52,6 +53,7 @@ class PolicyLoader:
             placeholder_enabled: Placeholder 해석 활성화 여부
                 - False: env가 아직 없어서 빈 문자열로 해석되는 것 방지
                 - True: env context가 준비된 경우에만 사용
+            env_context: Placeholder 해석용 context (env_os 처리 결과)
         
         Returns:
             정책 dict
@@ -66,6 +68,14 @@ class PolicyLoader:
             >>> # Section만 로드
             >>> policy_dict = PolicyLoader.load_from_yaml(
             ...     ("config_loader.yaml", "default")
+            ... )
+            
+            >>> # env_context와 함께 사용
+            >>> env_context = {"temp_input_dir": "M:/path/to/input/temp"}
+            >>> policy_dict = PolicyLoader.load_from_yaml(
+            ...     "config_loader.yaml",
+            ...     placeholder_enabled=True,
+            ...     env_context=env_context
             ... )
         """
         if config_path is None:
@@ -89,11 +99,11 @@ class PolicyLoader:
         # YAML 파일 로드
         from ..core.policy import SourcePolicy, NormalizePolicy
         from modules.structured_io.core.policy import BaseParserPolicy
-        from .source import YamlFileSource
         
         # Placeholder 해석 제어 (기본적으로 비활성화)
         yaml_policy = SourcePolicy(
             src=file_path,
+            context=env_context if env_context else {},
             yaml_parser=BaseParserPolicy(
                 safe_mode=True,
                 encoding="utf-8",
@@ -108,7 +118,14 @@ class PolicyLoader:
                 resolve_vars=False  # Placeholder와 함께 제어
             )
         )
-        source = YamlFileSource(file_path, section=section, policy=yaml_policy)
+        from .source import UnifiedSource
+        source_policy = SourcePolicy(
+            src=(file_path, section) if section else file_path,
+            context=env_context if env_context else {},
+            yaml_parser=yaml_policy.yaml_parser,
+            yaml_normalizer=yaml_policy.yaml_normalizer
+        )
+        source = UnifiedSource(source_policy)
         kpd = source.extract()
         
         return kpd.data

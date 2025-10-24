@@ -6,28 +6,31 @@ from __future__ import annotations
 import xlwings as xw
 from pathlib import Path
 from typing import Optional, Union
-from fso_utils import FSOOpsPolicy, ExistencePolicy, FSOOps
-from xl_utils.core.policy import XwWbPolicy
+from fso_utils import FSOOps
+from xl_utils.core.policy import PathValidationPolicy, SavePolicy
+from xl_utils.core.save_helper import SavePolicyHelper
 from xl_utils.services.save_manager import XwSaveManager
 
 
 class XwWbPathResolver:
-    """Workbook 경로 확인 및 생성 전담"""
+    """Workbook 경로 확인 및 생성 전담 (PathValidationPolicy 사용)"""
     
-    def __init__(self, path: Path, policy: XwWbPolicy):
+    def __init__(
+        self,
+        path: Path,
+        path_validation: Optional[PathValidationPolicy] = None
+    ):
         self.path = path
-        self.policy = policy
+        self.path_validation = path_validation
     
     def resolve(self) -> Path:
-        """정책 기반 경로 확인 및 생성"""
-        fso_policy = FSOOpsPolicy(
-            exist=ExistencePolicy(
-                must_exist=self.policy.must_exist,
-                create_if_missing=self.policy.create_if_missing,
-            )
-        )
-        fso = FSOOps(self.path, policy=fso_policy)
-        return fso.path
+        """PathValidationPolicy 기반 경로 확인 및 생성"""
+        if self.path_validation:
+            fso = FSOOps(self.path, policy=self.path_validation.fso)
+            return fso.path
+        else:
+            # 정책 없으면 단순 resolve
+            return self.path.resolve()
 
 
 class XwWb:
@@ -38,14 +41,25 @@ class XwWb:
         app: xw.App,
         path: Optional[Union[str, Path]] = None,
         *,
-        policy: Optional[XwWbPolicy] = None,
+        path_validation: Optional[PathValidationPolicy] = None,
+        save_policy: Optional[SavePolicy] = None,
     ):
         self.app = app
         self.path = Path(path).expanduser().resolve() if path else None
-        self.policy = policy or XwWbPolicy()
+        self.path_validation = path_validation
+        self.save_policy = save_policy
         self.book: Optional[xw.Book] = None
         self.save_manager = XwSaveManager(app)
-        self.path_resolver = XwWbPathResolver(self.path, self.policy) if self.path else None
+        
+        # PathResolver 생성
+        if self.path:
+            self.path_resolver = XwWbPathResolver(
+                self.path,
+                path_validation=self.path_validation
+            )
+        else:
+            self.path_resolver = None
+        
         self._context_managed = False
     
     def open(self) -> xw.Book:
@@ -72,12 +86,17 @@ class XwWb:
         return self.book.fullname
     
     def close(self, save: Optional[bool] = None):
-        """워크북 닫기 (정책 기반 자동 저장 지원)"""
+        """워크북 닫기 (SavePolicy 기반 저장)
+        
+        우선순위:
+        1. 명시적 save 인자
+        2. SavePolicy
+        """
         if not self.book:
             return
         
-        # 저장 여부 결정
-        do_save = save if save is not None else self.policy.auto_save
+        # SavePolicyHelper로 저장 결정
+        do_save = SavePolicyHelper.should_save("close", self.save_policy, save)
         
         if do_save:
             self.save_manager.save_workbook(self.book)
@@ -102,7 +121,9 @@ class XwWb:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager 종료 - auto_save 정책에 따라 저장 후 닫기"""
+        """Context manager 종료 - SavePolicy에 따라 저장 후 닫기"""
         if self.book:
-            self.close(save=self.policy.auto_save)
+            # SavePolicyHelper로 저장 결정
+            do_save = SavePolicyHelper.should_save("close", self.save_policy)
+            self.close(save=do_save)
         return None

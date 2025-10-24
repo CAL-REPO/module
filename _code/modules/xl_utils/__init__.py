@@ -5,60 +5,95 @@ Excel automation and worksheet utilities for data extraction and manipulation.
 Exports only intended API.
 
 Main Components:
-- XlController: Main entrypoint (translate_utils.Translator pattern)
-- XlWorkflow: Excel workflow orchestration (App → Wb → Ws lifecycle management)
-- XlPolicyManager: Unified policy management
-- XwWs: Worksheet services (cell manipulation via xlwings)
+- ExcelLoader: Main entrypoint (ImageLoader pattern)
+- ExcelLoad: Adapter for pure Excel logic
 
 비즈니스 로직 (DataFrame 처리 등)은 사용자 단에서 수행
 xl_utils는 Excel 파일 접근 및 셀 조작만 담당
 
 다른 모듈에서 재사용:
-    >>> from xl_utils import XlController
-    >>> from cfg_utils import ConfigLoader
+    >>> from xl_utils import ExcelLoader
     >>> 
-    >>> # ConfigLoader로 설정 로드
-    >>> config = ConfigLoader(src=("configs/excel.yaml", "excel"))
-    >>> excel_config = config.to_dict()
-    >>> 
-    >>> # XlController에 주입
-    >>> with XlController(cfg_like=excel_config) as xl:
+    >>> # From YAML config
+    >>> with ExcelLoader("configs/excel_loader.yaml") as xl:
     ...     ws = xl.get_worksheet()
-    ...     df = ws.to_dataframe()
+    ...     ws.cell_ops.write(1, 1, "Title")
+    
+    >>> # Direct adapter usage (advanced)
+    >>> from xl_utils import ExcelLoad
+    >>> excel_load = ExcelLoad("configs/excel_load.yaml")
+    >>> with excel_load:
+    ...     ws = excel_load.get_worksheet("data.xlsx", "Sheet1")
 """
 from .core.policy import (
-    XlPolicyManager,
+    # New Policies (Adapter vs EntryPoint pattern)
+    ExcelLoadPolicy,
+    ExcelLoaderPolicy,
+    
+    # Sub-policies
     XwAppPolicy,
-    XwLifecyclePolicy,
-    XwWbPolicy,
-    XwWsPolicy,
-    LogConfig,
-    TargetConfig,
+    SourceConfig,  # 변경: TargetConfig → SourceConfig
+    SheetConfig,   # 신규 추가
+    
+    # Unified Policies
+    SavePolicy,
+    PerformancePolicy,
+    ErrorHandlingPolicy,
+    PathValidationPolicy,
 )
+
+# Adapter (비즈니스 로직, source 없음)
+from .adapter import ExcelLoad
+
+# EntryPoint (외부 진입점, source 포함)
+from .entry_point import ExcelLoader
+
+# Services (low-level)
 from .services.xw_app import XwApp
 from .services.xw_wb import XwWb
 from .services.xw_ws import XwWs
 from .services.save_manager import XwSaveManager
-from .services.workflow import XlWorkflow
-from .entry_point.xl_controller import XlController
+from .services.column_resolver import ColumnResolver
+
+# Core helpers
+from .core.save_helper import SavePolicyHelper
+
+# Presets
+from .presets import get_preset, PRESETS
 
 __all__ = [
-    # Main API
-    "XlController",
-    "XlWorkflow",
+    # Adapter (비즈니스 로직, source 없음)
+    "ExcelLoad",
     
-    # Policy
-    "XlPolicyManager",
+    # EntryPoint (외부 진입점, source 포함)
+    "ExcelLoader",
+    
+    # New Policies (Adapter vs EntryPoint pattern)
+    "ExcelLoadPolicy",
+    "ExcelLoaderPolicy",
+    
+    # Sub-policies
     "XwAppPolicy",
-    "XwLifecyclePolicy",
-    "XwWbPolicy",
-    "XwWsPolicy",
-    "LogConfig",
-    "TargetConfig",
+    "SourceConfig",  # 변경: TargetConfig → SourceConfig
+    "SheetConfig",   # 신규 추가
+    
+    # Unified Policies
+    "SavePolicy",
+    "PerformancePolicy",
+    "ErrorHandlingPolicy",
+    "PathValidationPolicy",
     
     # Services (low-level)
     "XwApp",
     "XwWb",
     "XwWs",
     "XwSaveManager",
+    "ColumnResolver",
+    
+    # Core helpers
+    "SavePolicyHelper",
+    
+    # Presets
+    "get_preset",
+    "PRESETS",
 ]

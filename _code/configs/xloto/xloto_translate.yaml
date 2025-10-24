@@ -1,7 +1,7 @@
 # ============================================================================
 # Translation Configuration - OTO
 # ============================================================================
-# OTO 파이프라인에서 사용하는 Translator 설정
+# OTO 파이프라인에서 사용하는 Translate Adapter 설정
 # 필수 항목만 활성화, 고급 옵션은 주석 처리
 
 xloto_translate:
@@ -36,31 +36,24 @@ xloto_translate:
   # --------------------------------------------------------------------------
   store:
     save_db: true                       # SQLite 캐시 사용
-    db_dir: "${db_dir}"         # DB 저장 디렉토리
+    db_dir: "{{db_dir}}"         # DB 저장 디렉토리
     db_name: "translate_cache.sqlite3"
     save_tr: true                       # JSON 저장 활성화
-    tr_dir: "${configs_xloto_product_detail_base_dir}"         # JSON 저장 디렉토리
+    tr_dir: "{{configs_xloto_product_detail_base_dir}}"         # JSON 저장 디렉토리
     tr_name: "translated_text.json"
 
   # --------------------------------------------------------------------------
-  # 5. Log - 로그 설정
+  # 5. Log - Translate Adapter 로그 (Dual Logging - Secondary)
   # --------------------------------------------------------------------------
-log:
-  enabled: true
-  name: "log_xloto_translate"
-  level: "INFO"
-  sinks:
-    - sink_type: "file"
-      file_path: "${logs_dir}/xloto_translate/_{time:YYYY-MM-DD}.log"
-      level: "INFO"
-      format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-      rotation: Optional[Union[str, int]] = "10 MB"
-      retention: Optional[Union[str, int]] = "7 days"
-      compression: Optional[str] = None
-      enqueue: bool = True
-      serialize: bool = False
-      backtrace: bool = True
-      diagnose: bool = True
-      colorize: bool = True
-      catch: bool = True
-  context: {}
+  log:
+    enabled: true
+    name: "xloto_translate_adapter"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto/xloto_translate_adapter_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "7 days"
+        enqueue: true

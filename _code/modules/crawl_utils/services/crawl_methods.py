@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from loguru import Logger
     from ..core.policy import CrawlPolicy
     from .navigator import SyncNavigator
-    from .sync_extractor import SyncDOMExtractor, SyncJSExtractor
+    from .extractor import SyncDOMExtractor, SyncJSExtractor
 
 
 # ============================================================================

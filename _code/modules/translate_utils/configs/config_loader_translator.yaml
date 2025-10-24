@@ -1,63 +1,64 @@
 # ============================================================
-# ConfigLoaderPolicy - src 포함 테스트
+# ConfigLoader for Translator EntryPoint Testing
 # ============================================================
-translate_cfg_loader:
-  # src에 YAML 파일 경로 지정 (정적 설정)
-  src: ["M:/CALife/CAShop - 구매대행/_code/modules/translate_utils/configs/translate.yaml", translate]
-  # YAML 정책
-  yaml_parser:
-    safe_mode: true
-    encoding: "utf-8"
-    enable_env: true
-    enable_include: true
-    enable_placeholder: true
-    enable_reference: true
-  
-  yaml_normalizer:
-    normalize_keys: true
-    drop_blanks: false
-    resolve_vars: true
-  
-  yaml_merge:
-    deep: true
-    overwrite: true
-  
-  # BaseModel 정책
-  base_model_normalizer:
-    normalize_keys: true
-    drop_blanks: false
-    resolve_vars: false
-  
-  base_model_merge:
-    deep: false
-    overwrite: false
-  
-  # Dict 정책
-  dict_normalizer:
-    normalize_keys: true
-    drop_blanks: true
-    resolve_vars: false
-  
-  dict_merge:
-    deep: false
-    overwrite: true
+# 목적: Translator EntryPoint 단위 테스트용 ConfigLoader 설정
+# 대상: translator.yaml (EntryPoint Policy - source 포함)
+# 네이밍 규칙: config_loader_{entrypoint_name}.yaml
+
+source:
+  # Translator EntryPoint Policy 로드
+  - src: ["{{modules_dir}}/translate_utils/configs/translator.yaml", "translator"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true              # ✅ 환경변수 resolving 필수!
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: false
+      resolve_vars: true
+    
+    yaml_merge:
+      deep: true
+      overwrite: true
+    
+    # BaseModel 정책
+    base_model_normalizer:
+      normalize_keys: true
+      drop_blanks: false
+      resolve_vars: false
+    
+    base_model_merge:
+      deep: false
+      overwrite: false
+    
+    # Dict 정책
+    dict_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: false
+    
+    dict_merge:
+      deep: false
+      overwrite: true
 
 keypath:
   separator: "__"
+
 # --------------------------------------------------------------------------
-# 5. Log - 로그 설정 (ImageOCR과 동일)
+# Log - 로그 설정
 # --------------------------------------------------------------------------
 log:
-  enabled: false             # 로깅 활성화 여부
-  name: base                 # 로거 이름
-  level: INFO                # 로그 레벨
-  sinks:                     # Sink 리스트
-    - sink_type: console     # Console sink
+  enabled: false             # 로깅 활성화 여부 (테스트용으로 false)
+  name: config_loader_translator
+  level: INFO
+  sinks:
+    - sink_type: console
       level: INFO
       format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
       colorize: true
       enqueue: true
-      backtrace: true
-      diagnose: true
-      catch: true
-  context: {}                # 추가 컨텍스트
+  context: {}

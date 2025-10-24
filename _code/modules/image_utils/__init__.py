@@ -37,10 +37,11 @@ from .services.io import ImageReader, ImageWriter
 from .services.processor import ImageProcessor
 from .services.renderer import OverlayTextRenderer
 
-# Entry points (services → entry points로 변경)
-from .entry_point.loader import ImageLoader
-from .entry_point.text_recognizer import ImageTextRecognizer
-from .entry_point.overlayer import ImageOverlayer
+# Adapters (비즈니스 로직, source 없음)
+from .adapter import ImageLoad, ImageOverlay, ImageTextRecognize
+
+# Entry points (외부 진입점, source 포함)
+from .entry_point import ImageLoader, ImageOverlayer, ImageTextRecognizer
 
 # Image downloader (동기 HTTP 다운로드)
 from .services.image_downloader import ImageDownloader, ImageDownloadPolicy, download_images
@@ -83,7 +84,12 @@ __all__ = [
     "ImageProcessor",
     "OverlayTextRenderer",
     
-    # Entrypoints
+    # Adapters (비즈니스 로직, source 없음)
+    "ImageLoad",
+    "ImageOverlay",
+    "ImageTextRecognize",
+    
+    # Entrypoints (외부 진입점, source 포함)
     "ImageLoader",
     "ImageTextRecognizer",
     "ImageOverlayer",

@@ -1,0 +1,53 @@
+# =============================================================================
+# 기본 설정 (균형잡힌 옵션)
+# =============================================================================
+# 성능과 안정성의 균형
+# 일반적인 용도로 사용
+
+xw_app:
+  visible: true              # Excel 창 보임
+  add_book: false
+  display_alerts: true
+  screen_updating: true
+
+performance:
+  screen_updating: true
+  display_alerts: true
+  calculation: "auto"        # 자동 계산
+  enable_events: true
+  interactive: true
+  clear_clipboard: false
+
+save:
+  strategy: "on_exit"        # 종료 시 저장
+
+error_handling:
+  on_file_not_found: "error" # 엄격한 에러 처리
+  on_sheet_not_found: "error"
+  on_save_error:
+    action: "error"
+
+path_validation:
+  fso:
+    as_type: "file"
+    exist:
+      must_exist: true
+      create_if_missing: false
+      overwrite: false
+  template_path: null
+  backup_if_exists: false
+
+log:
+  enabled: true
+  name: "xl_utils"
+  level: "INFO"              # 일반 로그
+  sinks:
+    - sink_type: "console"
+      level: "INFO"
+  context: {}
+
+# 사용 예:
+# excel_load = ExcelLoad("excel_load_standard.yaml")
+# with excel_load:
+#     ws = excel_load.get_worksheet("data.xlsx", "Sheet1")
+#     ws.cell_ops.write(1, 1, "Data")

@@ -54,7 +54,7 @@ class WebDriverManager:
     
     def __init__(
         self,
-        cfg_like: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like: Union[WebDriverManagerPolicy, Path, str, dict, None] = None,
         *,
         log_manager: Optional[LogManager] = None,
         **overrides: Any
@@ -92,11 +92,11 @@ class WebDriverManager:
         Returns:
             WebDriverManagerPolicy instance
         """
-        return ConfigLikeLoader.load_with_caller_path(
+        return ConfigLikeLoader.load(
             cfg_like=cfg_like,
             policy_class=WebDriverManagerPolicy,
-            caller_file=__file__,
-            default_config_filename="webdriver.yaml",
+            module_file=__file__,
+            config_filename="webdriver_manager.yaml",
             **overrides
         )  # type: ignore
     

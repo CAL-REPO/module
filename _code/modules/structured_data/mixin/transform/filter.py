@@ -64,6 +64,125 @@ class FilterMixin(BaseOperationsMixin):
         mask = df.apply(func, axis=1)
         return df[mask]
     
+    def filter_df_with_indices(
+        self,
+        df: pd.DataFrame,
+        condition: str | Callable[[pd.Series], bool]
+    ) -> tuple[pd.DataFrame, list[int]]:
+        """Filter DataFrame rows and return filtered DataFrame with row indices.
+        
+        Args:
+            df: Input DataFrame.
+            condition: Query string or callable predicate.
+        
+        Returns:
+            Tuple of (filtered DataFrame, list of original row indices - 0-based integer positions)
+        
+        Example:
+            >>> # Using query string
+            >>> filtered_df, row_indices = ops.filter_df_with_indices(df, "age > 30")
+            >>> print(row_indices)  # [0, 5, 8, 12, ...]
+            
+            >>> # Using callable
+            >>> filtered_df, row_indices = ops.filter_df_with_indices(
+            ...     df, 
+            ...     lambda row: row['price'] > 1000
+            ... )
+        """
+        import pandas as pd
+        import numpy as np
+        
+        if isinstance(condition, str):
+            # Query string
+            mask_result = df.eval(condition)
+        elif callable(condition):
+            # Callable predicate
+            mask_result = df.apply(condition, axis=1)
+        else:
+            raise ValueError("condition must be query string or callable")
+        
+        # Ensure mask is a boolean Series
+        if isinstance(mask_result, pd.Series):
+            mask = mask_result.astype(bool)
+        elif isinstance(mask_result, np.ndarray):
+            mask = pd.Series(mask_result, index=df.index).astype(bool)
+        else:
+            raise TypeError(f"Unexpected mask type: {type(mask_result)}")
+        
+        # Get integer positions (0-based row numbers)
+        integer_positions: list[int] = []
+        for i in range(len(df)):
+            try:
+                if bool(mask.iloc[i]):  # type: ignore
+                    integer_positions.append(i)
+            except (IndexError, KeyError):
+                continue
+        
+        filtered_df = df[mask].copy()
+        
+        return filtered_df, integer_positions
+    
+    def filter_df_with_cell_positions(
+        self,
+        df: pd.DataFrame,
+        condition: str | Callable[[pd.Series], bool],
+        column: str | int
+    ) -> tuple[pd.DataFrame, list[tuple[int, int]], list[Any]]:
+        """Filter DataFrame rows and return cell positions and values for specific column.
+        
+        Args:
+            df: Input DataFrame.
+            condition: Query string or callable predicate for row filtering.
+            column: Column name (str) or column index (int) to extract values from.
+        
+        Returns:
+            Tuple of:
+            - filtered DataFrame
+            - list of (row_index, column_index) tuples (0-based integer positions)
+            - list of cell values from the specified column
+        
+        Example:
+            >>> # Extract CAS No column values with positions
+            >>> filtered_df, positions, values = ops.filter_df_with_cell_positions(
+            ...     df, 
+            ...     "download.notna() & translation.isna()",
+            ...     "cas"
+            ... )
+            >>> print(positions)  # [(2, 3), (5, 3), (8, 3), ...]
+            >>> print(values)     # ['123-45-6', '789-01-2', ...]
+            
+            >>> # Using column index
+            >>> filtered_df, positions, values = ops.filter_df_with_cell_positions(
+            ...     df,
+            ...     lambda row: row['price'] > 1000,
+            ...     2  # column index
+            ... )
+        """
+        # First, filter rows
+        filtered_df, row_indices = self.filter_df_with_indices(df, condition)
+        
+        # Get column index as integer
+        if isinstance(column, str):
+            col_idx_result = df.columns.get_loc(column)
+            # get_loc might return int, slice, or array
+            if isinstance(col_idx_result, int):
+                col_index = col_idx_result
+            else:
+                # If it's a slice or array, take the first element
+                raise ValueError(f"Column '{column}' resolved to non-integer index: {col_idx_result}")
+        else:
+            col_index = int(column)
+        
+        # Extract cell positions and values
+        positions: list[tuple[int, int]] = []
+        values: list[Any] = []
+        
+        for row_idx in row_indices:
+            positions.append((row_idx, col_index))
+            values.append(df.iloc[row_idx, col_index])
+        
+        return filtered_df, positions, values
+    
     def filter_df_columns(
         self, 
         df: pd.DataFrame, 

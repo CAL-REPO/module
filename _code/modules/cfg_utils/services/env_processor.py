@@ -22,7 +22,6 @@ from typing import Any, Dict, List, Optional, Union
 from modules.keypath_utils import KeyPathState, KeyPathMerger, KeyPathMergePolicy, KeyPathDict
 from modules.data_utils.core.types import PathLike
 
-from .source import YamlFileSource
 from .env_os_loader import EnvOSLoader
 
 
@@ -50,7 +49,7 @@ class EnvProcessor:
     def __init__(
         self,
         env: Optional[Union[str, List[str], PathLike, List[PathLike]]] = None,
-        env_os: Optional[Union[bool, List[str]]] = None,
+        env_os: Optional[List[str]] = None,
     ):
         """초기화.
         
@@ -199,7 +198,9 @@ class EnvProcessor:
             path = Path(env_item)
             if path.exists() and path.suffix in [".yaml", ".yml"]:
                 # YAML 파일 파싱
-                source = YamlFileSource(path, section=None)
+                from .source import UnifiedSource, SourcePolicy
+                source_policy = SourcePolicy(src=path)
+                source = UnifiedSource(source_policy)
                 kpd = source.extract()
                 return kpd.data
             
@@ -218,7 +219,9 @@ class EnvProcessor:
             if not env_item.exists():
                 raise FileNotFoundError(f"Env file not found: {env_item}")
             
-            source = YamlFileSource(env_item, section=None)
+            from .source import UnifiedSource, SourcePolicy
+            source_policy = SourcePolicy(src=env_item)
+            source = UnifiedSource(source_policy)
             kpd = source.extract()
             return kpd.data
         

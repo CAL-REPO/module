@@ -20,7 +20,7 @@ class FSONamePolicy(BaseModel):
 
     delimiter: str = Field("_", description="Delimiter when joining parts")
     tail_mode: Optional[str] = Field(
-        None, description="Auto tail mode: date|datetime|counter|datetime_counter"
+        None, description="Auto tail mode: date|datetime|counter|counter_datetime|datetime_counter"
     )
     date_format: str = Field("%Y-%m-%d", description="strftime pattern for date tails")
     counter_width: int = Field(3, ge=1)

@@ -1,0 +1,58 @@
+# ============================================================================
+# ImageOverlay Adapter - XLOTO Configuration
+# ============================================================================
+# XLOTO 파이프라인에서 사용하는 ImageOverlay Adapter 설정
+# Adapter Policy만 포함
+
+# --------------------------------------------------------------------------
+# ImageOverlay Adapter Policy
+# --------------------------------------------------------------------------
+image_overlay:
+  # Global Font Settings
+  font:
+    font_dir: "{{fonts_dir}}"
+    family: "HMKMMAG.TTF"
+    fill: "#000000"
+    stroke_fill: "#FFFFFF"
+    stroke_width: 3
+  
+  # Opacity 설정
+  mask_opacity: 0.5
+  background_opacity: 1.0
+  
+  # Items는 런타임에서 전달
+  items: []
+  
+  # Save - 이미지 저장 정책
+  save:
+    save_copy: true
+    directory: "{{logs_dir}}"
+    name:
+      suffix: "_xloto_overlay"
+      extension: ".jpg"
+      tail_mode: "counter"
+      ensure_unique: true
+    quality: 95
+
+  # Meta - 메타데이터 저장 정책
+  meta:
+    save_meta: false
+    directory: "{{logs_dir}}"
+    name:
+      suffix: "_xloto_overlay_meta"
+      extension: ".json"
+      ensure_unique: false
+    ops:
+      exist:
+        create_if_missing: true
+        overwrite: true
+
+  # Log - 로그 설정
+  log:
+    enabled: false
+    name: "xloto_overlay_module"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto/overlay_module_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"

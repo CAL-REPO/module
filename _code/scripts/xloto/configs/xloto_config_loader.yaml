@@ -1,0 +1,107 @@
+﻿# ============================================================
+# ConfigLoader for XLOTO Pipeline
+# ============================================================
+# OTO 패턴: Adapter Policy만 로드
+
+source:
+  # 1. XlOtoPolicy 설정 (Filter/Paths/Log)
+  - src: ["{{scripts_xloto_dir}}/configs/xloto_xloto.yaml", "xloto"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 2. ImageLoad Adapter Policy
+  - src: ["{{scripts_xloto_dir}}/configs/xloto_image_load.yaml", "image_load"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 3. ImageTextRecognize Adapter Policy
+  - src: ["{{scripts_xloto_dir}}/configs/xloto_image_text_recognize.yaml", "image_text_recognize"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 4. Translate Adapter Policy
+  - src: ["{{scripts_xloto_dir}}/configs/xloto_translate.yaml", "translate"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 5. ImageOverlay Adapter Policy
+  - src: ["{{scripts_xloto_dir}}/configs/xloto_image_overlay.yaml", "image_overlay"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+keypath:
+  separator: "__"
+
+log:
+  enabled: true
+  name: xloto_cfg_loader
+  level: INFO
+  sinks:
+    - sink_type: "file"
+      file_path: "{{logs_dir}}/xloto/config_loader_{time:YYYY-MM-DD}.log"
+      level: INFO
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+      rotation: "10 MB"
+      retention: "7 days"
+      enqueue: true
+  context: {}

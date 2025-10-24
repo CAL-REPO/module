@@ -1,0 +1,126 @@
+# ============================================================================
+# ImageOverlay (Adapter) - Complete Configuration Example
+# ============================================================================
+# ImageOverlay Adapter 전용 설정 파일
+# Adapter는 순수 로직 + save + meta 담당 (모든 기능)
+# source 없이 Image 객체를 받아서 처리합니다.
+
+# --------------------------------------------------------------------------
+# ImageOverlay Adapter Policy
+# --------------------------------------------------------------------------
+image_overlay:
+  # --------------------------------------------------------------------------
+  # 1. Items - 텍스트 오버레이 목록
+  # --------------------------------------------------------------------------
+  items:
+    - text: "Hello World"               # 오버레이할 텍스트
+      polygon:                          # 다각형 좌표 [(x,y), ...]
+        - [10, 10]
+        - [200, 10]
+        - [200, 50]
+        - [10, 50]
+      
+      # 폰트 설정 (FontPolicy 필드만)
+      font:
+        family: "NanumGothic"           # 폰트 패밀리 또는 경로 (None = Pillow 기본)
+        size: 24                        # 폰트 크기 (픽셀 단위, None = auto-fit)
+        fill: "#FFFFFF"                 # 텍스트 색상 (hex)
+        stroke_fill: "#000000"          # 외곽선 색상 (None = 외곽선 없음)
+        stroke_width: 2                 # 외곽선 두께 (픽셀)
+      
+      # 텍스트 배치 설정
+      anchor: "mm"                      # PIL 앵커: mm(중앙), lt(왼쪽상단) 등
+      offset: [0.0, 0.0]                # 위치 오프셋 [dx, dy]
+      max_width_ratio: 0.95             # bbox 내 최대 텍스트 너비 비율
+    
+    - text: "Second Text"
+      polygon:
+        - [50, 100]
+        - [300, 100]
+        - [300, 150]
+        - [50, 150]
+      font:
+        family: "Arial"
+        size: 18
+        fill: "#0000FF"                 # 파란색
+        stroke_fill: "#FFFFFF"          # 흰색 외곽선
+        stroke_width: 1
+      anchor: "lt"                      # 왼쪽 상단
+      offset: [5.0, 5.0]
+      max_width_ratio: 0.9
+  
+  # --------------------------------------------------------------------------
+  # 2. Font - 전역 폰트 설정 (개별 item이 font 미설정 시 사용)
+  # --------------------------------------------------------------------------
+  font:
+    family: "NanumGothic"
+    size: 20
+    fill: "#FFFFFF"
+    stroke_fill: "#000000"
+    stroke_width: 2
+  
+  # --------------------------------------------------------------------------
+  # 3. Mask Opacity - 전역 마스킹 투명도
+  # --------------------------------------------------------------------------
+  mask_opacity: 1.0                     # 개별 item이 mask_opacity 미설정 시 사용
+  
+  # --------------------------------------------------------------------------
+  # 4. Background Opacity - 배경 투명도
+  # --------------------------------------------------------------------------
+  background_opacity: 1.0               # 전체 배경 투명도 (0.0-1.0)
+
+  # --------------------------------------------------------------------------
+  # 5. Save - 이미지 저장 정책
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true
+    directory: null  # null이면 downloads()
+    name:
+      as_type: file
+      suffix: _overlay
+      tail_mode: counter
+      ensure_unique: true
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+    format: null
+    quality: 95
+
+  # --------------------------------------------------------------------------
+  # 6. Meta - 메타데이터 저장 정책
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true
+    directory: null
+    name:
+      as_type: file
+      suffix: _meta
+      extension: .json
+      ensure_unique: false
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+        overwrite: true
+      ext:
+        default_ext: .json
+
+  # --------------------------------------------------------------------------
+  # 7. Log - 로깅 설정 (Dual Logging 지원)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true
+    name: 'image_overlay_module'
+    level: 'DEBUG'
+    sinks:
+      - sink_type: 'file'
+        file_path: 'logs/modules/image_overlay_{time:YYYY-MM-DD}.log'
+        level: 'DEBUG'
+        format: '<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
+        rotation: '5 MB'
+        retention: '3 days'
+        enqueue: true
+      - sink_type: 'console'
+        level: 'DEBUG'
+        colorize: true

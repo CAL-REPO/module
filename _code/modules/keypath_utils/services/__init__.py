@@ -8,7 +8,7 @@ KeyPath 관련 서비스 모듈.
 
 from .resolver import KeyPathVarsResolver
 from .state import KeyPathState
-from .dict import KeyPathDict, expand_overrides
+from .dict import KeyPathDict
 from .normalizer import KeyPathNormalizer
 from .merger import KeyPathMerger, KeyPathMergePolicy
 
@@ -23,7 +23,6 @@ __all__ = [
     "KeyPathNormalizer",
     "KeyPathMerger",
     "KeyPathMergePolicy",
-    "expand_overrides",
     
     # Backward compatibility
     "KeyPathModel",

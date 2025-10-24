@@ -40,6 +40,13 @@ class FSONameBuilder:
                 if self.p.auto_expand and len(c_str) > self.p.counter_width:
                     c_str = str(counter)
                 base_tail = c_str
+            elif self.p.tail_mode == "counter_datetime":
+                counter = counter or 1
+                c_str = f"{counter:0{self.p.counter_width}d}"
+                if self.p.auto_expand and len(c_str) > self.p.counter_width:
+                    c_str = str(counter)
+                date_part = datetime.now().strftime(self.p.date_format + "_%H-%M-%S")
+                base_tail = f"{c_str}{self.p.delimiter}{date_part}"
             elif self.p.tail_mode == "datetime_counter":
                 date_part = datetime.now().strftime(self.p.date_format + "_%H-%M-%S")
                 counter = counter or 1

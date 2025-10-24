@@ -81,11 +81,11 @@ class ImageTextRecognizer:
         """Load ImageTextRecognizerPolicy."""
         from cfg_utils.services.config_like_loader import ConfigLikeLoader
         
-        return ConfigLikeLoader.load_with_caller_path(
+        return ConfigLikeLoader.load(
             cfg_like=cfg_like,
             policy_class=ImageTextRecognizerPolicy,
-            caller_file=__file__,
-            default_config_filename="ocr.yaml",
+            module_file=__file__,
+            config_filename="image_text_recognizer.yaml",
             **overrides
         )
     
@@ -96,15 +96,18 @@ class ImageTextRecognizer:
     def run(
         self,
         source_override: Optional[Union[str, Path]] = None,
+        image: Optional[Image.Image] = None,
     ) -> Dict[str, Any]:
-        """OCR 실행 (Translator.run() pattern).
+        """OCR 실행 (Translator.run() pattern + 메모리 이미지 지원).
         
-        1. source에서 이미지 파일 로드
+        1. image 또는 source에서 이미지 로드
         2. ImageTextRecognize adapter의 run()에 Image 객체 전달
-        3. 결과 반환
+        3. save/meta 정책에 따라 저장
+        4. 결과 반환
         
         Args:
             source_override: 소스 경로 오버라이드 (None이면 policy.source.path 사용)
+            image: PIL Image 객체 (제공되면 source 무시하고 이것 사용)
         
         Returns:
             결과 딕셔너리:
@@ -112,10 +115,14 @@ class ImageTextRecognizer:
                 "success": bool,
                 "image": PIL.Image.Image,
                 "ocr_items": List[OCRItem],
-                "source_path": Path,
+                "source_path": Optional[Path],
                 "original_size": Tuple[int, int],
+                "output_path": Optional[Path],
                 "error": Optional[str]
             }
+        
+        Raises:
+            ValueError: source_override, image, policy.source 모두 없을 때
         """
         self.log.info("=" * 70)
         self.log.info("[ImageTextRecognizer] Starting OCR processing")
@@ -126,35 +133,51 @@ class ImageTextRecognizer:
             "ocr_items": [],
             "source_path": None,
             "original_size": None,
+            "output_path": None,
             "error": None,
         }
         
         try:
-            # 1. source 경로 결정
-            source_path = source_override or self.policy.source.path
-            if source_path is None:
-                raise ValueError("source_path must be provided or set in policy.source.path")
+            # 1. 이미지 결정: image 파라미터 > source_override > policy.source
+            if image is not None:
+                # 메모리 이미지 사용 (OTO 파이프라인 등)
+                img = image
+                self.log.info(f"  Using provided image: {img.size} {img.mode}")
+                result["original_size"] = img.size
+                
+            else:
+                # source에서 로드
+                source_path = source_override or getattr(self.policy.source, 'path', None)
+                
+                if source_path is None:
+                    raise ValueError(
+                        "Either 'image' parameter or 'source_override' or 'policy.source.path' must be provided"
+                    )
+                
+                source_path = resolve(Path(source_path))
+                result["source_path"] = source_path
+                
+                self.log.info(f"  Source: {source_path}")
+                
+                # 파일 존재 확인
+                if not source_path.exists():
+                    raise FileNotFoundError(f"Image not found: {source_path}")
+                
+                # 이미지 로드
+                img = Image.open(source_path)
+                img = ImageOps.exif_transpose(img)
+                
+                self.log.info(f"  Loaded: {img.size} {img.mode}")
+                result["original_size"] = img.size
             
-            source_path = resolve(Path(source_path))
-            result["source_path"] = source_path
+            # 2. ✨ ImageTextRecognize adapter에 위임 (Image 객체 + source_path 전달)
+            #    Adapter가 save/meta를 담당합니다!
+            ocr_result = self.text_recognize.run(
+                img, 
+                source_path=result.get("source_path")  # ← Adapter가 save/meta에 사용
+            )
             
-            self.log.info(f"  Source: {source_path}")
-            
-            # 2. 파일 존재 확인
-            if not source_path.exists() and self.policy.source.must_exist:
-                raise FileNotFoundError(f"Image not found: {source_path}")
-            
-            # 3. 이미지 로드
-            img = Image.open(source_path)
-            img = ImageOps.exif_transpose(img)
-            
-            self.log.info(f"  Loaded: {img.size} {img.mode}")
-            result["original_size"] = img.size
-            
-            # 4. ImageTextRecognize adapter에 위임 (Image 객체 전달)
-            ocr_result = self.text_recognize.run(img)
-            
-            # 5. 결과 저장
+            # 3. 결과 처리
             result["image"] = ocr_result.get("image", img)
             result["ocr_items"] = ocr_result.get("ocr_items", [])
             result["success"] = True

@@ -14,7 +14,7 @@ LogLevel = Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRI
 class SinkPolicy(BaseModel):
     """loguru Sink 설정 정책"""
     sink_type: Literal["file", "console"] = "console"
-    filepath: Optional[Path] = None
+    file_path: Optional[Path] = None
     level: LogLevel = "INFO"
     format: str = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
     rotation: Optional[Union[str, int]] = "10 MB"
@@ -27,13 +27,13 @@ class SinkPolicy(BaseModel):
     colorize: bool = True
     catch: bool = True
     
-    @field_validator("filepath")
+    @field_validator("file_path")
     @classmethod
-    def validate_filepath(cls, v: Optional[Path], info) -> Optional[Path]:
-        """file sink인 경우 filepath 필수"""
+    def validate_file_path(cls, v: Optional[Path], info) -> Optional[Path]:
+        """file sink인 경우 file_path 필수"""
         data = info.data
         if data.get("sink_type") == "file" and v is None:
-            raise ValueError("filepath is required when sink_type='file'")
+            raise ValueError("file_path is required when sink_type='file'")
         if v is not None and not isinstance(v, Path):
             return Path(v)
         return v
@@ -51,7 +51,7 @@ class SinkPolicy(BaseModel):
         }
         
         if self.sink_type == "file":
-            kwargs["sink"] = str(self.filepath)
+            kwargs["sink"] = str(self.file_path)
             kwargs["rotation"] = self.rotation
             kwargs["retention"] = self.retention
             if self.compression:
@@ -91,5 +91,5 @@ class LogPolicy(BaseModel):
     def ensure_directories(self) -> None:
         """파일 Sink의 디렉토리 생성"""
         for sink in self.get_file_sinks():
-            if sink.filepath:
-                sink.filepath.parent.mkdir(parents=True, exist_ok=True)
+            if sink.file_path:
+                sink.file_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,10 @@
+2025-10-25 00:39:01 | DEBUG    | modules.image_utils.adapter.load:__init__:65 - Module-specific logger enabled for detailed debugging
+2025-10-25 00:39:01 | INFO     | modules.image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01.jpg
+2025-10-25 00:39:01 | DEBUG    | modules.image_utils.adapter.load:run:160 - Original size: (1500, 2322), mode: RGB
+2025-10-25 00:39:01 | SUCCESS  | modules.image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+2025-10-25 00:39:01 | INFO     | modules.image_utils.adapter.load:_log_both:92 - Image saved: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01_copy_01_2025-10-25_00-39-01.jpg
+2025-10-25 00:39:01 | INFO     | modules.image_utils.adapter.load:_log_both:92 - Metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01_image_meta_01_2025-10-25_00-39-01
+2025-10-25 00:39:45 | INFO     | modules.image_utils.adapter.load:_log_both:92 - Loading from: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01.jpg
+2025-10-25 00:39:45 | DEBUG    | modules.image_utils.adapter.load:run:160 - Original size: (1500, 2322), mode: RGB
+2025-10-25 00:39:45 | SUCCESS  | modules.image_utils.adapter.load:_log_both:92 - Completed: (1500, 2322) -> (1500, 2322)
+2025-10-25 00:39:45 | INFO     | modules.image_utils.adapter.load:_log_both:92 - Image saved: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01_test_override_01_2025-10-25_00-39-45.jpg

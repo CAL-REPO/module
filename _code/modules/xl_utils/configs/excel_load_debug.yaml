@@ -1,0 +1,63 @@
+# xl_utils debug config
+# 개발/디버깅 환경
+
+name: "excel"
+
+# ===== 디버깅 최적화 =====
+
+save:
+  strategy: "on_write"  # ✅ 쓰기마다 저장 (변화 즉시 확인)
+  target: "current_wb"
+  backup: true  # ✅ 백업 생성
+  save_attached_instance: false
+
+performance:
+  screen_updating: true  # ✅ 화면 갱신 ON (변화 확인)
+  display_alerts: true  # ✅ 경고창 표시
+  calculation: "auto"  # ✅ 자동 계산
+  enable_events: true
+  interactive: true
+  clear_clipboard: false
+
+error_handling:
+  on_file_not_found: "error"  # ✅ 에러 발생 (명확한 진단)
+  on_sheet_not_found: "error"
+  on_save_error: "error"
+  retry_count: 0
+  retry_delay: 0.0
+
+path_validation:
+  fso:
+    as_type: "file"
+    exist:
+      must_exist: true  # ✅ 파일 반드시 존재
+      create_if_missing: false
+      overwrite: false
+
+xw_app:
+  visible: true  # ✅ Excel 창 표시
+  display_alerts: true
+  screen_updating: true
+  add_book: false
+
+xw_lifecycle:
+  quit_on_exit: false  # ✅ 종료 후에도 Excel 열어두기
+  save_on_exit: true
+  save_attached_instance: false
+
+xw_wb:
+  auto_save: false
+  must_exist: true
+  create_if_missing: false
+
+xw_ws:
+  create_if_missing: false  # ✅ 시트 없으면 에러
+  auto_save_on_write: true
+  clear_before_dataframe: true
+  drop_empty_rows: true
+
+log:
+  enabled: true
+  level: "DEBUG"  # ✅ 모든 로그 출력
+  console: true
+  file: true

@@ -47,7 +47,11 @@ class Translate:
         log_manager: Optional[LogManager] = None,
         **overrides: Any
     ):
-        """Initialize Translate with policy.
+        """Initialize Translate with dual logging support.
+        
+        Logging Strategy:
+            1. Primary Logger (Parent): 통합 로그 - 전체 파이프라인 기록
+            2. Secondary Logger (Module): 모듈별 로그 - 상세 디버깅용 (선택적)
         
         Args:
             cfg_like: TranslatePolicy, YAML 경로, dict, 또는 None
@@ -71,19 +75,37 @@ class Translate:
         # Load policy
         self.policy = self._load_config(cfg_like, **overrides)
         
-        # LogManager 생성 (우선순위: 외부 log_manager > policy.log > 기본)
+        # ========================================
+        # Primary Logger: Parent logger (통합 로그)
+        # ========================================
         if log_manager:
             self.log = log_manager.logger
+            self._parent_log_manager = log_manager
         elif self.policy.log:
-            # ✅ LogPolicy.enabled에 따라 LogManager가 handler 등록 여부 결정
-            self.log = LogManager(self.policy.log).logger
+            self._parent_log_manager = LogManager(self.policy.log)
+            self.log = self._parent_log_manager.logger
         else:
-            # policy.log가 None이면 enabled=False LogManager 생성
+            self._parent_log_manager = None
             self.log = LogManager({"enabled": False}).logger
+        
+        # ========================================
+        # Secondary Logger: Module logger (모듈별 로그 - 선택적)
+        # ========================================
+        self._module_log_manager = None
+        self._module_logger = None
+        
+        if self.policy.log and self.policy.log.enabled and log_manager:
+            # Parent logger가 있고 policy.log도 enabled면 모듈 전용 LogManager 생성
+            self._module_log_manager = LogManager(self.policy.log)
+            self._module_logger = self._module_log_manager.logger
         
         # Provider와 Pipeline은 lazy-load
         self._provider: Optional[Provider] = None
         self._pipeline: Optional[TranslationPipeline] = None
+        
+        self.log.debug("Translate initialized with dual logging")
+        if self._module_logger:
+            self._module_logger.debug("Module-specific logger enabled for detailed debugging")
     
     # ==========================================================================
     # Config Loading (ConfigLikeLoader pattern)
@@ -101,15 +123,28 @@ class Translate:
         """
         from cfg_utils.services import ConfigLikeLoader
         
-        return ConfigLikeLoader.load_with_caller_path(
+        return ConfigLikeLoader.load(
             cfg_like=cfg_like,
             policy_class=TranslatePolicy,
-            caller_file=__file__,
-            default_config_filename="translate.yaml",
+            module_file=__file__,
+            config_filename="translate.yaml",
             **overrides
         )
-
-
+    
+    def _log_both(self, level: str, message: str, **kwargs):
+        """Log to both parent and module loggers.
+        
+        Args:
+            level: Log level (debug, info, warning, error, critical)
+            message: Log message
+            **kwargs: Additional context (e.g., exc_info=True)
+        """
+        # Primary: Parent logger (항상 기록)
+        getattr(self.log, level)(message, **kwargs)
+        
+        # Secondary: Module logger (있으면 기록)
+        if self._module_logger:
+            getattr(self._module_logger, level)(message, **kwargs)
 
     # ==========================================================================
     # Provider & Pipeline (Lazy Creation)
@@ -172,7 +207,7 @@ class Translate:
     # Main API
     # ==========================================================================
     
-    def run(self, texts: List[str]) -> Dict[str, str]:
+    def run(self, texts: List[str], **overrides) -> Dict[str, str]:
         """Translate texts and return source→translated mapping.
         
         스크립트 레벨에서 동적으로 텍스트 리스트를 전달받아 번역합니다.
@@ -183,6 +218,7 @@ class Translate:
         
         Args:
             texts: 번역할 텍스트 리스트
+            **overrides: Runtime overrides (KeyPath format, no prefix)
         
         Returns:
             Dict mapping source text to translated text
@@ -193,7 +229,21 @@ class Translate:
             >>> result = translate.run(texts)
             >>> print(result)
             {"Hello": "안녕하세요", "Thank you": "감사합니다", "Goodbye": "안녕히 가세요"}
+            
+            >>> # Runtime override
+            >>> result = translate.run(texts, target_lang="JP")
         """
+        # Runtime override 적용
+        if overrides:
+            override_dict = KeyPathDict.to_nested_dict(overrides)
+            working_policy = self.policy.model_copy(deep=True)
+            policy_dict = working_policy.model_dump()
+            kp_dict = KeyPathDict(policy_dict)
+            kp_dict.merge(override_dict, deep=True, inplace=True)
+            working_policy = TranslatePolicy(**kp_dict.data)
+        else:
+            working_policy = self.policy
+        
         if not texts:
             self.log.warning("No texts to translate")
             return {}
@@ -204,7 +254,44 @@ class Translate:
         payload = SourcePayload(texts=texts, source_path=None)
         
         # Pipeline 실행 (배치 번역 + 캐싱 자동 동작)
-        translations = self.pipeline.run(payload)
+        # Runtime override 시 working_policy 사용, 없으면 self.pipeline 사용
+        if overrides:
+            # working_policy로 임시 pipeline 생성
+            # Provider 생성
+            temp_provider = ProviderFactory.create(
+                provider_name=working_policy.provider.provider,
+                api_key=None,  # Will use env var
+                timeout=working_policy.provider.timeout
+            )
+            
+            # Components 생성
+            preprocessor = TextPreprocessor(working_policy.zh)
+            cache = None
+            if working_policy.store.save_db:
+                default_dir = OSPath.downloads()
+                cache = TranslationStorage(working_policy.store, default_dir=default_dir)
+            
+            writer = None
+            if working_policy.store.save_tr:
+                default_dir = OSPath.downloads()
+                writer = TranslationResultWriter(working_policy.store, default_dir=default_dir)
+            
+            # 임시 pipeline 생성
+            temp_pipeline = TranslationPipeline(
+                policy=working_policy,
+                provider=temp_provider,
+                preprocessor=preprocessor,
+                cache=cache,
+                writer=writer,
+                log=self.log
+            )
+            translations = temp_pipeline.run(payload)
+            
+            # 임시 provider 정리
+            if hasattr(temp_provider, 'close'):
+                temp_provider.close()
+        else:
+            translations = self.pipeline.run(payload)
         
         # Mapping 생성
         mapping: Dict[str, str] = {}

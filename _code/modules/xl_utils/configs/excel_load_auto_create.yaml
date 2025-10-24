@@ -1,0 +1,56 @@
+# =============================================================================
+# 자동 생성 모드 설정 (유연성 최우선)
+# =============================================================================
+# 파일/시트 없어도 자동으로 생성
+# 템플릿 기반 파일 생성 가능
+
+xw_app:
+  visible: false
+  add_book: false
+  display_alerts: false
+  screen_updating: true
+
+performance:
+  screen_updating: true
+  display_alerts: false
+  calculation: "auto"
+  enable_events: true
+  interactive: false
+  clear_clipboard: false
+
+save:
+  strategy: "on_exit"
+
+error_handling:
+  on_file_not_found: "create" # 파일 없으면 자동 생성 (중요!)
+  on_sheet_not_found: "create" # 시트 없으면 자동 생성 (중요!)
+  on_save_error:
+    action: "retry"
+    retry_count: 3
+    retry_delay: 1.0
+
+path_validation:
+  fso:
+    as_type: "file"
+    exist:
+      must_exist: false      # 없어도 OK
+      create_if_missing: true # 자동 생성 (중요!)
+      overwrite: false
+  template_path: "templates/base_template.xlsx" # 템플릿 경로 (선택)
+  backup_if_exists: false
+
+log:
+  enabled: true
+  name: "xl_utils"
+  level: "INFO"
+  sinks:
+    - sink_type: "console"
+      level: "INFO"
+  context: {}
+
+# 사용 예:
+# excel_load = ExcelLoad("excel_load_auto_create.yaml")
+# with excel_load:
+#     # 파일/시트 없어도 자동 생성됨
+#     ws = excel_load.get_worksheet("new_file.xlsx", "NewSheet")
+#     ws.cell_ops.write(1, 1, "Hello")

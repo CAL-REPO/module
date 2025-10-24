@@ -42,7 +42,7 @@ class Config:
         *,
         source_policy: Optional[Any] = None,
         env: Optional[Any] = None,
-        env_os: Optional[Union[bool, List[str]]] = None,
+        env_os: Optional[List[str]] = None,
         log_policy: Optional[LogPolicy] = None,
     ):
         """Initialize Config with policies.

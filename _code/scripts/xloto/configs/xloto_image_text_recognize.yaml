@@ -1,0 +1,64 @@
+# ============================================================================
+# ImageTextRecognize Adapter - XLOTO Configuration
+# ============================================================================
+# XLOTO 파이프라인에서 사용하는 ImageTextRecognize Adapter 설정
+# Adapter Policy만 포함
+
+# --------------------------------------------------------------------------
+# ImageTextRecognize Adapter Policy
+# --------------------------------------------------------------------------
+image_text_recognize:
+  # Provider - OCR 제공자 설정
+  provider:
+    provider: "paddle"
+    langs: ["ch", "en"]
+    min_conf: 0.5
+    paddle_device: "gpu"
+    paddle_use_angle_cls: true
+    paddle_use_doc_orientation_classify: false
+    paddle_use_doc_unwarping: false
+  
+  # Preprocess - OCR 전처리 설정
+  preprocess:
+    max_width: 2000
+  
+  # Postprocess - OCR 후처리 설정
+  postprocess:
+    strip_special_chars: true
+    filter_alphanumeric: true
+    deduplicate_iou_threshold: 0.7
+    prefer_lang_order: ["ch", "en"]
+  
+  # Save - 이미지 저장 정책
+  save:
+    save_copy: false
+    directory: "{{logs_dir}}"
+    name:
+      suffix: "_xloto_ocr"
+      extension: ".jpg"
+      tail_mode: "counter"
+      ensure_unique: true
+    quality: 95
+
+  # Meta - 메타데이터 저장 정책
+  meta:
+    save_meta: false
+    directory: "{{logs_dir}}"
+    name:
+      suffix: "_xloto_ocr_meta"
+      extension: ".json"
+      ensure_unique: false
+    ops:
+      exist:
+        create_if_missing: true
+        overwrite: true
+
+  # Log - 로그 설정
+  log:
+    enabled: false
+    name: "xloto_ocr_module"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto/ocr_module_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"

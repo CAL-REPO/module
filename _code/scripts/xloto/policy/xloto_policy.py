@@ -15,21 +15,6 @@ from typing import Dict, List, Optional
 from logs_utils.core.policy import LogPolicy
 
 
-class XlOtoFilterPolicy(BaseModel):
-    """DataFrame 필터링 정책.
-    
-    download=날짜, translation≠날짜인 행을 필터링합니다.
-    
-    Attributes:
-        cas_column: CAS No 컬럼 별칭
-        download_column: Download 컬럼 별칭
-        translation_column: Translation 컬럼 별칭
-    """
-    cas_column: str = "cas"
-    download_column: str = "download"
-    translation_column: str = "translation"
-
-
 class XlOtoPathsPolicy(BaseModel):
     """이미지 경로 정책.
     
@@ -51,17 +36,16 @@ class XlOtoPolicy(BaseModel):
     
     Excel에서 CAS No 추출 → 이미지 처리 (OTO) → Excel 업데이트
     
+    Note:
+        - Column 필터링은 xl_utils의 column_alias로 처리 (cas, download, translation)
+        - Filter Policy 제거됨 (중복 제거)
+    
     Attributes:
         name: Policy 이름
-        filter: DataFrame 필터링 정책
         paths: 이미지 경로 정책
         log: 통합 로그 정책
     """
     name: str = "xloto"
-    filter: XlOtoFilterPolicy = Field(
-        default_factory=XlOtoFilterPolicy,  # type: ignore
-        description="DataFrame 필터링 정책"
-    )
     paths: XlOtoPathsPolicy = Field(
         default_factory=XlOtoPathsPolicy,  # type: ignore
         description="이미지 경로 정책"

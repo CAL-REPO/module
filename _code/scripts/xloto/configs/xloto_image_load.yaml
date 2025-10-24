@@ -1,0 +1,54 @@
+# ============================================================================
+# ImageLoad Adapter - XLOTO Configuration
+# ============================================================================
+# XLOTO 파이프라인에서 사용하는 ImageLoad Adapter 설정
+# Adapter Policy만 포함
+
+# --------------------------------------------------------------------------
+# ImageLoad Adapter Policy
+# --------------------------------------------------------------------------
+image_load:
+  # Save - 이미지 저장 설정
+  save:
+    save_copy: false
+    directory: "{{logs_dir}}"
+    name:
+      suffix: "xloto_load"
+      extension: ".jpg"
+      delimiter: "_"
+      tail_mode: "counter_datetime"
+      date_format: "%Y-%m-%d"
+      counter_width: 2
+    quality: 95
+  
+  # Meta - 메타데이터 저장 설정
+  meta:
+    save_meta: false
+    directory: "{{logs_dir}}"
+    name:
+      suffix: "_load_meta"
+      extension: ".json"
+      delimiter: "_"
+      tail_mode: "counter_datetime"
+    ops:
+      as_type: "file"
+      exist:
+        must_exist: false
+        create_if_missing: true
+        overwrite: true
+  
+  # Process - 이미지 처리 설정
+  process:
+    resize_to: null
+    blur_radius: null
+    convert_mode: null
+  
+  # Log - ImageLoad Adapter 로그
+  log:
+    enabled: false
+    name: "xloto_image_load_module"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto/image_load_module_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"

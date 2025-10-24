@@ -1,199 +1,124 @@
 # -*- coding: utf-8 -*-
-"""Crawler - Crawling service entry point (XLOTO EntryPoint pattern).
+"""Crawler - Crawling service entry point (OTO Pattern)
 
 책임:
-1. ConfigLoader 기반 설정 로드 (config_loader_crawl.yaml)
-2. Crawl Adapter 위임
-3. LogManager 통합
+1. ConfigLoader 기반 설정 로드
+2. SyncCrawl Adapter 위임
 
-XLOTO Pattern:
-- EntryPoint: YAML 설정 로드 및 Adapter 위임
-- Adapter(Crawl): 비즈니스 로직 (URL 분석, 메서드 브랜칭, 크롤링)
-
-사용 예시:
+사용 예시 (OTO 패턴):
 ```python
-# 1. ConfigLoader로 설정 로드 (권장)
-config = ConfigLoader(config_loader_cfg_path="configs/loader/config_loader_crawl.yaml")
-crawl_config = config.to_dict(section="crawl")
+from cfg_utils import ConfigLoader
+from crawl_utils.entry_point import Crawler
 
-# 2. Crawler EntryPoint 생성 및 실행
-crawler = Crawler(crawl_config)
-urls = ["https://aliexpress.com/item/123"]
-results = crawler.run(urls)
+config = ConfigLoader(
+    config_loader_cfg_path="configs/loader/config_loader_crawl.yaml",
+    env_os=["CASHOP_PATHS"]
+)
 
-# 또는 Crawl Adapter 직접 사용
-from modules.crawl_utils.adapter import Crawl
-crawl = Crawl(crawl_config)
-results = crawl.run(urls)
+# ✅ 단일 cfg_like로 초기화 (OTO 패턴)
+crawler = Crawler(cfg_like=config.to_dict())
+
+# run() 실행
+results = crawler.run(
+    urls=["https://aliexpress.com/item/123"],
+    provider="firefox",
+    cas_no="CAS2024-001"
+)
 ```
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Union, Optional, Any, List, Dict
+from pathlib import Path
 
 from logs_utils import LogManager
-from cfg_utils import ConfigLoader
 
-from ..core.policy import CrawlPolicy
-from ..adapter.crawl import Crawl
+from ..adapter.sync_crawl import SyncCrawl
+from ..presets import PresetManager
+from ..core.policy import SyncCrawlPolicy
 
 
 class Crawler:
-    """크롤링 EntryPoint - ConfigLoader 기반 크롤링 실행.
+    """크롤링 EntryPoint - SyncCrawl Adapter 래퍼 (OTO 패턴)
     
-    XLOTO Pattern:
-    - ConfigLoader로 설정 로드 (config_loader_crawl.yaml)
-    - Crawl Adapter에 위임 (URL 분석, 메서드 브랜칭, 크롤링)
+    OTO 패턴 특징:
+    - 단일 cfg_like 인자로 통합 설정 전달
+    - ConfigLoader.to_dict() 결과를 그대로 사용
+    - SyncCrawl에서 SyncCrawlPolicy로 자동 변환
     
     Attributes:
-        policy: CrawlPolicy 설정
-        crawl: Crawl Adapter 인스턴스
+        crawl: SyncCrawl Adapter 인스턴스
     """
     
     def __init__(
         self,
-        cfg_like: Union[Path, str, dict, CrawlPolicy, ConfigLoader, None] = None,
+        cfg_like: Union[SyncCrawlPolicy, Path, str, dict, None] = None,
         *,
+        preset_manager: Optional[PresetManager] = None,
         log_manager: Optional[LogManager] = None,
         **overrides: Any
     ):
-        """Initialize Crawler with ConfigLoader or CrawlPolicy.
+        """Initialize Crawler with OTO pattern (단일 cfg_like).
         
         Args:
-            cfg_like: ConfigLoader, CrawlPolicy, YAML 경로, dict, 또는 None
-            log_manager: 외부 LogManager (선택사항)
-            **overrides: 런타임 오버라이드 값 (wait__timeout, scroll__count 등)
+            cfg_like: SyncCrawlPolicy, YAML 경로, dict, 또는 None
+                - dict 형태: {"webdriver_manager": {...}, "crawl": {...}, "log": {...}}
+                - ConfigLoader.to_dict() 결과를 그대로 전달
+            preset_manager: PresetManager 인스턴스 (None이면 자동 생성)
+            log_manager: LogManager 인스턴스 (None이면 기본 생성)
+            **overrides: 런타임 오버라이드
         
-        Example:
-            >>> # ConfigLoader로 설정 로드 (권장)
-            >>> config = ConfigLoader("configs/loader/config_loader_crawl.yaml")
-            >>> crawl_config = config.to_dict(section="crawl")
-            >>> crawler = Crawler(crawl_config)
-            
-            >>> # YAML 파일에서 직접 로드
-            >>> crawler = Crawler("configs/crawl.yaml")
-            
-            >>> # dict로 직접 설정
-            >>> crawler = Crawler({"site": "aliexpress", "source": {"method": "product_detail"}})
-            
-            >>> # 런타임 오버라이드
-            >>> crawler = Crawler("config.yaml", wait__timeout=20)
+        Example (OTO Pattern):
+            >>> from cfg_utils import ConfigLoader
+            >>> config = ConfigLoader(
+            ...     "configs/loader/config_loader_crawl.yaml",
+            ...     env_os=["CASHOP_PATHS"]
+            ... )
+            >>> 
+            >>> # ✅ 단일 cfg_like 전달
+            >>> crawler = Crawler(cfg_like=config.to_dict())
+            >>> 
+            >>> # run() 실행
+            >>> results = crawler.run(
+            ...     urls=["https://aliexpress.com/item/123"],
+            ...     provider="firefox"
+            ... )
         """
-        # ConfigLoader 또는 CrawlPolicy 로드
-        if isinstance(cfg_like, ConfigLoader):
-            # ConfigLoader에서 crawl 섹션 추출
-            crawl_config = cfg_like.to_dict(section="crawl")
-            self._crawl = Crawl(cfg_like=crawl_config, log_manager=log_manager, **overrides)
-        else:
-            # CrawlPolicy 또는 dict로 직접 생성
-            self._crawl = Crawl(cfg_like=cfg_like, log_manager=log_manager, **overrides)
-    
-    # ==========================================================================
-    # Properties
-    # ==========================================================================
-    
-    # ==========================================================================
-    # Properties
-    # ==========================================================================
-    
-    @property
-    def crawl(self) -> Crawl:
-        """Crawl Adapter 인스턴스.
-        
-        Returns:
-            Crawl instance
-        """
-        return self._crawl
-    
-    @property
-    def policy(self) -> CrawlPolicy:
-        """CrawlPolicy (Crawl Adapter에서 위임).
-        
-        Returns:
-            CrawlPolicy instance
-        """
-        return self._crawl.policy
-    
-    @property
-    def log(self):
-        """Logger (Crawl Adapter에서 위임).
-        
-        Returns:
-            loguru logger
-        """
-        return self._crawl.log
-    
-    # ==========================================================================
-    # Main Execution
-    # ==========================================================================
+        self.crawl = SyncCrawl(
+            cfg_like=cfg_like,  # ✅ OTO 패턴: 단일 인자
+            preset_manager=preset_manager,
+            log_manager=log_manager,
+            **overrides
+        )
     
     def run(
         self,
-        urls: Optional[List[str]] = None,
-        **runtime_context: Any
+        urls: Union[str, List[str]],
+        provider: str = "firefox",
+        **dynamic_overrides
     ) -> List[Dict[str, Any]]:
-        """Execute crawling and return extracted data.
-        
-        XLOTO Pattern:
-        - URL 리스트를 받아 Crawl Adapter에 위임
-        - Crawl이 URL 분석 및 메서드 브랜칭 수행
+        """URL 크롤링 실행 (SyncCrawl.run 위임)
         
         Args:
-            urls: 크롤링할 URL 리스트 (None이면 policy.source.urls 사용)
-            **runtime_context: 런타임 컨텍스트 (cas_no 등)
+            urls: 크롤링할 URL (단일 또는 리스트)
+            provider: WebDriver provider ("firefox", "chrome" 등)
+            **dynamic_overrides: 동적 오버라이드 (cas_no, batch_id 등)
         
         Returns:
-            List of extracted data dictionaries
-        
-        Example:
-            >>> # ConfigLoader로 설정 로드
-            >>> config = ConfigLoader("config_loader_crawl.yaml")
-            >>> crawl_config = config.to_dict(section="crawl")
-            >>> 
-            >>> # Crawler 생성 및 실행
-            >>> crawler = Crawler(crawl_config)
-            >>> urls = ["https://aliexpress.com/item/123"]
-            >>> results = crawler.run(urls, cas_no="123-45-6")
-            >>> print(results)
-            [{"images": [...], "title": "..."}, ...]
+            크롤링 결과 리스트
         """
-        self.log.info("=" * 70)
-        self.log.info("[Crawler EntryPoint] Starting crawling")
-        
-        # Delegate to Crawl Adapter
-        results = self._crawl.run(urls, **runtime_context)
-        
-        self.log.success(f"[Crawler EntryPoint] Completed: {len(results)} items extracted")
-        self.log.info("=" * 70)
-        
-        return results
+        return self.crawl.run(urls=urls, provider=provider, **dynamic_overrides)
     
-    # ==========================================================================
-    # Resource Cleanup
-    # ==========================================================================
+    @property
+    def log(self):
+        """Logger (SyncCrawl에서 위임)"""
+        return self.crawl.log
     
-    def close(self):
-        """Crawl 종료 및 리소스 정리."""
-        try:
-            self._crawl.close()
-            self.log.debug("Crawl closed")
-        except Exception as e:
-            self.log.warning(f"Error closing crawl: {e}")
-    
-    def __enter__(self):
-        """Context manager 진입."""
-        return self
-    
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager 종료."""
-        self.close()
-        return False
-    
-    def __del__(self):
-        """Destructor - cleanup resources."""
-        try:
-            self.close()
-        except Exception:
-            pass
+    @property
+    def preset_manager(self) -> PresetManager:
+        """PresetManager (SyncCrawl에서 위임)"""
+        return self.crawl.preset_manager
+
+
+__all__ = ["Crawler"]

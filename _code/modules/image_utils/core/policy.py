@@ -4,24 +4,24 @@ Image processing policy (Pydantic)
 -----------------------------
 
 translate_utils 패턴을 정확히 따라 Adapter/EntryPoint Policy 분리:
-- Adapter Policy: source 없음, 순수 처리 로직 설정만
-- EntryPoint Policy: source + Adapter Policy 포함
+- Adapter Policy: source 없음, save/meta 없음, 순수 처리 로직 설정만
+- EntryPoint Policy: source + Adapter Policy + save + meta 포함
 
-Adapter Policies (source 없음):
-- ImageLoadPolicy: ImageLoad(Adapter) 전용 - save + meta + process + log
+Adapter Policies (source/save/meta 없음):
+- ImageLoadPolicy: ImageLoad(Adapter) 전용 - process + log만
 - ImageTextRecognizePolicy: ImageTextRecognize(Adapter) 전용 - provider + preprocess + postprocess + log
 - ImageOverlayPolicy: ImageOverlay(Adapter) 전용 - items + background_opacity + log
 
-EntryPoint Policies (source 포함):
-- ImageLoaderPolicy: ImageLoader(EntryPoint) 전용 - source + image_load(ImageLoadPolicy)
-- ImageTextRecognizerPolicy: ImageTextRecognizer(EntryPoint) 전용 - source + text_recognize(ImageTextRecognizePolicy)
-- ImageOverlayerPolicy: ImageOverlayer(EntryPoint) 전용 - source + overlay(ImageOverlayPolicy)
+EntryPoint Policies (source + Adapter + save + meta):
+- ImageLoaderPolicy: ImageLoader(EntryPoint) 전용 - source + image_load(ImageLoadPolicy) + save + meta
+- ImageTextRecognizerPolicy: ImageTextRecognizer(EntryPoint) 전용 - source + text_recognize(ImageTextRecognizePolicy) + save + meta
+- ImageOverlayerPolicy: ImageOverlayer(EntryPoint) 전용 - source + overlay(ImageOverlayPolicy) + save + meta
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -39,17 +39,15 @@ class ImageSourcePolicy(BaseModel):
     
     Adapter는 source를 받지 않고, EntryPoint에서만 사용합니다.
     
+    Translate의 SourcePolicy와 동일한 단순 구조:
+    - path: 파일 경로 (문자열 또는 Path)
+    - 파일 존재 여부는 런타임 예외로 처리 (must_exist 불필요)
+    - 이미지 변환은 ImageLoadPolicy.process에서 담당 (convert_mode 불필요)
+    
     Attributes:
-        path: Path to source image file
-        must_exist: Require source image to exist before processing
-        convert_mode: Optional PIL mode conversion (e.g., 'RGB', 'L')
+        path: Path to source image file (str or Path, supports glob patterns)
     """
-    path: Path = Field(..., description="Path to source image file")
-    must_exist: bool = Field(False, description="Require source to exist")
-    convert_mode: Optional[str] = Field(
-        None, 
-        description="Optional Pillow mode conversion (e.g. 'RGB')"
-    )
+    path: Union[str, Path] = Field(..., description="Path to source image file")
 
 
 class ImageSavePolicy(BaseModel):
@@ -154,10 +152,9 @@ class ImageProcessPolicy(BaseModel):
 
 
 class ImageLoadPolicy(BaseModel):
-    """ImageLoad(Adapter) 전용 Policy - 순수 이미지 처리 로직 설정
+    """ImageLoad(Adapter) 전용 Policy - 이미지 처리 + 저장 로직
     
-    source를 받지 않습니다. EntryPoint(ImageLoader)에서 이미지를 로드한 후
-    Image 객체를 받아서 처리합니다.
+    Adapter도 save/meta를 가집니다 (기본 기능).
     
     Attributes:
         save: 이미지 저장 설정
@@ -175,17 +172,16 @@ class ImageLoadPolicy(BaseModel):
 class ImageLoaderPolicy(BaseModel):
     """ImageLoader(EntryPoint) 전용 Policy - YAML 기반 진입점 설정
     
-    translate_utils의 TranslatorPolicy와 동일한 구조:
-    - source: 소스 이미지 로딩 설정 (파일 경로)
-    - image_loader: ImageLoad 내부 Policy (ImageLoadPolicy 포함)
+    EntryPoint는 source + Adapter Policy 포함.
+    save/meta는 Adapter(image_load)에 포함됩니다.
     
     Attributes:
         source: 소스 이미지 파일 설정
-        image_loader: ImageLoad adapter 설정 (ImageLoadPolicy)
+        image_load: ImageLoad adapter 설정 (ImageLoadPolicy - save/meta 포함)
     """
     name: str = Field(default="image_loader", description="Section name in YAML config")
     source: ImageSourcePolicy
-    image: ImageLoadPolicy = Field(default_factory=ImageLoadPolicy)  # type: ignore
+    image_load: ImageLoadPolicy = Field(default_factory=ImageLoadPolicy)  # type: ignore
 
 
 # ==============================================================================
@@ -263,42 +259,39 @@ class OCRPostprocessPolicy(BaseModel):
 
 
 class ImageTextRecognizePolicy(BaseModel):
-    """ImageTextRecognize(Adapter) 전용 Policy - 순수 OCR 로직 설정
+    """ImageTextRecognize(Adapter) 전용 Policy - OCR 처리 + 저장 로직
     
-    source를 받지 않습니다. EntryPoint(ImageTextRecognizer)에서 이미지를 로드한 후
-    Image 객체를 받아서 OCR을 수행합니다.
+    Adapter도 save/meta를 가집니다 (기본 기능).
     
     Attributes:
         provider: OCR Provider 설정 (PaddleOCR 등)
         preprocess: OCR 전처리 설정 (리사이즈 등)
         postprocess: OCR 후처리 설정 (필터링, 중복 제거 등)
+        save: 이미지 저장 설정
+        meta: 메타데이터 저장 설정
         log: 로깅 설정 (Optional, EntryPoint에서 주입 가능)
     """
-    name: str = Field(default="text_recognize", description="Section name in YAML config")
+    name: str = Field(default="image_text_recognize", description="Section name in YAML config")
     provider: OCRProviderPolicy = Field(default_factory=OCRProviderPolicy)  # type: ignore
     preprocess: OCRPreprocessPolicy = Field(default_factory=OCRPreprocessPolicy)  # type: ignore
     postprocess: OCRPostprocessPolicy = Field(default_factory=OCRPostprocessPolicy)  # type: ignore
+    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
+    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
     log: Optional[LogPolicy] = None  # ✨ logging 설정 (Optional)
 
 
 class ImageTextRecognizerPolicy(BaseModel):
-    """ImageTextRecognizer(EntryPoint) 전용 Policy - YAML 기반 진입점 설정
+    """ImageTextRecognizer(EntryPoint) 전용 Policy - source 로딩 + Adapter 호출
     
-    translate_utils의 TranslatorPolicy와 동일한 구조:
-    - source: 소스 이미지 로딩 설정 (파일 경로)
-    - text_recognize: ImageTextRecognize 내부 Policy (ImageTextRecognizePolicy 포함)
+    EntryPoint는 save/meta를 가지지 않습니다 (Adapter에 포함).
     
     Attributes:
         source: 소스 이미지 파일 설정
-        text_recognize: ImageTextRecognize adapter 설정 (ImageTextRecognizePolicy)
-        save: 결과 이미지 저장 설정 (선택)
-        meta: 메타데이터 저장 설정 (선택)
+        text_recognize: ImageTextRecognize adapter 설정 (ImageTextRecognizePolicy, save/meta 포함)
     """
-    name: str = Field(default="text_recognizer", description="Section name in YAML config")
+    name: str = Field(default="image_text_recognizer", description="Section name in YAML config")
     source: ImageSourcePolicy
     text_recognize: ImageTextRecognizePolicy = Field(default_factory=ImageTextRecognizePolicy)  # type: ignore
-    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
-    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
 
 
 # ==============================================================================
@@ -357,59 +350,54 @@ class OverlayItemPolicy(BaseModel):
 
 
 class ImageOverlayPolicy(BaseModel):
-    """ImageOverlay(Adapter) 전용 Policy - 순수 오버레이 로직 설정
+    """ImageOverlay(Adapter) 전용 Policy - 오버레이 처리 + 저장 로직
     
-    source를 받지 않습니다. EntryPoint(ImageOverlayer)에서 이미지를 로드한 후
-    Image 객체와 OverlayItem 리스트를 받아서 오버레이를 수행합니다.
+    Adapter도 save/meta를 가집니다 (기본 기능).
     
     Attributes:
         items: 오버레이 아이템 리스트
         font: 전역 폰트 설정 (개별 아이템이 font 미설정 시 사용)
         mask_opacity: 전역 마스킹 투명도 (개별 아이템이 mask_opacity 미설정 시 사용)
         background_opacity: 배경 투명도
+        save: 이미지 저장 설정
+        meta: 메타데이터 저장 설정
         log: 로깅 설정 (Optional, EntryPoint에서 주입 가능)
     """
-    name: str = Field(default="overlay", description="Section name in YAML config")
+    name: str = Field(default="image_overlay", description="Section name in YAML config")
     items: List[OverlayItemPolicy] = Field(
         default_factory=list,
         description="Overlay item configurations"
     )
-    font: Optional[FontPolicy] = Field(
-        None,
+    font: Optional[FontPolicy] = Field(default=None,
         description="Global font configuration (used if item.font is None)"
     )
-    mask_opacity: Optional[float] = Field(
-        None,
+    mask_opacity: float = Field(
+        default=1.0,
         ge=0.0,
         le=1.0,
         description="Global mask opacity (0.0=transparent, 1.0=opaque)"
     )
-    background_opacity: float = Field(
-        1.0, 
+    background_opacity: float = Field(default=1.0,
         ge=0.0, 
         le=1.0, 
         description="Overall layer opacity (0.0=transparent, 1.0=opaque)"
     )
+    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
+    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
     log: Optional[LogPolicy] = None  # ✨ logging 설정 (Optional)
 
 
 class ImageOverlayerPolicy(BaseModel):
-    """ImageOverlayer(EntryPoint) 전용 Policy - YAML 기반 진입점 설정
+    """ImageOverlayer(EntryPoint) 전용 Policy - source 로딩 + Adapter 호출
     
-    translate_utils의 TranslatorPolicy와 동일한 구조:
-    - source: 소스 이미지 로딩 설정 (파일 경로)
-    - overlay: ImageOverlay 내부 Policy (ImageOverlayPolicy 포함)
+    EntryPoint는 save/meta를 가지지 않습니다 (Adapter에 포함).
     
     Attributes:
         source: 소스 이미지 파일 설정
-        overlay: ImageOverlay adapter 설정 (ImageOverlayPolicy)
-        save: 결과 이미지 저장 설정 (선택)
-        meta: 메타데이터 저장 설정 (선택)
+        overlay: ImageOverlay adapter 설정 (ImageOverlayPolicy, save/meta 포함)
     """
-    name: str = Field(default="overlayer", description="Section name in YAML config")
+    name: str = Field(default="image_overlayer", description="Section name in YAML config")
     source: ImageSourcePolicy
     overlay: ImageOverlayPolicy = Field(default_factory=ImageOverlayPolicy)  # type: ignore
-    save: ImageSavePolicy = Field(default_factory=ImageSavePolicy)  # type: ignore
-    meta: ImageMetaPolicy = Field(default_factory=ImageMetaPolicy)  # type: ignore
 
 

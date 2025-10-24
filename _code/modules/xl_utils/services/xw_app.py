@@ -6,15 +6,19 @@ from __future__ import annotations
 import xlwings as xw
 from pathlib import Path
 from typing import Optional, Union
-from xl_utils.core.policy import XwAppPolicy, XwLifecyclePolicy
-from .save_manager import XwSaveManager
+from xl_utils.core.policy import XwAppPolicy, PerformancePolicy
 
 
 class XwAppLifecycle:
     """Excel Application 수명주기 전담 (시작/종료)"""
     
-    def __init__(self, policy: Optional[XwAppPolicy] = None):
+    def __init__(
+        self,
+        policy: Optional[XwAppPolicy] = None,
+        performance: Optional[PerformancePolicy] = None
+    ):
         self.policy = policy or XwAppPolicy()
+        self.performance = performance or PerformancePolicy()
         self.app: Optional[xw.App] = None
         self.launched_by_self = False
     
@@ -30,14 +34,32 @@ class XwAppLifecycle:
             )
             self.launched_by_self = True
         
-        self._apply_display_settings()
+        self._apply_settings()
         return self.app
     
-    def _apply_display_settings(self):
-        """Display 관련 설정 적용"""
-        if self.app:
-            self.app.display_alerts = self.policy.display_alerts
-            self.app.screen_updating = self.policy.screen_updating
+    def _apply_settings(self):
+        """Excel 설정 적용 (display + performance)"""
+        if not self.app:
+            return
+        
+        # Display 설정 (기존)
+        self.app.display_alerts = self.performance.display_alerts
+        self.app.screen_updating = self.performance.screen_updating
+        
+        # Performance 설정 (신규)
+        if hasattr(self.app.api, 'Calculation'):
+            calc_map = {
+                "auto": -4105,      # xlCalculationAutomatic
+                "manual": -4135,    # xlCalculationManual
+                "semiauto": -4050   # xlCalculationSemiautomatic
+            }
+            self.app.api.Calculation = calc_map.get(self.performance.calculation, -4105)
+        
+        if hasattr(self.app.api, 'EnableEvents'):
+            self.app.api.EnableEvents = self.performance.enable_events
+        
+        if hasattr(self.app.api, 'Interactive'):
+            self.app.api.Interactive = self.performance.interactive
     
     def quit(self):
         """직접 실행한 Excel만 종료"""
@@ -45,6 +67,10 @@ class XwAppLifecycle:
             return
         
         try:
+            # Performance 정책: 종료 시 클립보드 비우기
+            if self.performance.clear_clipboard and hasattr(self.app.api, 'CutCopyMode'):
+                self.app.api.CutCopyMode = False
+            
             self.app.quit()
             print("[INFO] Excel Application closed.")
         except Exception as e:
@@ -65,12 +91,11 @@ class XwApp:
         path: Optional[Union[str, Path]] = None,
         *,
         app_policy: Optional[XwAppPolicy] = None,
-        lifecycle_policy: Optional[XwLifecyclePolicy] = None,
+        performance_policy: Optional[PerformancePolicy] = None,
     ):
         self.path = Path(path).expanduser().resolve() if path else None
-        self.lifecycle = XwAppLifecycle(app_policy)
-        self.lifecycle_policy = lifecycle_policy or XwLifecyclePolicy()
-        self.save_manager: Optional[XwSaveManager] = None
+        self.lifecycle = XwAppLifecycle(app_policy, performance_policy)
+        self.performance_policy = performance_policy or PerformancePolicy()  # type: ignore
     
     @property
     def app(self) -> Optional[xw.App]:
@@ -80,13 +105,11 @@ class XwApp:
     def start(self) -> xw.App:
         """Excel Application 시작"""
         app = self.lifecycle.start()
-        self.save_manager = XwSaveManager(app)
         return app
     
     def quit(self):
         """Excel Application 종료"""
         self.lifecycle.quit()
-        self.save_manager = None
     
     # ------------------------------------------------------------------
     # Context Manager
@@ -96,18 +119,7 @@ class XwApp:
         return self
     
     def __exit__(self, exc_type, exc, tb):
-        """Context 종료 시 정책 기반 저장 및 종료"""
-        if not self.app or not self.save_manager:
-            return
-        
-        # 저장 정책 적용
-        if self.lifecycle_policy.save_on_exit:
-            if self.lifecycle_policy.save_attached_instance or self.lifecycle.launched_by_self:
-                results = self.save_manager.save_all_workbooks()
-                failed = [k for k, v in results.items() if not v]
-                if failed:
-                    print(f"[WARN] Failed to save: {failed}")
-        
-        # 종료 정책 적용
-        if self.lifecycle_policy.quit_on_exit:
-            self.quit()
+        """Context 종료 시 기본 종료 (정책 기반 저장/종료는 ExcelLoad에서 처리)"""
+        # Note: SavePolicy 기반 저장은 XwWb/XwWs에서 처리
+        # 여기서는 단순히 quit만 실행
+        self.quit()

@@ -373,28 +373,52 @@ class KeyPathDict:
             return False
         
         return check_value(self.data)
-
-
-def expand_overrides(
-    overrides: Mapping[str, Any],
-    *,
-    normalizer: Optional[Any] = None,
-    accept_dot: bool = True,
-) -> Dict[str, Any]:
-    """Return overrides expanded into nested dict form.
-
-    Args:
-        overrides: Mapping of KeyPath → value pairs.
-        normalizer: Optional KeyPathNormalizer for custom separators.
-        accept_dot: Allow "." fallback when normalizer is provided.
-
-    Returns:
-        Nested dict built from overrides.
-    """
-    model = KeyPathDict()
-    model.apply_overrides(
-        dict(overrides),
-        normalizer=normalizer,
-        accept_dot=accept_dot,
-    )
-    return model.data.copy()
+    
+    @staticmethod
+    def to_nested_dict(
+        keypath_dict: Mapping[str, Any],
+        *,
+        normalizer: Optional[Any] = None,
+        accept_dot: bool = True,
+    ) -> Dict[str, Any]:
+        """Convert KeyPath-style flat dict to nested dict.
+        
+        Transforms flat dict with KeyPath keys (e.g., "a__b__c") 
+        into nested dict structure (e.g., {"a": {"b": {"c": value}}}).
+        
+        This is a convenience method that internally uses apply_overrides().
+        
+        Args:
+            keypath_dict: Flat dict with KeyPath-style keys ("a__b__c").
+                Example: {"a__b": 1, "x__y__z": 2}
+            normalizer: Optional KeyPathNormalizer for custom separators.
+            accept_dot: Allow "." fallback when normalizer is provided.
+        
+        Returns:
+            Nested dict with hierarchical structure.
+            Example: {"a": {"b": 1}, "x": {"y": {"z": 2}}}
+        
+        Examples:
+            >>> # Basic usage
+            >>> KeyPathDict.to_nested_dict({"a__b": 1, "x__y__z": 2})
+            {'a': {'b': 1}, 'x': {'y': {'z': 2}}}
+            
+            >>> # In ConfigLikeLoader
+            >>> override_dict = KeyPathDict.to_nested_dict(overrides)
+            >>> policy.model_copy(update=override_dict)
+            
+            >>> # Single-level keys
+            >>> KeyPathDict.to_nested_dict({"a": 1, "b": 2})
+            {'a': 1, 'b': 2}
+        
+        See Also:
+            - apply_overrides(): Instance method for in-place application
+            - KeyPathAccessor: Low-level KeyPath access
+        """
+        instance = KeyPathDict()
+        instance.apply_overrides(
+            dict(keypath_dict),
+            normalizer=normalizer,
+            accept_dot=accept_dot,
+        )
+        return instance.data.copy()

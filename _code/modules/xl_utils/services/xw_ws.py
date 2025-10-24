@@ -4,36 +4,55 @@
 
 from __future__ import annotations
 import xlwings as xw
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict, List
 import pandas as pd
-from xl_utils.core.policy import XwWsPolicy
+from xl_utils.core.policy import SavePolicy, ErrorHandlingPolicy
+from xl_utils.core.save_helper import SavePolicyHelper
 from xl_utils.services.save_manager import XwSaveManager
+from xl_utils.services.column_resolver import ColumnResolver
 
 
 class XwWsSheetResolver:
-    """Worksheet 확보 및 생성 전담"""
+    """Worksheet 확보 및 생성 전담 (ErrorHandlingPolicy 사용)"""
     
-    def __init__(self, book: xw.Book, policy: XwWsPolicy):
+    def __init__(
+        self,
+        book: xw.Book,
+        error_handling: Optional[ErrorHandlingPolicy] = None
+    ):
         self.book = book
-        self.policy = policy
+        self.error_handling = error_handling
     
     def resolve(self, sheet: Union[str, int]) -> xw.Sheet:
-        """시트 확보 (없으면 정책에 따라 생성)"""
+        """시트 확보 (없으면 ErrorHandlingPolicy에 따라 생성 or 에러)"""
         try:
             return self.book.sheets[sheet]
         except Exception:
-            if self.policy.create_if_missing:
-                return self.book.sheets.add(name=str(sheet))
-            raise
+            if self.error_handling:
+                action = self.error_handling.on_sheet_not_found
+                if action == "create":
+                    return self.book.sheets.add(name=str(sheet))
+                elif action == "first":
+                    return self.book.sheets[0]
+                else:  # "error"
+                    raise
+            else:
+                # 정책 없으면 에러
+                raise
 
 
 class XwWsCellOps:
-    """셀 단위 읽기/쓰기 전담 (확장)"""
+    """셀 단위 읽기/쓰기 전담 (SavePolicy 사용)"""
     
-    def __init__(self, sheet: xw.Sheet, save_manager: XwSaveManager, policy: XwWsPolicy):
+    def __init__(
+        self,
+        sheet: xw.Sheet,
+        save_manager: XwSaveManager,
+        save_policy: Optional[SavePolicy] = None
+    ):
         self.sheet = sheet
         self.save_manager = save_manager
-        self.policy = policy
+        self.save_policy = save_policy
     
     # ==========================================================================
     # 단일 셀 조작
@@ -52,14 +71,17 @@ class XwWsCellOps:
         number_format: Optional[str] = None,
         save: bool = False,
     ) -> xw.Range:
-        """셀 쓰기"""
+        """셀 쓰기 (SavePolicy 지원)"""
         rng = self.sheet.range((row, col))
         rng.value = value
         
         if number_format:
             rng.number_format = number_format
         
-        if save or self.policy.auto_save_on_write:
+        # SavePolicyHelper로 저장 결정
+        should_save = SavePolicyHelper.should_save("write", self.save_policy, save)
+        
+        if should_save:
             self.save_manager.save_workbook(self.sheet.book)
         
         return rng
@@ -79,11 +101,14 @@ class XwWsCellOps:
         *,
         save: bool = False,
     ) -> xw.Range:
-        """범위 쓰기 (2D list, DataFrame, 등)"""
+        """범위 쓰기 (2D list, DataFrame, 등) - SavePolicy 지원"""
         rng = self.sheet.range(range_addr)
         rng.value = values
         
-        if save or self.policy.auto_save_on_write:
+        # SavePolicyHelper로 저장 결정
+        should_save = SavePolicyHelper.should_save("write", self.save_policy, save)
+        
+        if should_save:
             self.save_manager.save_workbook(self.sheet.book)
         
         return rng
@@ -240,9 +265,15 @@ class XwWsCellOps:
 class XwWsDataFrameOps:
     """DataFrame 변환 전담"""
     
-    def __init__(self, sheet: xw.Sheet, policy: XwWsPolicy):
+    def __init__(
+        self,
+        sheet: xw.Sheet,
+        drop_empty_rows: bool = True,
+        clear_before_dataframe: bool = True
+    ):
         self.sheet = sheet
-        self.policy = policy
+        self.drop_empty_rows = drop_empty_rows
+        self.clear_before_dataframe = clear_before_dataframe
     
     def to_dataframe(
         self,
@@ -260,7 +291,7 @@ class XwWsDataFrameOps:
             expand=expand
         ).value
         
-        if self.policy.drop_empty_rows and isinstance(df, pd.DataFrame):
+        if self.drop_empty_rows and isinstance(df, pd.DataFrame):
             df = df.dropna(how="all").dropna(axis=1, how="all")
         
         return df
@@ -272,10 +303,10 @@ class XwWsDataFrameOps:
         *,
         index: bool = False,
         header: bool = True,
-        clear: bool = None,
+        clear: Optional[bool] = None,
     ) -> bool:
         """DataFrame을 시트에 기록"""
-        should_clear = clear if clear is not None else self.policy.clear_before_dataframe
+        should_clear = clear if clear is not None else self.clear_before_dataframe
         
         if should_clear:
             self.sheet.clear()
@@ -291,6 +322,7 @@ class XwWs:
         ws.cell_ops.read("A1")          # 셀 읽기
         ws.cell_ops.write(1, 1, "값")   # 셀 쓰기
         ws.df_ops.to_dataframe()        # DataFrame 변환
+        ws.column_resolver.resolve(df, "cas")  # 컬럼 해석
         ws.sheet                        # xlwings Sheet 객체
     """
     
@@ -299,20 +331,40 @@ class XwWs:
         book: xw.Book,
         sheet: Union[str, int] = "Sheet1",
         *,
-        policy: Optional[XwWsPolicy] = None,
+        column_aliases: Optional[Dict[str, List[str]]] = None,
+        save_policy: Optional[SavePolicy] = None,
+        error_handling: Optional[ErrorHandlingPolicy] = None,
+        drop_empty_rows: bool = True,
+        clear_before_dataframe: bool = True,
     ):
+        """Initialize XwWs (통합 정책 지원).
+        
+        Args:
+            book: xlwings Book object
+            sheet: Sheet name or index
+            column_aliases: Column alias mapping {key: [alias1, alias2, ...]}
+            save_policy: SavePolicy (저장 시점 제어)
+            error_handling: ErrorHandlingPolicy (에러 처리 전략)
+            drop_empty_rows: DataFrame 변환 시 빈 행 제거 여부
+            clear_before_dataframe: DataFrame 쓰기 전 시트 초기화 여부
+        """
         self.book = book
-        self.policy = policy or XwWsPolicy()
+        self.save_policy = save_policy
+        self.error_handling = error_handling
+        
+        # SaveManager 생성 (멤버 변수로 관리)
+        self.save_manager = XwSaveManager(book.app)
         
         # 컴포넌트 초기화
-        sheet_resolver = XwWsSheetResolver(book, self.policy)
+        sheet_resolver = XwWsSheetResolver(book, self.error_handling)
         self.sheet = sheet_resolver.resolve(sheet)
         
-        save_manager = XwSaveManager(book.app)
-        self.cell_ops = XwWsCellOps(self.sheet, save_manager, self.policy)
-        self.df_ops = XwWsDataFrameOps(self.sheet, self.policy)
+        self.cell_ops = XwWsCellOps(self.sheet, self.save_manager, self.save_policy)
+        self.df_ops = XwWsDataFrameOps(self.sheet, drop_empty_rows, clear_before_dataframe)
         
-        self._save_manager = save_manager
+        # ColumnResolver 초기화 (선택사항)
+        self.column_resolver = ColumnResolver(column_aliases) if column_aliases else None
+        
         self._context_managed = False
     
     # ==========================================================================
@@ -337,7 +389,7 @@ class XwWs:
         *,
         index: bool = False,
         header: bool = True,
-        clear: bool = None,
+        clear: Optional[bool] = None,
     ) -> bool:
         """DataFrame 쓰기 (편의 메서드)"""
         return self.df_ops.from_dataframe(df, anchor, index=index, header=header, clear=clear)
@@ -383,7 +435,9 @@ class XwWs:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager 종료 - auto_save_on_write 정책에 따라 저장"""
-        if self.policy.auto_save_on_write:
-            self._save_manager.save_workbook(self.book)
+        """Context manager 종료 - SavePolicy에 따라 저장"""
+        # SavePolicyHelper로 저장 결정
+        should_save = SavePolicyHelper.should_save("exit", self.save_policy)
+        if should_save:
+            self.save_manager.save_workbook(self.book)
         return None

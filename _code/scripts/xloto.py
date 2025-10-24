@@ -23,16 +23,16 @@ if str(scripts_dir) not in sys.path:
 
 
 def main():
-    """XLOTO 메인 실행 함수."""
-    from xloto import Xloto
+    """XLOTO 메인 실행 함수 (OTO 패턴)."""
+    from xloto.entry_point.xloto import Xloto
     
-    # ConfigLoader 설정 파일 경로 (하드코딩)
-    config_loader_cfg_path = "M:/CALife/CAShop - 구매대행/_code/configs/loader/config_loader_xloto.yaml"
-    # cfg_xloto = "M:/CALife/CAShop - 구매대행/_code/configs/xloto.yaml"
-    # Xloto EntryPoint 생성 (config_loader_cfg_path 전달)
+    # ConfigLoader 설정 파일 경로
+    config_loader_cfg_path = "M:/CALife/CAShop - 구매대행/_code/configs/xloto/xloto_config_loader.yaml"
+    
+    # Xloto EntryPoint 생성
     xloto = Xloto(config_loader_cfg_path=config_loader_cfg_path)
 
-    # 실행
+    # 실행 (키워드 전용 인자)
     result = xloto.run()
     
     # 결과 반환

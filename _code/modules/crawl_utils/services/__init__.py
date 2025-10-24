@@ -67,7 +67,6 @@ from __future__ import annotations
 from .adapter import (
     AsyncSeleniumAdapter,  # Async 버전 (asyncio.to_thread 사용)
     SyncSeleniumAdapter,   # Sync 버전 (직접 Selenium API 호출)
-    SeleniumAdapter,       # Alias for AsyncSeleniumAdapter (하위 호환성)
 )
 
 # ============================================================================
@@ -76,24 +75,21 @@ from .adapter import (
 from .navigator import (
     AsyncNavigator,      # Async 네비게이터
     SyncNavigator,       # Sync 네비게이터
-    # Backward compatibility aliases
-    SeleniumNavigator,   # = AsyncNavigator
-    Navigator,           # = AsyncNavigator
 )
 
 # ============================================================================
-# Extractor: 데이터 추출 (Async Only - DOM 파싱/JS 실행/API 호출)
+# Extractor: 데이터 추출 (Async + Sync)
 # ============================================================================
 from .extractor import (
+    # Async
     AsyncExtractorFactory,  # Extractor 생성 팩토리 (Async)
     AsyncDOMExtractor,      # DOM 기반 추출 (BeautifulSoup)
     AsyncJSExtractor,       # JavaScript 실행 기반 추출
     AsyncAPIExtractor,      # API 호출 기반 추출
-    # Backward compatibility aliases
-    ExtractorFactory,       # = AsyncExtractorFactory
-    DOMExtractor,          # = AsyncDOMExtractor
-    JSExtractor,           # = AsyncJSExtractor
-    APIExtractor,          # = AsyncAPIExtractor
+    # Sync
+    SyncDOMExtractor,       # Sync DOM 추출 (BeautifulSoup)
+    SyncJSExtractor,        # Sync JavaScript 실행 기반 추출
+    SyncExtractorFactory,   # Sync Extractor 생성 팩토리
 )
 
 # ============================================================================
@@ -103,9 +99,6 @@ from .fetcher import (
     AsyncHTTPFetcher,    # Async HTTP fetcher (aiohttp 기반)
     AsyncDummyFetcher,   # Async 테스트용 더미 Fetcher
     SyncHTTPFetcher,     # Sync HTTP fetcher (requests 기반)
-    # Backward compatibility aliases
-    HTTPFetcher,         # = AsyncHTTPFetcher
-    DummyFetcher,        # = AsyncDummyFetcher
 )
 
 # ============================================================================
@@ -114,8 +107,6 @@ from .fetcher import (
 from .saver import (
     AsyncFileSaver,  # Async 파일 저장 (asyncio.to_thread 사용)
     SyncFileSaver,   # Sync 파일 저장 (직접 파일 I/O)
-    # Backward compatibility alias
-    FileSaver,       # = AsyncFileSaver
 )
 
 # ============================================================================
@@ -129,25 +120,6 @@ from .smart_normalizer import (
     SmartNormalizer,  # 자동 타입 추론 정규화 (TypeInferencer 사용)
 )
 
-# ============================================================================
-# URL Analysis & Method Resolution: URL 분석 및 메서드 해석
-# ============================================================================
-from .url_analyzer import (
-    UrlAnalyzer,  # URL에서 site와 method 추출
-)
-
-from .method_resolver import (
-    MethodResolver,  # site+method → config preset 매핑
-)
-
-# ============================================================================
-# Sync Extractor: Sync 버전 데이터 추출
-# ============================================================================
-from .sync_extractor import (
-    SyncDOMExtractor,       # Sync DOM 추출 (BeautifulSoup)
-    SyncJSExtractor,        # Sync JavaScript 실행 기반 추출
-    SyncExtractorFactory,   # Sync Extractor 생성 팩토리
-)
 
 # ============================================================================
 # Crawl Methods: 메서드별 크롤링 서비스
@@ -158,6 +130,13 @@ from .crawl_methods import (
     CrawlMethodFactory,     # 크롤링 메서드 팩토리
 )
 
+# ============================================================================
+# PostProcessor: 후처리 서비스 (Extract → Normalize → Save)
+# ============================================================================
+from .post_processor import (
+    SyncPostProcessor,  # Sync 후처리 (KeyPath 추출 + 템플릿 + 파일 저장)
+)
+
 
 __all__ = [
     # ========================================
@@ -165,15 +144,12 @@ __all__ = [
     # ========================================
     "AsyncSeleniumAdapter",
     "SyncSeleniumAdapter",
-    "SeleniumAdapter",  # Alias for AsyncSeleniumAdapter
     
     # ========================================
     # Navigator
     # ========================================
     "AsyncNavigator",
     "SyncNavigator",
-    "SeleniumNavigator",  # Alias for AsyncNavigator
-    "Navigator",          # Alias for AsyncNavigator
     
     # ========================================
     # Extractor (Async Only)
@@ -182,10 +158,6 @@ __all__ = [
     "AsyncDOMExtractor",
     "AsyncJSExtractor",
     "AsyncAPIExtractor",
-    "ExtractorFactory",   # Alias for AsyncExtractorFactory
-    "DOMExtractor",       # Alias for AsyncDOMExtractor
-    "JSExtractor",        # Alias for AsyncJSExtractor
-    "APIExtractor",       # Alias for AsyncAPIExtractor
     
     # ========================================
     # Fetcher
@@ -193,27 +165,18 @@ __all__ = [
     "AsyncHTTPFetcher",
     "AsyncDummyFetcher",
     "SyncHTTPFetcher",
-    "HTTPFetcher",        # Alias for AsyncHTTPFetcher
-    "DummyFetcher",       # Alias for AsyncDummyFetcher
     
     # ========================================
     # Saver
     # ========================================
     "AsyncFileSaver",
     "SyncFileSaver",
-    "FileSaver",          # Alias for AsyncFileSaver
     
     # ========================================
     # Normalizer (Sync Only)
     # ========================================
     "DataNormalizer",
     "SmartNormalizer",
-    
-    # ========================================
-    # URL Analysis & Method Resolution
-    # ========================================
-    "UrlAnalyzer",
-    "MethodResolver",
     
     # ========================================
     # Sync Extractor
@@ -228,6 +191,11 @@ __all__ = [
     "CrawlProductDetail",
     "CrawlProductSearch",
     "CrawlMethodFactory",
+    
+    # ========================================
+    # PostProcessor
+    # ========================================
+    "SyncPostProcessor",
 ]
 
 

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """crawl_utils.adapter - Core crawling logic (Adapter layer)."""
 
-from .crawl import Crawl
+from .sync_crawl import SyncCrawl
 from .webdriver_manager import WebDriverManager
 
 __all__ = [
-    "Crawl",
+    "SyncCrawl",
     "WebDriverManager",
 ]

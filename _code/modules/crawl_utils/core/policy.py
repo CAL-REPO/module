@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Optional, Literal, Any
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
 
@@ -70,9 +70,30 @@ class ScrollPolicy(BaseModel):
 
 
 class ExtractorPolicy(BaseModel):
-    type: ExtractorType = Field(ExtractorType.DOM, description="Extractor type")
-    item_selector: Optional[str] = None
-    js_snippet: Optional[str] = Field(None, description="Custom JS snippet for JS extractor")
+    """데이터 추출 정책
+    
+    Extractor 타입에 따라 다양한 방식으로 데이터 추출:
+    - DOM: CSS/XPath 선택자로 DOM 추출 (BeautifulSoup - 향후)
+    - JS: JavaScript snippet 실행 (현재 우선)
+    - API: REST API 호출 (향후)
+    
+    JS snippet 방식:
+    - js_snippet: YAML inline JS 코드 (간단한 경우)
+    - js_snippet_file: 별도 .js 파일 경로 (복잡한 경우, v1.1 향후 지원)
+    """
+    type: ExtractorType = Field(ExtractorType.JS, description="Extractor type (dom/js/api)")
+    
+    # DOM Extractor (향후 BeautifulSoup)
+    item_selector: Optional[str] = Field(None, description="CSS/XPath selector for DOM extractor")
+    
+    # JS Extractor
+    js_snippet: Optional[str] = Field(None, description="Inline JS snippet (현재 우선)")
+    js_snippet_file: Optional[str] = Field(
+        None,
+        description="Path to .js file (v1.1 향후 지원, 복잡한 JS 코드용)"
+    )
+    
+    # API Extractor (향후)
     api_endpoint: Optional[str] = None
     api_method: str = Field("GET", pattern="^[A-Z]+$")
     payload: Optional[Dict] = None
@@ -110,32 +131,107 @@ class NormalizationPolicy(BaseModel):
 
 
 # =============================================================================
-# PostProcessor Policy (New)
+# PostProcessor Policy (New - v2.0 개선)
 # =============================================================================
 
 class PostProcessorRule(BaseModel):
-    """PostProcessor 규칙 (fso_utils 통합)
+    """PostProcessor 규칙 (fso_utils 통합 + 동적 템플릿 지원)
     
     JS Extractor 결과를 KeyPath로 추출하여 FSOPathBuilder로 저장.
+    
+    동적 템플릿 지원:
+    - fso_name_policy 필드에서 {{item.title}}, {{cas_no}} 등 템플릿 사용 가능
+    - dynamic_subdir에서 {{cas_no}}/images 등 동적 폴더명 사용 가능
+    - 템플릿 변수는 JS 추출 결과 + runtime_context 결합
+    
+    Example:
+        ```yaml
+        rules:
+          - kind: "image"
+            source: "images"  # JS 결과의 images 필드
+            fso_name_policy:
+              prefix: "{{item.title}}"  # JS 결과의 title 필드 사용
+              suffix: "{{item.price}}"  # JS 결과의 price 필드 사용
+              tail_mode: "counter"
+              extension: "jpg"
+            dynamic_subdir: "{{cas_no}}/images"  # 런타임 인자 cas_no 사용
+        ```
     """
     kind: str = Field(..., description="File kind: image/text/file")
-    source: str = Field(..., description="KeyPath to extract from JS result")
-    static_section: Optional[str] = Field(None, description="Fixed section name")
+    source: str = Field(..., description="KeyPath to extract from JS result (dot notation)")
     allow_empty: bool = Field(False, description="Keep empty values")
-    dynamic_subdir: Optional[str] = Field(None, description="Dynamic subdirectory template")
+    
+    # 동적 폴더명 템플릿 (✨ v2.0 신규)
+    dynamic_subdir: Optional[str] = Field(
+        None,
+        description="Dynamic subdirectory template (e.g., '{{cas_no}}/images', '{{item.category}}')"
+    )
     
     # FSO policies (명시적 구분)
-    fso_name_policy: Dict = Field(default_factory=dict, description="FSONamePolicy dict")
-    fso_ops_policy: Optional[Dict] = Field(None, description="FSOOpsPolicy dict")
+    fso_name_policy: Dict = Field(
+        default_factory=dict,
+        description="FSONamePolicy dict (supports templates: {{item.field}}, {{runtime_var}})"
+    )
+    fso_ops_policy: Optional[Dict] = Field(
+        None,
+        description="FSOOpsPolicy dict (exist, ext settings)"
+    )
+    
+    # 템플릿 렌더링 옵션
+    template_safe_mode: bool = Field(
+        True,
+        description="If True, missing template vars are replaced with empty string instead of raising error"
+    )
 
 
 class PostProcessorPolicy(BaseModel):
-    """PostProcessor 정책"""
+    """PostProcessor 정책 (v2.0 - 동적 템플릿 지원)
+    
+    PostProcessor는 Extract 단계에서 추출한 Dict를 NormalizedItem으로 변환하고,
+    fso_utils를 사용하여 파일로 저장합니다.
+    
+    주요 기능:
+    - KeyPath 기반 데이터 추출 (source 필드)
+    - 동적 파일명 생성 (fso_name_policy에서 템플릿 지원)
+    - 동적 폴더명 생성 (dynamic_subdir 템플릿)
+    - fso_utils 정책 적용 (FSONamePolicy, FSOOpsPolicy)
+    
+    Example YAML:
+        ```yaml
+        post_processor:
+          target_dir: "{{output_dir}}/crawl"
+          use_smart_normalizer: true
+          rules:
+            - kind: "image"
+              source: "images"
+              dynamic_subdir: "{{cas_no}}/{{item.category}}"
+              fso_name_policy:
+                prefix: "{{item.title}}"
+                tail_mode: "counter"
+                extension: "jpg"
+        ```
+    """
     target_dir: Path = Field(
         default_factory=lambda: Path.cwd() / "_output" / "crawl",
-        description="Base output directory"
+        description="Base output directory (supports env vars via path_utils.resolve)"
     )
-    rules: List[PostProcessorRule] = Field(default_factory=list)
+    
+    # PostProcessor 모드 선택
+    use_smart_normalizer: bool = Field(
+        True,
+        description="Use SmartNormalizer (auto type inference) instead of rule-based DataNormalizer"
+    )
+    
+    # 템플릿 렌더링 옵션 (전역 설정)
+    template_safe_mode: bool = Field(
+        True,
+        description="If True, missing template vars are replaced with empty string instead of raising error"
+    )
+    
+    rules: List[PostProcessorRule] = Field(
+        default_factory=list,
+        description="PostProcessor rules (KeyPath extraction + FSO storage)"
+    )
 
 
 def _default_output_root() -> Path:
@@ -172,22 +268,6 @@ class StoragePolicy(BaseModel):
 
 
 # =============================================================================
-# Source Policy
-# =============================================================================
-
-class CrawlSourcePolicy(BaseModel):
-    """Crawl Source Policy - URL 소스 설정
-    
-    크롤링할 URL 목록과 크롤링 방법을 정의합니다.
-    """
-    urls: List[str] = Field(default_factory=list, description="URL list to crawl")
-    method: Literal["product_detail", "product_search"] = Field(
-        "product_detail",
-        description="Crawl method: product_detail (상품 상세) or product_search (상품 검색)"
-    )
-
-
-# =============================================================================
 # Crawl Policy (Adapter)
 # =============================================================================
 
@@ -195,28 +275,29 @@ class CrawlPolicy(BaseModel):
     """Crawl(Adapter) 전용 Policy - 순수 크롤링 로직 설정
     
     이 Policy는 Crawl 클래스에서 사용하며, 크롤링 실행에 필요한 설정만 포함합니다.
-    - source: URL 소스 및 method 설정
-    - navigation: 페이지 네비게이션 설정
+    - navigation: 페이지 네비게이션 설정 (Optional)
     - scroll: 스크롤 설정
     - extractor: 데이터 추출 설정
     - wait: 대기 설정
     - post_processor: PostProcessor 설정 (KeyPath + FSO)
     - log: 로깅 설정 (Optional, config_loader에서 주입 가능)
+    
+    Note: URLs는 run() 메서드에서 직접 전달받습니다.
+          Site/Method는 PresetManager.analyze_url()로 자동 결정됩니다.
     """
-    # Source 설정
-    source: CrawlSourcePolicy = Field(default_factory=CrawlSourcePolicy)  # pyright: ignore[reportArgumentType]
+    # Config section name (ConfigLikeLoader용)
+    name: str = Field("crawl", description="Config section name for ConfigLikeLoader")
     
-    # Site/Method 정보 (URL 분석으로 자동 결정, 또는 YAML에서 명시)
-    site: str = Field(default="", description="Site identifier (aliexpress, taobao) - auto-detected from URL")
-    method: str = Field(default="", description="Method identifier (detail, search) - from source.method")
+    # Site/Method 정보 (PresetManager.analyze_url()로 자동 결정)
+    site: str = Field(default="", description="Site identifier (aliexpress, taobao) - auto-detected by PresetManager")
+    method: str = Field(default="", description="Method identifier (detail, search) - auto-detected by PresetManager")
     
-    # URL 패턴 설정 (UrlAnalyzer에서 사용)
-    url_patterns: Optional[Dict[str, Dict[str, List[str]]]] = Field(
+    # Navigation (Optional - search 메서드에서만 필요)
+    navigation: Optional[NavigationPolicy] = Field(
         None,
-        description="URL pattern configuration for UrlAnalyzer (site_domains, method_patterns)"
+        description="Page navigation settings (required for search method, optional for detail)"
     )
     
-    navigation: NavigationPolicy
     scroll: ScrollPolicy = Field(default_factory=ScrollPolicy) # pyright: ignore[reportArgumentType]
     extractor: ExtractorPolicy = Field(default_factory=ExtractorPolicy) # pyright: ignore[reportArgumentType]
     wait: WaitPolicy = Field(default_factory=WaitPolicy) # pyright: ignore[reportArgumentType]
@@ -251,6 +332,74 @@ class CrawlPolicy(BaseModel):
     
     # Logging (✨ TranslatePolicy 패턴)
     log: Optional[LogPolicy] = None
+
+
+# =============================================================================
+# Unified Policy for SyncCrawl Adapter (OTO Pattern)
+# =============================================================================
+
+class SyncCrawlPolicy(BaseModel):
+    """SyncCrawl Adapter 통합 Policy (OTO 패턴)
+    
+    translate_utils의 TranslatorPolicy, image_utils의 ImageLoaderPolicy와 동일한 구조:
+    - webdriver_manager: WebDriver 설정 (WebDriverManagerPolicy)
+    - crawl: 크롤링 설정 (CrawlPolicy)
+    
+    ConfigLoader 사용 시:
+        ```yaml
+        # config_loader_crawl.yaml
+        source:
+          - src: ["{{configs_crawl_dir}}/webdriver_manager.yaml", "webdriver_manager"]
+          - src: ["{{configs_crawl_dir}}/sync_crawl.yaml", "crawl"]
+          - src: ["{{configs_logs_dir}}/crawl_parent.yaml", "log"]
+        ```
+    
+    Python 사용:
+        ```python
+        from cfg_utils import ConfigLoader
+        from crawl_utils.adapter import SyncCrawl
+        
+        config = ConfigLoader("configs/loader/config_loader_crawl.yaml")
+        crawl = SyncCrawl(cfg_like=config.to_dict())  # ✅ 단일 cfg_like
+        ```
+    """
+    name: str = Field(default="sync_crawl", description="Section name in YAML config")
+    webdriver_manager: Any = Field(
+        default=None,
+        description="WebDriver manager configuration (WebDriverManagerPolicy)"
+    )
+    crawl: CrawlPolicy = Field(
+        default_factory=CrawlPolicy,  # pyright: ignore[reportArgumentType]
+        description="Crawl configuration"
+    )
+    log: Optional[LogPolicy] = Field(None, description="Logging configuration (Optional)")
+    
+    @model_validator(mode="before")
+    @classmethod
+    def validate_webdriver_manager(cls, values):
+        """WebDriverManagerPolicy 지연 import 및 검증
+        
+        Circular import 방지를 위해 @model_validator에서 import
+        """
+        if isinstance(values, dict) and "webdriver_manager" not in values:
+            # Import here to avoid circular imports
+            from crawl_utils.provider.policy import WebDriverManagerPolicy
+            values["webdriver_manager"] = WebDriverManagerPolicy().model_dump()
+        
+        return values
+    
+    @model_validator(mode="after")
+    def validate_policy(self):
+        """WebDriverManagerPolicy 타입 검증 (after mode)"""
+        # Import here to avoid circular imports
+        from crawl_utils.provider.policy import WebDriverManagerPolicy
+        
+        if self.webdriver_manager is None:
+            self.webdriver_manager = WebDriverManagerPolicy()
+        elif isinstance(self.webdriver_manager, dict):
+            self.webdriver_manager = WebDriverManagerPolicy(**self.webdriver_manager)
+        
+        return self
 
 
 # =============================================================================

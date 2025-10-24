@@ -4,7 +4,7 @@
 Reusable service components for configuration management.
 """
 
-from .source import UnifiedSource, BaseModelSource, DictSource, YamlFileSource
+from .source import UnifiedSource
 from .converter import StateConverter
 from .normalizer import Normalizer
 from .env_os_loader import EnvOSLoader
@@ -12,12 +12,10 @@ from .env_processor import EnvProcessor
 from .override_processor import OverrideProcessor
 from .policy_loader import PolicyLoader
 from .config_like_loader import ConfigLikeLoader
+from .section_extractor import SectionExtractor
 
 __all__ = [
     'UnifiedSource',
-    'BaseModelSource',  # Backward compatibility
-    'DictSource',  # Backward compatibility
-    'YamlFileSource',  # Backward compatibility
     'StateConverter',
     'Normalizer',
     'EnvOSLoader',
@@ -25,4 +23,5 @@ __all__ = [
     'OverrideProcessor',
     'PolicyLoader',
     'ConfigLikeLoader',
+    'SectionExtractor',
 ]

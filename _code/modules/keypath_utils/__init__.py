@@ -19,7 +19,6 @@ from .services import (
     KeyPathVarsResolver,
     KeyPathMerger,
     KeyPathMergePolicy,
-    expand_overrides,
 )
 
 # Backward compatibility
@@ -39,7 +38,6 @@ __all__ = [
     "KeyPathVarsResolver",
     "KeyPathMerger",
     "KeyPathMergePolicy",
-    "expand_overrides",
     
     # Backward compatibility
     "KeyPathModel",

@@ -159,6 +159,4 @@ class SyncHTTPFetcher:
 
 # ============================================================================
 # Backward compatibility aliases
-# ============================================================================
-DummyFetcher = AsyncDummyFetcher  # Old name
-HTTPFetcher = AsyncHTTPFetcher    # Old name
+

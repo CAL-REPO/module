@@ -4,15 +4,18 @@
 """EnvOSLoader: OS 환경 변수 로더 (YAML 파일 지원).
 
 SRP 준수:
-- OS 환경 변수 읽기
+- OS 환경 변수 읽기 (명시적 리스트만)
 - YAML 파일 경로 감지 및 파싱
 - env section에 merge할 dict 반환
 
 특징:
-- True: 모든 OS 환경 변수
-- List[str]: 지정된 키만
+- List[str]: 지정된 환경 변수만 읽기 (보안 강화)
 - YAML 파일 경로 자동 감지 (.yaml/.yml)
 - 값이 파일 경로면 YAML 파싱 후 merge
+
+보안:
+- env_os=True (모든 환경 변수) 제거됨
+- 필요한 환경 변수만 명시적으로 지정
 """
 
 from __future__ import annotations
@@ -25,41 +28,36 @@ from modules.structured_io.core.policy import BaseParserPolicy
 
 
 class EnvOSLoader:
-    """OS 환경 변수 로더.
+    """OS 환경 변수 로더 (명시적 리스트만 허용).
     
     사용 예시::
     
-        # 모든 OS 환경 변수
-        env_data = EnvOSLoader.load(env_os=True)
-        
-        # 특정 키만
-        env_data = EnvOSLoader.load(env_os=["PATH", "HOME", "DEBUG"])
+        # 특정 환경 변수만 읽기 (권장)
+        env_data = EnvOSLoader.load(env_os=["CASHOP_PATHS", "DEBUG"])
         
         # ConfigLoader에서 사용
         loader = ConfigLoader(
-            base_sources=[(ImagePolicy(), "image")],
-            env_os=["DEBUG", "LOG_LEVEL"]
+            config_loader_cfg_path="config.yaml",
+            env_os=["CASHOP_PATHS"]  # 명시적 지정
         )
     """
     
     @classmethod
     def load(
         cls,
-        env_os: Union[bool, List[str]],
+        env_os: List[str],
         *,
         parse_yaml: bool = True,
     ) -> Dict[str, Any]:
         """OS 환경 변수 로드.
         
         처리 순서:
-        1. env_os에 따라 OS 환경 변수 수집
+        1. env_os 리스트에 지정된 OS 환경 변수만 수집
         2. 값이 YAML 파일 경로면 2-pass 파싱 (self-reference resolve)
         3. 그 외는 문자열 그대로 반환
         
         Args:
-            env_os: 
-                - True: 모든 OS 환경 변수
-                - List[str]: 지정된 키만
+            env_os: 읽을 환경 변수 이름 리스트 (예: ["CASHOP_PATHS", "DEBUG"])
             parse_yaml: True이면 YAML 파일 경로 감지 및 2-pass 파싱
             
         Returns:
@@ -72,34 +70,27 @@ class EnvOSLoader:
             
         Example::
         
-            # 모든 OS 환경 변수
-            env_data = EnvOSLoader.load(env_os=True)
-            # {'PATH': '...', 'HOME': '...', 'DEBUG': 'true', ...}
-            
-            # 특정 키만
-            env_data = EnvOSLoader.load(env_os=["DEBUG", "CONFIG_PATH"])
-            # {'DEBUG': 'true', 'CONFIG_PATH': 'config.yaml'}
+            # 특정 환경 변수만 읽기 (보안 강화)
+            env_data = EnvOSLoader.load(env_os=["CASHOP_PATHS", "DEBUG"])
+            # {'CASHOP_PATHS': 'paths.yaml', 'DEBUG': 'true'}
             
             # YAML 파일 경로가 값이면 2-pass 파싱 (self-reference resolve)
-            os.environ['MY_CONFIG'] = 'config.yaml'
-            env_data = EnvOSLoader.load(env_os=["MY_CONFIG"])
-            # {'MY_CONFIG': {'key': 'value', ...}}  # ← YAML 파싱 + {{}} resolve
+            os.environ['CASHOP_PATHS'] = 'config.yaml'
+            env_data = EnvOSLoader.load(env_os=["CASHOP_PATHS"])
+            # {'CASHOP_PATHS': {'key': 'value', ...}}  # ← YAML 파싱 + {{}} resolve
         """
-        # 1️⃣ OS 환경 변수 수집
-        if env_os is True:
-            # 모든 OS 환경 변수
-            env_os_data = dict(os.environ)
-        elif isinstance(env_os, list):
-            # 지정된 키만
-            env_os_data = {}
-            for key in env_os:
-                if key in os.environ:
-                    env_os_data[key] = os.environ[key]
-        else:
+        # 1️⃣ OS 환경 변수 수집 (명시적 리스트만 허용)
+        if not isinstance(env_os, list):
             raise TypeError(
-                f"Unsupported env_os type: {type(env_os)}. "
-                f"Expected True or List[str]."
+                f"❌ env_os must be a list of environment variable names. "
+                f"Got: {type(env_os).__name__}\n"
+                f"Example: env_os=['CASHOP_PATHS', 'DEBUG']"
             )
+        
+        env_os_data = {}
+        for key in env_os:
+            if key in os.environ:
+                env_os_data[key] = os.environ[key]
         
         # 2️⃣ YAML 파일 경로 감지 및 2-pass 파싱
         if parse_yaml:

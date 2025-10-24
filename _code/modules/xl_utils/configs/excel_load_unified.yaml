@@ -1,0 +1,73 @@
+# xl_utils unified policy example
+# 통합 정책 사용 예시
+
+name: "excel"
+
+# ===== 통합 정책 (New) =====
+
+# 저장 전략 통합
+save:
+  strategy: "on_exit"  # manual, on_write, on_close, on_exit
+  target: "current_wb"  # current_wb, all_wb
+  backup: false
+  save_attached_instance: false
+
+# 성능 최적화
+performance:
+  screen_updating: true  # false = 빠름 (화면 갱신 OFF)
+  display_alerts: false
+  calculation: "auto"  # auto, manual, semiauto
+  enable_events: true
+  interactive: true
+  clear_clipboard: true
+
+# 에러 처리
+error_handling:
+  on_file_not_found: "error"  # error, create, skip
+  on_sheet_not_found: "create"  # error, create, first
+  on_save_error: "error"  # error, retry, ignore
+  retry_count: 3
+  retry_delay: 1.0
+
+# 경로 검증 (fso_utils 통합)
+path_validation:
+  fso:
+    as_type: "file"
+    exist:
+      must_exist: true
+      create_if_missing: false
+      overwrite: false
+  template_path: null
+  backup_if_exists: false
+  overwrite: false
+
+# ===== 기존 정책 (Backward Compatibility) =====
+
+xw_app:
+  visible: true
+  display_alerts: false  # ⚠️ performance.display_alerts가 우선
+  screen_updating: true  # ⚠️ performance.screen_updating이 우선
+  add_book: false
+
+xw_lifecycle:
+  quit_on_exit: true
+  save_on_exit: true  # ⚠️ save.strategy가 우선
+  save_attached_instance: false
+
+xw_wb:
+  auto_save: false  # ⚠️ save.strategy가 우선
+  must_exist: true  # ⚠️ path_validation.fso.exist.must_exist가 우선
+  create_if_missing: false
+
+xw_ws:
+  create_if_missing: true  # ⚠️ error_handling.on_sheet_not_found가 우선
+  auto_save_on_write: false  # ⚠️ save.strategy가 우선
+  clear_before_dataframe: true
+  drop_empty_rows: true
+
+# 로깅 (logs_utils LogPolicy)
+log:
+  enabled: true
+  level: "INFO"
+  console: true
+  file: false

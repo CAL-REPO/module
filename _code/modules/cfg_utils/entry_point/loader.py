@@ -59,7 +59,7 @@ class ConfigLoader:
         policy: Optional[ConfigLoaderPolicy] = None,
         src: Optional[Any] = None,
         env: Optional[Union[str, List[str], PathLike, List[PathLike]]] = None,
-        env_os: Optional[Union[bool, List[str]]] = None,
+        env_os: Optional[List[str]] = None,
         log: Optional[LogPolicy] = None,
     ):
         """ConfigLoader 초기화.
@@ -77,15 +77,27 @@ class ConfigLoader:
             env_os: OS 환경 변수 읽기
             log: LogPolicy 인스턴스
         """
+        # 0. env_os 먼저 처리 (log 정책의 placeholder 해석을 위해)
+        self._env_context = {}
+        if env_os is not None and env_os is not False:
+            from ..services.env_os_loader import EnvOSLoader
+            env_os_data = EnvOSLoader.load(env_os)
+            # CASHOP_PATHS의 값(dict)을 flatten
+            for key, value in env_os_data.items():
+                if isinstance(value, dict):
+                    self._env_context.update(value)
+        
         # 1. YAML 정책 로드
         self.config_loader_cfg_path = config_loader_cfg_path
         self._loader_policy_dict: Optional[Dict[str, Any]] = None
         
         if self.config_loader_cfg_path is not None:
             from ..services.policy_loader import PolicyLoader
+            # env_context를 전달하여 placeholder 해석
             self._loader_policy_dict = PolicyLoader.load_from_yaml(
                 self.config_loader_cfg_path,
-                placeholder_enabled=False
+                placeholder_enabled=True if self._env_context else False,
+                env_context=self._env_context
             )
             self._config_loader_policy = PolicyLoader.parse_to_policy(self._loader_policy_dict)
         else:

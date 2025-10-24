@@ -58,7 +58,7 @@ example_file:
   level: "INFO"
   sinks:
     - sink_type: "file"
-      filepath: "logs/app.log"
+      file_path: "logs/app.log"
       level: "INFO"
       rotation: "10 MB"
       retention: "7 days"
@@ -80,7 +80,7 @@ example_multi_sink:
     
     # 파일: DEBUG 이상 (모든 로그)
     - sink_type: "file"
-      filepath: "logs/debug.log"
+      file_path: "logs/debug.log"
       level: "DEBUG"
       rotation: "1 day"
       retention: "7 days"
@@ -88,7 +88,7 @@ example_multi_sink:
     
     # 에러 로그 별도 파일
     - sink_type: "file"
-      filepath: "logs/error.log"
+      file_path: "logs/error.log"
       level: "ERROR"
       rotation: "10 MB"
       retention: "30 days"
@@ -109,7 +109,7 @@ example_production:
       serialize: false
     
     - sink_type: "file"
-      filepath: "logs/production.log"
+      file_path: "logs/production.log"
       level: "INFO"
       rotation: "100 MB"
       retention: "30 days"

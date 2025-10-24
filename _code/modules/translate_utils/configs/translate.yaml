@@ -32,3 +32,22 @@ translate:
     tr_dir: ""
     tr_name: "translated_text.json"
 
+  # --------------------------------------------------------------------------
+  # 5. Log - 로깅 설정 (Dual Logging 지원)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true
+    name: 'translate_module'
+    level: 'DEBUG'
+    sinks:
+      - sink_type: 'file'
+        file_path: 'logs/modules/translate_{time:YYYY-MM-DD}.log'
+        level: 'DEBUG'
+        format: '<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
+        rotation: '5 MB'
+        retention: '3 days'
+        enqueue: true
+      - sink_type: 'console'
+        level: 'DEBUG'
+        colorize: true
+

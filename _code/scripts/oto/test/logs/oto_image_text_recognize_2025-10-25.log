@@ -1,0 +1,3 @@
+2025-10-25 00:39:01 | DEBUG    | modules.image_utils.adapter.text_recognize:__init__:98 - Module-specific logger enabled for detailed debugging
+2025-10-25 00:39:44 | INFO     | modules.image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01_text_recognize_001.jpg
+2025-10-25 00:39:44 | INFO     | modules.image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\oto\test\images\01_text_recognize_meta.json

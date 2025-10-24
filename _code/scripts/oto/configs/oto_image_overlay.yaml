@@ -1,0 +1,107 @@
+# ============================================================================
+# ImageOverlay - OTO Adapter Configuration
+# ============================================================================
+# OTO 파이프라인에서 사용하는 ImageOverlay Adapter 설정
+# Adapter 패턴: 순수 로직 + save + meta (모든 기능)
+
+image_overlay:
+  # --------------------------------------------------------------------------
+  # 1.5. Global Settings - 전역 설정 (모든 아이템에 적용)
+  # --------------------------------------------------------------------------
+  # 전역 폰트 설정
+  font:
+    font_dir: "{{fonts_dir}}"
+    family: "HMKMMAG.TTF"           # 한글 폰트
+    # size: 10                        # 기본 크기
+    fill: "#000000"                 # 검은색
+    stroke_fill: "#FFFFFF"          # 흰색 외곽선
+    stroke_width: 3                 # 외곽선 두께
+
+  mask_opacity: 0.5                 # 기본 50% 불투명 (0.0=투명, 1.0=불투명)
+  background_opacity: 1.0           # 기본 100% 불투명 (0.0=투명, 1.0=불투명)
+  # --------------------------------------------------------------------------
+  # 2. Items - 텍스트 오버레이 목록 (런타임에서 OverlayItem 전달)
+  # --------------------------------------------------------------------------
+  # items:
+    # # 예제: 전체 font 설정 오버라이드
+    # - text: "TEST2 マルコ"          # 예제 (런타임에서 교체됨)
+    #   polygon:
+    #     - [200, 500]
+    #     - [600, 500]
+    #     - [600, 600]
+    #     - [200, 600]
+    #   mask_opacity: 1.0                 # 배경 마스킹 100% 불투명 (완전 불투명)
+    #   font:
+    #     font_dir: "{{fonts_dir}}"
+    #     family: "HMKMMAG.TTF"           # 폰트 패밀리
+    #     size: 72                        # 더 큰 크기
+    #     fill: "#00FF00"                 # 초록색
+    #     stroke_fill: "#000000"          # 검은색 외곽선
+    #     stroke_width: 5                 # 더 굵은 외곽선
+      
+      # 텍스트 배치 설정
+      # anchor: "mm"
+      # offset: [0.0, 0.0]
+      # max_width_ratio: 0.95
+  
+  # --------------------------------------------------------------------------
+  # 3. Save - 이미지 저장 정책
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true
+    directory: "{{scripts_oto_dir}}/test/images"
+    name:
+      as_type: file
+      suffix: "overlay"
+      extension: ".jpg"           # 파일 확장자
+      tail_mode: counter
+      ensure_unique: true
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+    format: null
+    quality: 95
+
+  # --------------------------------------------------------------------------
+  # 4. Meta - 메타데이터 저장 정책
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true
+    directory: "{{scripts_oto_dir}}/test/images"
+    name:
+      as_type: file
+      suffix: "overlay_meta"
+      extension: .json
+      ensure_unique: false
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+        overwrite: true
+      ext:
+        default_ext: .json
+
+  # --------------------------------------------------------------------------
+  # 5. Log - 로그 설정 (Dual Logging - Secondary)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true                      # 기본값: false (parent logger 사용)
+    name: "oto_image_overlay"          # 모듈별 로거 이름
+    level: "DEBUG"                      # 로그 레벨
+    sinks:
+      - sink_type: "file"
+        file_path: "{{scripts_oto_dir}}/test/logs/oto_image_overlay_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "7 days"
+        compression: null
+        enqueue: true
+        serialize: false
+        backtrace: true
+        diagnose: true
+        colorize: true
+        catch: true
+      - sink_type: "console"
+        level: "INFO"

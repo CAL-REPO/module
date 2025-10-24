@@ -1,0 +1,96 @@
+# ============================================================================
+# ImageTextRecognize (Adapter) - Complete Configuration Example
+# ============================================================================
+# ImageTextRecognize Adapter 전용 설정 파일
+# Adapter는 순수 로직 + save + meta 담당 (모든 기능)
+# source 없이 Image 객체를 받아서 처리합니다.
+
+# --------------------------------------------------------------------------
+# ImageTextRecognize Adapter Policy
+# --------------------------------------------------------------------------
+image_text_recognize:
+  # --------------------------------------------------------------------------
+  # 1. Provider - OCR 제공자 설정
+  # --------------------------------------------------------------------------
+  provider:
+    provider: "paddle"                  # OCR 제공자: paddle, tesseract 등
+    langs: ["ch", "en"]                 # 언어 코드 목록
+    min_conf: 0.5                       # 최소 신뢰도 (0.0-1.0)
+    
+    # PaddleOCR 전용 설정
+    paddle_device: "cpu"                # 디바이스: cpu, gpu
+    paddle_use_angle_cls: true          # 각도 분류 사용
+    paddle_use_doc_orientation_classify: false  # 문서 방향 분류
+    paddle_use_doc_unwarping: false     # 문서 왜곡 보정
+    paddle_instance: null               # 캐시된 인스턴스 (내부 사용)
+  
+  # --------------------------------------------------------------------------
+  # 2. Preprocess - OCR 전처리 설정
+  # --------------------------------------------------------------------------
+  preprocess:
+    max_width: null                     # OCR용 최대 너비 (리사이즈)
+  
+  # --------------------------------------------------------------------------
+  # 3. Postprocess - OCR 후처리 설정
+  # --------------------------------------------------------------------------
+  postprocess:
+    strip_special_chars: true           # 특수문자 제거
+    filter_alphanumeric: true           # 영숫자만 있는 텍스트 필터링
+    deduplicate_iou_threshold: 0.7      # 중복 제거 IoU 임계값
+    prefer_lang_order: ["ch", "en"]     # 언어 우선순위
+
+  # --------------------------------------------------------------------------
+  # 4. Save - 이미지 저장 정책
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true
+    directory: null  # null이면 downloads()
+    name:
+      as_type: file
+      suffix: _recognized
+      tail_mode: counter
+      ensure_unique: true
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+    format: null
+    quality: 95
+
+  # --------------------------------------------------------------------------
+  # 5. Meta - 메타데이터 저장 정책
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true
+    directory: null
+    name:
+      as_type: file
+      suffix: _meta
+      extension: .json
+      ensure_unique: false
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+        overwrite: true
+      ext:
+        default_ext: .json
+
+  # --------------------------------------------------------------------------
+  # 6. Log - 로깅 설정 (Dual Logging 지원)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true
+    name: 'image_text_recognize_module'
+    level: 'DEBUG'
+    sinks:
+      - sink_type: 'file'
+        file_path: 'logs/modules/image_text_recognize_{time:YYYY-MM-DD}.log'
+        level: 'DEBUG'
+        format: '<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
+        rotation: '5 MB'
+        retention: '3 days'
+        enqueue: true
+      - sink_type: 'console'
+        level: 'DEBUG'
+        colorize: true

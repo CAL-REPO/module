@@ -200,29 +200,6 @@ def create_driver_from_session(session_info: dict):
     return driver
 
 
-def restore_cookies(driver, session_info: dict, url: Optional[str] = None) -> None:
-    """쿠키 복원 (Deprecated - Profile이 자동 관리)
-    
-    ⚠️  이 함수는 더 이상 필요하지 않습니다!
-    ⚠️  Firefox Profile이 쿠키를 자동으로 로드합니다!
-    
-    Args:
-        driver: WebDriver 인스턴스
-        session_info: 세션 정보
-        url: 쿠키 설정을 위한 초기 URL
-    
-    Note:
-        이 함수는 하위 호환성을 위해 남겨둠
-        실제로는 Profile이 쿠키를 자동 관리함
-    """
-    print("⚠️  restore_cookies() is deprecated!")
-    print("⚠️  Firefox Profile automatically manages cookies!")
-    print(f"✅ Cookies are already loaded from: {session_info.get('profile_path', 'N/A')}")
-    
-    # Profile이 이미 쿠키를 로드했으므로 아무것도 안 함
-    return
-
-
 # =============================================================================
 # CLI & Testing
 # =============================================================================

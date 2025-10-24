@@ -112,7 +112,7 @@ class AsyncSeleniumAdapter(BrowserController):
     # ------------------------------------------------------------
     # context 관리
     # ------------------------------------------------------------
-    async def __aenter__(self) -> "SeleniumAdapter":
+    async def __aenter__(self) -> "AsyncSeleniumAdapter":
         def _enter():
             self._fx.__enter__()
             return self
@@ -213,5 +213,7 @@ class SyncSeleniumAdapter:
             pass
 
 
-# Backward compatibility alias
-SeleniumAdapter = AsyncSeleniumAdapter
+__all__ = [
+    "AsyncSeleniumAdapter",
+    "SyncSeleniumAdapter",
+]

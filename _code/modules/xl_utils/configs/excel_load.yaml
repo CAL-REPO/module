@@ -1,0 +1,62 @@
+# ============================================================================
+# ExcelLoader (Adapter) - Complete Configuration Example
+# ============================================================================
+# ExcelLoader (Adapter) 전용 설정 파일
+# image_utils의 ImageLoad 패턴과 동일한 구조입니다.
+
+# --------------------------------------------------------------------------
+# ExcelLoader Adapter Policy
+# --------------------------------------------------------------------------
+excel_load:
+  # --------------------------------------------------------------------------
+  # 1. Excel Application Policy
+  # --------------------------------------------------------------------------
+  xw_app:
+    visible: true            # Excel 창 표시 여부
+    display_alerts: false    # 경고창 표시 여부
+    screen_updating: true    # 화면 갱신 활성화
+    add_book: false          # App 시작 시 기본 Workbook 생성 X
+
+  # --------------------------------------------------------------------------
+  # 2. Excel Lifecycle Policy
+  # --------------------------------------------------------------------------
+  xw_lifecycle:
+    quit_on_exit: true       # with 종료 시 자동 종료
+    save_on_exit: true       # with 종료 시 자동 저장
+    save_attached_instance: false  # 기존 Excel 인스턴스 저장 X
+
+  # --------------------------------------------------------------------------
+  # 4. Workbook Policy
+  # --------------------------------------------------------------------------
+  xw_wb:
+    auto_save: true          # 변경 시 자동 저장
+    create_if_missing: true  # 파일 없으면 새로 생성
+    must_exist: false        # 파일이 없어도 오류 X
+
+  # --------------------------------------------------------------------------
+  # 5. Worksheet Policy
+  # --------------------------------------------------------------------------
+  xw_ws:
+    create_if_missing: true          # 시트 없으면 생성
+    auto_save_on_write: false        # 셀 쓰기 시 자동 저장 X
+    clear_before_dataframe: true     # DataFrame 작성 전 시트 초기화
+    drop_empty_rows: true            # DataFrame 변환 시 빈 행 제거
+
+  # --------------------------------------------------------------------------
+  # 7. Log - 로그 정책 (선택사항)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true
+    name: "excel_load_module"
+    level: "INFO"
+    sinks:
+      - sink_type: "file"
+        file_path: "logs/modules/excel_load_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "5 MB"
+        retention: "3 days"
+        enqueue: true
+      - sink_type: "console"
+        level: "INFO"
+        colorize: true

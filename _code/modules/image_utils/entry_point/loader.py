@@ -7,7 +7,7 @@
 3. 결과 저장 (정책에 따라)
 
 translate_utils의 Translator와 동일한 패턴:
-- Policy: ImageLoaderPolicy (source + image_load)
+- Policy: ImageLoaderPolicy (source + image)
 - source에서 데이터 로드
 - adapter.run(data) 호출
 """
@@ -35,7 +35,7 @@ class ImageLoader:
     - 결과 저장
     
     Attributes:
-        policy: ImageLoaderPolicy 설정 (source + image_load)
+        policy: ImageLoaderPolicy 설정 (source + image)
         image_load: ImageLoad 인스턴스
         log: loguru logger
     """
@@ -62,9 +62,9 @@ class ImageLoader:
         # Load policy
         self.policy = self._load_config(cfg_like, **overrides)
         
-        # ImageLoad adapter 생성 (image_load policy만 전달)
+        # ImageLoad adapter 생성 (image policy만 전달)
         self.image_load = ImageLoad(
-            cfg_like=self.policy.image_load,
+            cfg_like=self.policy.image,
             log_manager=log_manager
         )
         
@@ -89,11 +89,11 @@ class ImageLoader:
         """
         from cfg_utils.services import ConfigLikeLoader
         
-        return ConfigLikeLoader.load_with_caller_path(
+        return ConfigLikeLoader.load(
             cfg_like=cfg_like,
             policy_class=ImageLoaderPolicy,
-            caller_file=__file__,
-            default_config_filename="image.yaml",
+            module_file=__file__,
+            config_filename="image_loader.yaml",
             **overrides
         )  # type: ignore
     

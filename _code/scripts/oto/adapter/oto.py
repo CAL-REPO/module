@@ -5,7 +5,7 @@ Oto Adapter - 순수 OTO 파이프라인 로직.
 책임:
 1. OCR → Translate → Overlay 파이프라인 실행 (Image → Image)
 2. OCRItem → OverlayItem 변환 로직
-3. 4개 서비스 통합 (ImageLoad, ImageTextRecognize, Translate, ImageOverlay)
+3. 3개 서비스 통합 (ImageTextRecognize, Translate, ImageOverlay)
 4. Standalone 사용 가능 (YAML 로딩 없음)
 
 EntryPoint와의 역할 분담:
@@ -22,164 +22,276 @@ from PIL import Image
 from pydantic import BaseModel
 
 from cfg_utils.services.config_like_loader import ConfigLikeLoader
+from cfg_utils.services.section_extractor import SectionExtractor
 from logs_utils import LogManager
 
-from oto.policy.oto_policy import OTOPolicy
+from scripts.oto.policy.oto_policy import OTOPolicy
 
-from image_utils.adapter.load import ImageLoad
-from image_utils.adapter.text_recognize import ImageTextRecognize
-from image_utils.adapter.overlay import ImageOverlay
-from image_utils.core.models import OCRItem
-from image_utils.core.policy import OverlayItemPolicy
+from modules.image_utils.core.policy import ImageLoadPolicy, ImageTextRecognizePolicy, ImageOverlayPolicy
+from modules.translate_utils.core.policy import TranslatePolicy
 
+from modules.image_utils.adapter.load import ImageLoad
+from modules.image_utils.adapter.text_recognize import ImageTextRecognize
+from modules.image_utils.adapter.overlay import ImageOverlay
 from translate_utils.adapter.translate import Translate
+
+from modules.image_utils.core.models import OCRItem
+from modules.image_utils.core.policy import OverlayItemPolicy
 
 
 class Oto:
-    """OCR → Translate → Overlay 순수 파이프라인 로직 (Standalone Adapter).
+    """OCR → Translate → Overlay 복합 Adapter (Pass-through Pattern).
     
-    Image 객체를 받아서 OCR → 번역 → 오버레이를 수행하고 최종 Image를 반환합니다.
-    Adapter Pattern: Policy에 source 없음, run()에서 image 받음
+    Architecture:
+    1. ConfigLoader가 모든 section 병합 (image_load, image_text_recognize, translate, image_overlay)
+    2. SectionExtractor가 Policy.name으로 section 추출 (Cascading Priority 적용)
+    3. 각 모듈 Adapter에 추출된 cfg_like 전달
+    4. 파이프라인 실행: ImageLoad → OCR → Translate → Overlay
+    
+    Design Pattern:
+    - Pass-through: Oto는 ConfigLoader 병합 dict를 받아서 SectionExtractor로 추출만 수행
+    - SRP: 각 모듈이 자신의 cfg_like 처리 담당 (cfg_like=None → Pydantic 기본값)
+    - Cascading Priority: 개별 cfg_like > 병합 section > None
     
     Attributes:
-        policy: OTOPolicy 설정 (4개 Adapter 정책 통합)
+        policy: OTOPolicy 설정 (로깅용 - 모든 서브 모듈 정책 통합)
         log: loguru logger 인스턴스
-        image_load: ImageLoad adapter (lazy-loaded)
-        image_text_recognize: ImageTextRecognize adapter (lazy-loaded)
-        translate: Translate adapter (lazy-loaded)
-        image_overlay: ImageOverlay adapter (lazy-loaded)
+        image_load: ImageLoad Adapter (lazy-loaded)
+        image_text_recognize: ImageTextRecognize Adapter (lazy-loaded)
+        translate: Translate Adapter (lazy-loaded)
+        image_overlay: ImageOverlay Adapter (lazy-loaded)
     
     Example:
-        >>> # Standalone 사용
-        >>> from PIL import Image
-        >>> policy = OTOPolicy(...)
-        >>> oto = Oto(cfg_like=policy, log_manager=log_manager)
-        >>> image = Image.open("test.jpg")
-        >>> result = oto.run(image=image)
-        >>> result['image'].show()
+        >>> # 기본값 사용 (모든 모듈이 Pydantic 기본값)
+        >>> oto = Oto(log_manager=log_manager)
+        
+        >>> # 외부에서 ConfigLoader 실행 (권장)
+        >>> from cfg_utils import ConfigLoader
+        >>> config = ConfigLoader(
+        ...     config_loader_cfg_path="configs/loader/config_loader_oto.yaml",
+        ...     env_os=["CASHOP_PATHS"]  # 사용자 정의 env 변수
+        ... )
+        >>> oto = Oto(cfg_like=config.to_dict(), log_manager=log_manager)
+        
+        >>> # 개별 cfg_like 우선 (Cascading Priority)
+        >>> oto = Oto(
+        ...     cfg_like=config.to_dict(),  # 병합 dict (우선순위 2)
+        ...     cfg_like_translate={"target_lang": "KO"},  # 개별 cfg_like (우선순위 1)
+        ...     log_manager=log_manager
+        ... )
+        
+        >>> # Runtime override (KeyPath 형식)
+        >>> oto = Oto(
+        ...     cfg_like=config.to_dict(),
+        ...     image_text_recognize__provider__langs=["ch", "en"],
+        ...     log_manager=log_manager
+        ... )
+    
+    Note:
+        ⚠️ ConfigLoader 실행은 EntryPoint 또는 외부 스크립트 책임.
+        ⚠️ cfg_like=None 사용 시: 모든 모듈이 Pydantic 기본값 사용.
     """
     
     def __init__(
         self,
-        cfg_like: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like: Union[dict, None] = None,
         *,
+        cfg_like_image_load: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_image_text_recognize: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_translate: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_image_overlay: Union[BaseModel, Path, str, dict, None] = None,
         log_manager: Optional[LogManager] = None,
         **overrides: Any
     ):
-        """OTOPolicy 기반 초기화 (ConfigLikeLoader 패턴).
+        """Pass-through 패턴 초기화 (완전 하드코딩 제거 + 캐싱).
+        
+        Architecture:
+            1. ConfigLoader가 모든 section 병합 (image_load, image_text_recognize, translate, image_overlay, log)
+            2. SectionExtractor.extract_batch()가 Policy.name으로 section 추출 (Cascading Priority)
+            3. get_policy_name() 헬퍼로 추출 결과 접근 (하드코딩 없음)
+            4. 각 모듈에 추출된 cfg_like 전달 (개별 > 병합 > None)
+        
+        Zero Hard-coding:
+            - ✅ Policy 클래스만 사용 (section 이름 불필요)
+            - ✅ Policy.name 필드로 자동 추출
+            - ✅ get_policy_name() 캐싱으로 성능 최적화
+        
+        Logging Strategy:
+            - Oto: Parent logger만 관리 (전체 파이프라인 기록)
+            - 개별 모듈: 자신의 policy.log로 logger 생성 (SRP 준수)
+            - log_manager 전달 시: 모듈이 parent logger 사용
         
         Args:
-            cfg_like: BaseModel, YAML 경로, dict, 또는 None
-                - BaseModel: OTOPolicy 인스턴스 직접 전달
-                - str/Path: YAML 파일 경로 (PolicyLoader로 로드)
-                - dict: 설정 딕셔너리
-                - None: 기본 설정 파일 사용 (configs/oto/image.yaml)
+            cfg_like: 병합된 dict 또는 None
+                - dict: 외부에서 준비한 병합 dict (ConfigLoader.to_dict() 결과)
+                - None: 빈 dict (개별 모듈은 Pydantic 기본값 사용)
+            cfg_like_image_load: ImageLoadPolicy 개별 설정 (우선순위 1)
+            cfg_like_image_text_recognize: ImageTextRecognizePolicy 개별 설정 (우선순위 1)
+            cfg_like_translate: TranslatePolicy 개별 설정 (우선순위 1)
+            cfg_like_image_overlay: ImageOverlayPolicy 개별 설정 (우선순위 1)
             log_manager: LogManager 인스턴스 (없으면 policy.log로 생성)
-            **overrides: 런타임 오버라이드 (image__source__path 등)
+            **overrides: 런타임 오버라이드 (image_text_recognize__provider__langs=["ch","en"] 등)
+        
+        Cascading Priority:
+            1. cfg_like_image_load (개별 cfg_like) - 최우선
+            2. cfg_like["image_load"] (병합 dict의 section) - Policy.name으로 추출
+            3. None (Pydantic 기본값) - fallback
         
         Example:
-            >>> # Policy 인스턴스 직접 전달
-            >>> oto = Oto(OTOPolicy(...), log_manager=log_manager)
+            >>> # 기본값 사용 (모든 모듈이 Pydantic 기본값)
+            >>> oto = Oto(log_manager=log_manager)
             
-            >>> # YAML 파일에서 로드
-            >>> oto = Oto("configs/oto/image.yaml", log_manager=log_manager)
+            >>> # 외부에서 ConfigLoader 실행 후 전달 (권장)
+            >>> from cfg_utils import ConfigLoader
+            >>> config = ConfigLoader(
+            ...     config_loader_cfg_path="configs/loader/config_loader_oto.yaml",
+            ...     env_os=["CASHOP_PATHS"]
+            ... )
+            >>> oto = Oto(cfg_like=config.to_dict(), log_manager=log_manager)
             
-            >>> # dict로 직접 설정
-            >>> oto = Oto({"image": {...}, "ocr": {...}}, log_manager=log_manager)
+            >>> # 개별 cfg_like 우선 (Cascading Priority)
+            >>> oto = Oto(
+            ...     cfg_like=config.to_dict(),  # 병합 dict (우선순위 2)
+            ...     cfg_like_translate={"target_lang": "KO"},  # 개별 cfg_like (우선순위 1)
+            ...     log_manager=log_manager
+            ... )
             
-            >>> # 런타임 오버라이드
-            >>> oto = Oto("config.yaml", ocr__provider__langs=["ch", "en"])
-        """
-        # ConfigLikeLoader로 정책 로드
-        self.policy = self._load_config(cfg_like, **overrides)
+            >>> # Runtime override (KeyPath 형식)
+            >>> oto = Oto(
+            ...     cfg_like=None,
+            ...     image_text_recognize__provider__langs=["ch", "en"],
+            ...     log_manager=log_manager
+            ... )
         
-        # LogManager 초기화
+        Note:
+            ⚠️ ConfigLoader 실행은 EntryPoint 또는 외부 스크립트에서 수행.
+            ⚠️ cfg_like=None: 모든 모듈이 Pydantic 기본값 사용 (동작하지만 권장하지 않음).
+        """
+        # ========================================
+        # Config 준비 (외부에서 준비한 dict 또는 None)
+        # ========================================
+        merged_config = cfg_like or {}
+        
+        # Runtime overrides 병합
+        if overrides:
+            from keypath_utils import KeyPathDict
+            override_dict = KeyPathDict.to_nested_dict(overrides)
+            merged_config = {**merged_config, **override_dict}
+        
+        # ========================================
+        # ✅ SectionExtractor.extract_batch() 사용 (완전 하드코딩 제거)
+        # ========================================
+        # 우선순위: 개별 cfg_like > merged_config[Policy.name] > None
+        extracted = SectionExtractor.extract_batch(
+            merged_config=merged_config,
+            individual_cfgs={
+                ImageLoadPolicy: cfg_like_image_load,
+                ImageTextRecognizePolicy: cfg_like_image_text_recognize,
+                TranslatePolicy: cfg_like_translate,
+                ImageOverlayPolicy: cfg_like_image_overlay,
+            }
+        )
+        
+        # ✅ get_policy_name() 헬퍼로 하드코딩 제거
+        self._cfg_like_image_load = extracted[
+            SectionExtractor.get_policy_name(ImageLoadPolicy)
+        ]
+        self._cfg_like_image_text_recognize = extracted[
+            SectionExtractor.get_policy_name(ImageTextRecognizePolicy)
+        ]
+        self._cfg_like_translate = extracted[
+            SectionExtractor.get_policy_name(TranslatePolicy)
+        ]
+        self._cfg_like_image_overlay = extracted[
+            SectionExtractor.get_policy_name(ImageOverlayPolicy)
+        ]
+        
+        # ========================================
+        # OTOPolicy 생성 (통합 정책 - 로깅 설정 추출용)
+        # ========================================
+        try:
+            self.policy = OTOPolicy(**merged_config)
+        except Exception:
+            # merged_config가 비어있거나 유효하지 않으면 기본값 사용
+            self.policy = OTOPolicy()
+        
+        # ========================================
+        # Logger 설정 (Parent logger만 관리, 개별 모듈은 자체 생성)
+        # ========================================
         if log_manager:
             self.log = log_manager.logger
+            self._parent_log_manager = log_manager
         elif self.policy.log:
-            self.log = LogManager(self.policy.log).logger
+            self._parent_log_manager = LogManager(self.policy.log)
+            self.log = self._parent_log_manager.logger
         else:
+            self._parent_log_manager = None
             self.log = LogManager({"enabled": False}).logger
         
-        # 각 adapter는 lazy-load (첫 process() 호출 시 초기화)
+        # 각 Adapter는 lazy-load (첫 process() 호출 시 초기화)
         self._image_load: Optional[ImageLoad] = None
         self._image_text_recognize: Optional[ImageTextRecognize] = None
         self._translate: Optional[Translate] = None
         self._image_overlay: Optional[ImageOverlay] = None
         
-        self.log.debug("Oto adapter initialized")
+        self.log.debug("Oto adapter initialized (parent logger only)")
     
     # ==========================================================================
-    # ConfigLikeLoader Integration
-    # ==========================================================================
-    
-    @staticmethod
-    def _load_config(
-        cfg_like: Union[BaseModel, Path, str, dict, None],
-        **overrides: Any
-    ) -> OTOPolicy:
-        """ConfigLikeLoader로 정책 로드 (ImageLoad, ImageTextRecognize, ImageOverlay와 동일 패턴).
-        
-        Args:
-            cfg_like: BaseModel, YAML 경로, dict, 또는 None
-            **overrides: 런타임 오버라이드
-        
-        Returns:
-            OTOPolicy 인스턴스
-        """
-        return ConfigLikeLoader.load_with_caller_path(
-            cfg_like=cfg_like,
-            policy_class=OTOPolicy,
-            caller_file=__file__,
-            default_config_filename="image.yaml",  # configs/oto/image.yaml
-            **overrides
-        )
-    
-    # ==========================================================================
-    # Adapter Lazy Loading
+    # Adapter Lazy Loading (with log_manager injection)
     # ==========================================================================
     
     @property
     def image_load(self) -> ImageLoad:
-        """ImageLoad adapter lazy-loading."""
+        """ImageLoad Adapter lazy-loading.
+        
+        cfg_like는 SectionExtractor로 이미 추출됨 (self._cfg_like_image_load).
+        """
         if self._image_load is None:
             self._image_load = ImageLoad(
-                cfg_like=self.policy.image_load,
-                log_manager=None,  # 각 adapter가 자체 LogManager 생성
+                cfg_like=self._cfg_like_image_load,  # type: ignore
+                log_manager=self._parent_log_manager,
             )
         return self._image_load
     
     @property
     def image_text_recognize(self) -> ImageTextRecognize:
-        """ImageTextRecognize adapter lazy-loading."""
+        """ImageTextRecognize Adapter lazy-loading.
+        
+        cfg_like는 SectionExtractor로 이미 추출됨 (self._cfg_like_image_text_recognize).
+        """
         if self._image_text_recognize is None:
             self._image_text_recognize = ImageTextRecognize(
-                cfg_like=self.policy.text_recognize,
-                log_manager=None,  # 각 adapter가 자체 LogManager 생성
+                cfg_like=self._cfg_like_image_text_recognize,  # type: ignore
+                log_manager=self._parent_log_manager,
             )
         return self._image_text_recognize
     
     @property
     def translate(self) -> Translate:
-        """Translate adapter lazy-loading (인스턴스 재사용).
+        """Translate Adapter lazy-loading.
+        
+        cfg_like는 SectionExtractor로 이미 추출됨 (self._cfg_like_translate).
         
         run() 메서드를 사용하므로 매번 새 인스턴스를 생성할 필요 없음.
         이미지 여러 개 처리 시 동일 인스턴스를 재사용하여 Provider 연결 유지.
         """
         if self._translate is None:
             self._translate = Translate(
-                cfg_like=self.policy.translate,
-                log_manager=None,  # Translate가 자체 LogManager 생성
+                cfg_like=self._cfg_like_translate,  # type: ignore
+                log_manager=self._parent_log_manager,
             )
         return self._translate
     
     @property
     def image_overlay(self) -> ImageOverlay:
-        """ImageOverlay adapter lazy-loading."""
+        """ImageOverlay Adapter lazy-loading.
+        
+        cfg_like는 SectionExtractor로 이미 추출됨 (self._cfg_like_image_overlay).
+        """
         if self._image_overlay is None:
             self._image_overlay = ImageOverlay(
-                cfg_like=self.policy.overlay,
-                log_manager=None,  # 각 adapter가 자체 LogManager 생성
+                cfg_like=self._cfg_like_image_overlay,  # type: ignore
+                log_manager=self._parent_log_manager,
             )
         return self._image_overlay
     
@@ -187,47 +299,95 @@ class Oto:
     # Core Pipeline Methods
     # ==========================================================================
     
-    def run(
-        self,
-        image: Image.Image,
-        source_path: Optional[Path] = None,
-    ) -> Dict[str, Any]:
-        """OCR → Translate → Overlay 파이프라인 실행 (Adapter Pattern).
-        
-        Adapter Pattern: run()에서 Image 객체를 받아서 처리합니다.
-        
-        Pipeline Flow:
-            1. ImageTextRecognize.run(image) → List[OCRItem]
-            2. Translate.run(texts) → Dict[str, str]
-            3. OCRItem + translated_text → OverlayItemPolicy
-            4. ImageOverlay.run(image, overlay_items) → Final Image
+    @staticmethod
+    def _filter_overrides(overrides: Dict[str, Any], prefix: str) -> Dict[str, Any]:
+        """접두사가 일치하는 overrides만 필터링하고 접두사 제거.
         
         Args:
-            image: 입력 PIL Image 객체
-            source_path: 소스 경로 (로깅용, 선택)
+            overrides: 전체 overrides dict
+                예: {"image_load__save__enabled": True, "translate__target_lang": "KO"}
+            prefix: 접두사 (Policy.name + "__")
+                예: "image_load__", "image_text_recognize__"
+        
+        Returns:
+            접두사가 제거된 overrides dict (예: {"save__enabled": True})
+        
+        Example:
+            >>> overrides = {"image_load__save__enabled": True, "translate__target_lang": "KO"}
+            >>> prefix = f"{SectionExtractor.get_policy_name(ImageLoadPolicy)}__"
+            >>> filtered = Oto._filter_overrides(overrides, prefix)
+            >>> # {"save__enabled": True}
+        
+        Note:
+            ⚠️ 하드코딩 없음: SectionExtractor.get_policy_name()으로 접두사 생성
+        """
+        filtered = {}
+        for key, value in overrides.items():
+            if key.startswith(prefix):
+                filtered[key[len(prefix):]] = value
+        return filtered
+    
+    def run(
+        self,
+        source_path: Union[Path, str],
+        **overrides: Any
+    ) -> Dict[str, Any]:
+        """OCR → Translate → Overlay 파이프라인 실행 (경로 기반).
+        
+        Pipeline Flow:
+            1. 원본 파일명 추출 및 모든 모듈 name 정책 override
+            2. ImageLoader.run(source_path) → PIL.Image
+            3. ImageTextRecognize.run(image) → List[OCRItem]
+            4. Translate.run(texts) → Dict[str, str]
+            5. OCRItem + translated_text → OverlayItemPolicy
+            6. ImageOverlay.run(image, overlay_items, **overrides) → Final Image
+        
+        Args:
+            source_path: 소스 이미지 파일 경로
+            **overrides: 각 모듈의 런타임 오버라이드 (KeyPath 형식, 모듈 접두사 포함)
+                예: image_load__save__enabled=True
+                    image_text_recognize__provider__langs=["ch", "en"]
+                    translate__target_lang="KO"
+                    image_overlay__save__directory="output"
+                    image_overlay__save__name__name="test"
         
         Returns:
             결과 딕셔너리:
             {
                 "success": bool,
-                "image": PIL.Image.Image,  # 최종 오버레이된 이미지
-                "ocr_items": List[OCRItem],  # OCR 결과
+                "source_path": Path,           # 입력 경로
+                "image": Optional[PIL.Image.Image],  # 최종 오버레이된 이미지
+                "ocr_items": List[OCRItem],    # OCR 결과
                 "translated_dict": Dict[str, str],  # 번역 결과
                 "overlay_items": List[OverlayItemPolicy],  # 오버레이 아이템
                 "error": Optional[str]
             }
         
         Example:
-            >>> from PIL import Image
             >>> oto = Oto(cfg_like=policy, log_manager=log_manager)
-            >>> image = Image.open("test.jpg")
-            >>> result = oto.run(image=image)
-            >>> if result['success']:
-            ...     result['image'].show()
+            >>> # 기본 저장 정책 사용 (원본 파일명 자동 적용)
+            >>> result = oto.run(source_path="test.jpg")
+            >>> # 모든 모듈의 save.name.name이 "test"로 override됨
+            >>> 
+            >>> # Runtime override (모든 모듈에 전달)
+            >>> result = oto.run(
+            ...     source_path="test.jpg",
+            ...     image_load__save__enabled=True,  # ImageLoad 저장 활성화
+            ...     image_text_recognize__save__enabled=True,  # OCR JSON 저장
+            ...     translate__target_lang="KO",  # 번역 언어
+            ...     image_overlay__save__directory="output/cas123",  # Overlay 저장 경로
+            ...     image_overlay__save__name__name="cas123_image1"  # Overlay 파일명 (원본명 무시)
+            ... )
+        
+        Note:
+            ⚠️ 원본 파일명(확장자 제외)을 모든 모듈의 save.name.name에 자동 override.
+            ⚠️ 사용자가 명시적으로 *__save__name__name을 제공하면 그것이 우선.
         """
         result = {
             "success": False,
+            "source_path": None,
             "image": None,
+            "output_path": None,  # ImageOverlayer가 저장한 경로
             "ocr_items": [],
             "translated_dict": {},
             "overlay_items": [],
@@ -235,19 +395,61 @@ class Oto:
         }
         
         try:
-            source_name = source_path.name if source_path else "Image"
+            # source_path를 Path로 변환
+            source_path = Path(source_path)
+            result["source_path"] = source_path
             
             self.log.info(f"{'='*80}")
-            self.log.info(f"🖼️  Oto Pipeline: {source_name}")
+            self.log.info(f"🖼️  Oto Pipeline: {source_path.name}")
             self.log.info(f"{'='*80}\n")
             
             # ====================================================================
-            # Step 1: ImageTextRecognize - OCR 실행
+            # Step 0: ImageLoad Adapter - 이미지 로드
             # ====================================================================
-            self.log.info("[1/4] ImageTextRecognize: Running OCR...")
+            self.log.info("[0/5] ImageLoad: Loading image...")
             
-            # ImageTextRecognize.run(image) → Dict {"ocr_items", "image", ...}
-            ocr_result = self.image_text_recognize.run(image=image)
+            # ImageLoad Adapter의 run() 호출 (source=파일경로, source_path=source_path)
+            # ⚠️ source_path로부터 자동으로 원본 파일명 추출됨
+            # ⚠️ image_load__ 접두사만 필터링하여 전달
+            load_result = self.image_load.run(
+                source=source_path,
+                source_path=source_path,  # ⭐ save/meta/name 자동 추출
+                **self._filter_overrides(
+                    overrides, 
+                    f"{SectionExtractor.get_policy_name(ImageLoadPolicy)}__"
+                )
+            )
+            
+            if not load_result.get("success"):
+                error_msg = load_result.get("error", "Image load failed")
+                self.log.error(f"❌ Image load failed: {error_msg}")
+                result["error"] = error_msg
+                return result
+            
+            image = load_result.get("image")
+            if image is None:
+                self.log.error("❌ No image in load result")
+                result["error"] = "No image in load result"
+                return result
+            
+            self.log.success(f"✅ Image loaded: {image.size} {image.mode}")
+            
+            # ====================================================================
+            # Step 1: ImageTextRecognize Adapter - OCR 실행
+            # ====================================================================
+            self.log.info("\n[1/5] ImageTextRecognize: Running OCR...")
+            
+            # ImageTextRecognize Adapter의 run() 호출 (image + source_path)
+            # ⚠️ source_path로부터 자동으로 원본 파일명 추출됨
+            # ⚠️ image_text_recognize__ 접두사만 필터링하여 전달
+            ocr_result = self.image_text_recognize.run(
+                image=image,
+                source_path=source_path,  # ⭐ save/meta/name 자동 추출
+                **self._filter_overrides(
+                    overrides,
+                    f"{SectionExtractor.get_policy_name(ImageTextRecognizePolicy)}__"
+                )
+            )
             ocr_items: List[OCRItem] = ocr_result.get("ocr_items", [])
             image = ocr_result.get("image", image)  # ⚠️ OCR 처리된 이미지로 업데이트 (resize된 경우 포함)
             
@@ -261,13 +463,12 @@ class Oto:
             if not ocr_items:
                 self.log.warning("No OCR items found - skipping translation/overlay")
                 result['success'] = True
-                result['image'] = image
                 return result
             
             # ====================================================================
-            # Step 2: Translate - 번역 실행
+            # Step 2: Translate Adapter - 번역 실행
             # ====================================================================
-            self.log.info("\n[2/4] Translate: Translating texts...")
+            self.log.info("\n[2/5] Translate: Translating texts...")
             
             # OCRItem에서 텍스트 추출
             original_texts = [item.text for item in ocr_items if item.text]
@@ -275,14 +476,20 @@ class Oto:
             if not original_texts:
                 self.log.warning("No texts to translate")
                 result['success'] = True
-                result['image'] = image
                 return result
             
             self.log.info(f"  Original texts: {len(original_texts)}")
             
-            # Translate.run() 실행 (배치 번역 + 세그먼트 단위 캐싱)
+            # Translate Adapter의 run() 호출 (배치 번역 + 세그먼트 단위 캐싱)
+            # ⚠️ translate__ 접두사만 필터링하여 전달
             try:
-                translated_dict = self.translate.run(original_texts)
+                translated_dict = self.translate.run(
+                    texts=original_texts,
+                    **self._filter_overrides(
+                        overrides,
+                        f"{SectionExtractor.get_policy_name(TranslatePolicy)}__"
+                    )
+                )
                 
                 # 결과 검증
                 if not isinstance(translated_dict, dict):
@@ -309,7 +516,7 @@ class Oto:
             # ====================================================================
             # Step 3: Conversion - OCRItem → OverlayItemPolicy
             # ====================================================================
-            self.log.info("\n[3/4] Conversion: OCRItem → OverlayItem...")
+            self.log.info("\n[3/5] Conversion: OCRItem → OverlayItem...")
             
             overlay_items: List[OverlayItemPolicy] = []
             
@@ -328,29 +535,39 @@ class Oto:
             self.log.success(f"✅ Converted: {len(overlay_items)} overlay items")
             
             # ====================================================================
-            # Step 4: ImageOverlay - 오버레이 렌더링
+            # Step 4: ImageOverlay Adapter - 오버레이 렌더링 + 저장
             # ====================================================================
-            self.log.info("\n[4/4] ImageOverlay: Rendering overlay...")
+            self.log.info("\n[4/5] ImageOverlay: Rendering overlay + saving...")
             
-            # ImageOverlay.run(image, items) → Dict with "image"
-            overlay_result = self.image_overlay.run(image=image, items=overlay_items)
+            # ImageOverlay Adapter의 run() 호출 (image + items + source_path + overrides)
+            # ⚠️ source_path로부터 자동으로 원본 파일명 추출됨
+            # ⚠️ image_overlay__ 접두사만 필터링하여 전달
+            overlay_result = self.image_overlay.run(
+                image=image,
+                items=overlay_items,
+                source_path=source_path,  # ⭐ save/meta/name 자동 추출
+                **self._filter_overrides(
+                    overrides,
+                    f"{SectionExtractor.get_policy_name(ImageOverlayPolicy)}__"
+                )
+            )
             
             if not overlay_result.get("success"):
                 error_msg = overlay_result.get("error", "Unknown overlay error")
-                self.log.error(f"Overlay failed: {error_msg}")
+                self.log.error(f"❌ Overlay failed: {error_msg}")
                 result['error'] = error_msg
-                result['image'] = image  # 원본 반환
                 return result
             
+            # 최종 이미지
             final_image = overlay_result.get("image")
-            result['image'] = final_image
+            result["image"] = final_image
             
-            self.log.success(f"✅ Overlay completed")
+            self.log.success(f"✅ Overlay completed (Adapter handled save/meta)")
             
             result['success'] = True
             
             self.log.info(f"\n{'='*80}")
-            self.log.success(f"✅ Oto Pipeline Completed: {source_name}")
+            self.log.success(f"✅ Oto Pipeline Completed: {source_path.name}")
             self.log.info(f"{'='*80}\n")
             
         except Exception as e:

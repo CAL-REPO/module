@@ -17,10 +17,9 @@ from crawl_utils.provider.policy import (
     ProviderType,
 )
 
-# Crawl Policies
+# Core Policies
 from crawl_utils.core.policy import (
     CrawlPolicy,
-    CrawlSourcePolicy,
     NavigationPolicy,
     ScrollPolicy,
     ExtractorPolicy,
@@ -34,19 +33,15 @@ from crawl_utils.core.policy import (
 )
 
 # Fetchers
-from crawl_utils.services.fetcher import HTTPFetcher, DummyFetcher
+from crawl_utils.services.fetcher import AsyncHTTPFetcher, AsyncDummyFetcher, SyncHTTPFetcher
 
 # Storage and normalization
-from crawl_utils.services.saver import FileSaver
+from crawl_utils.services.saver import AsyncFileSaver, SyncFileSaver
 from crawl_utils.services.normalizer import DataNormalizer
 from crawl_utils.services.smart_normalizer import SmartNormalizer
 
-# URL Analysis & Method Resolution (XLOTO pattern)
-from crawl_utils.services.url_analyzer import UrlAnalyzer
-from crawl_utils.services.method_resolver import MethodResolver
-
-# Adapter & EntryPoint (XLOTO pattern)
-from crawl_utils.adapter import Crawl
+# Adapter & EntryPoint (Two-Policy pattern)
+from crawl_utils.adapter import SyncCrawl
 from crawl_utils.entry_point import Crawler
 
 # Note: 고수준 오케스트레이션(CrawlPipeline/SyncRunner/EntryPoints/SiteCrawler)
@@ -74,22 +69,19 @@ __all__ = [
     "WebDriverManagerPolicy", "FirefoxConfig", "ChromeConfig", "ProviderType",
     
     # Crawl Policies
-    "CrawlPolicy", "CrawlSourcePolicy", "NavigationPolicy", "ScrollPolicy",
+    "CrawlPolicy", "NavigationPolicy", "ScrollPolicy",
     "ExtractorPolicy", "WaitPolicy", "NormalizationPolicy",
     "NormalizationRule", "StoragePolicy", "StorageTargetPolicy",
     "HttpSessionPolicy", "ExecutionMode",
 
     # Fetchers
-    "HTTPFetcher", "DummyFetcher",
+    "AsyncHTTPFetcher", "AsyncDummyFetcher", "SyncHTTPFetcher",
 
     # Storage and normalization
-    "FileSaver", "DataNormalizer", "SmartNormalizer",
+    "AsyncFileSaver", "SyncFileSaver", "DataNormalizer", "SmartNormalizer",
     
-    # URL Analysis & Method Resolution (XLOTO pattern)
-    "UrlAnalyzer", "MethodResolver",
-    
-    # Adapter & EntryPoint (XLOTO pattern)
-    "Crawl", "Crawler",
+    # Adapter & EntryPoint (Two-Policy pattern)
+    "SyncCrawl", "Crawler",
     
     # (고수준 오케스트레이션은 미노출)
     

@@ -1,0 +1,42 @@
+# ============================================================================
+# Translate Adapter - XLOTO Configuration
+# ============================================================================
+# XLOTO 파이프라인에서 사용하는 Translate Adapter 설정
+# Adapter Policy만 포함
+
+# --------------------------------------------------------------------------
+# Translate Adapter Policy
+# --------------------------------------------------------------------------
+translate:
+  # Provider - 번역 API 설정
+  provider:
+    provider: "deepl"
+    source_lang: "AUTO"
+    target_lang: "KO"
+    model_type: "prefer_quality_optimized"
+    timeout: 30
+
+  # Chinese Text Preprocessing
+  zh:
+    mode: "clause"
+    max_len: 80
+    min_len: 40
+
+  # Storage - 번역 캐시 저장
+  store:
+    save_db: true
+    db_dir: "{{db_dir}}"
+    db_name: "translate_cache.sqlite3"
+    save_tr: false
+    tr_dir: "{{logs_dir}}"
+    tr_name: "xloto_translated_text.json"
+
+  # Log - 로그 설정
+  log:
+    enabled: false
+    name: "xloto_translate_module"
+    level: "DEBUG"
+    sinks:
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto/translate_module_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"

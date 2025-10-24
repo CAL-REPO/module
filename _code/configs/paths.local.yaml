@@ -13,6 +13,9 @@ fonts_dir: "{{data_dir}}/fonts"
 
 modules_dir: "{{base_path}}/modules"
 scripts_dir: "{{base_path}}/scripts"
+scripts_xloto_dir: "{{scripts_dir}}/xloto"
+scripts_oto_dir: "{{scripts_dir}}/oto"
+scripts_crawl_dir: "{{scripts_dir}}/crawl"
 logs_dir: "{{base_path}}/logs"
 input_dir: "{{base_path}}/input"
 output_dir: "{{base_path}}/output"
@@ -31,3 +34,4 @@ temp_output_dir: "{{output_dir}}/temp"
 
 # Module configs
 configs_crawl_dir: "{{modules_dir}}/crawl_utils/configs"
+configs_logs_dir: "{{configs_dir}}/logs"

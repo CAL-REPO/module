@@ -1,0 +1,185 @@
+# =============================================================================
+# xl_utils 통합 정책 설정 파일 (모든 정책 포함)
+# =============================================================================
+# 
+# 이 파일은 ExcelLoad의 모든 정책 옵션을 포함합니다.
+# 필요한 부분만 선택해서 사용하세요.
+#
+# 정책 구조:
+#   - xw_app: Excel Application 설정 (visible, add_book 등)
+#   - performance: Excel 성능 최적화 (화면 갱신, 계산 모드 등)
+#   - save: 저장 시점 제어 (manual, on_write, on_close, on_exit)
+#   - error_handling: 에러 복구 전략 (파일/시트 없을 때 동작)
+#   - path_validation: 파일 경로 검증 (fso_utils 통합)
+#   - log: 로깅 설정 (레벨, 포맷, 출력 위치)
+# =============================================================================
+
+# =============================================================================
+# 1. Excel Application 정책 (xw_app)
+# =============================================================================
+# Excel Application의 기본 동작 설정
+xw_app:
+  visible: true              # Excel 창 표시 여부 (true=보임, false=백그라운드)
+  add_book: false            # 시작 시 빈 워크북 자동 생성 여부
+  display_alerts: true       # Excel 경고창 표시 여부 (false=자동으로 Yes 선택)
+  screen_updating: true      # 화면 갱신 여부 (false=빠르지만 변화 안 보임)
+
+# =============================================================================
+# 2. 성능 최적화 정책 (performance)
+# =============================================================================
+# 대용량 데이터 처리 시 Excel 성능 향상 설정
+# 배치 처리 시 screen_updating=false, calculation=manual 권장
+performance:
+  screen_updating: true      # 화면 갱신 (false=10배 이상 빠름, 변화 안 보임)
+  display_alerts: true       # Excel 경고창 표시 (false=무시, 자동 Yes)
+  calculation: "auto"        # 계산 모드: "auto"(자동), "manual"(수동), "semiauto"(반자동)
+                            # - auto: 값 변경 시 자동 재계산 (느림)
+                            # - manual: 명시적 호출 시만 계산 (빠름, 대용량 권장)
+                            # - semiauto: 테이블만 자동 계산
+  enable_events: true        # Excel 이벤트 발생 여부 (false=매크로 실행 안 됨)
+  interactive: true          # 사용자 입력 허용 여부 (false=키보드/마우스 무시)
+  clear_clipboard: false     # 종료 시 클립보드 비우기 (메모리 정리)
+
+# =============================================================================
+# 3. 저장 정책 (save)
+# =============================================================================
+# 파일 저장 시점 제어 (4가지 전략)
+save:
+  strategy: "on_exit"        # 저장 전략 선택:
+                            # - "manual": 명시적 save() 호출 시에만 (기본값, 가장 안전)
+                            # - "on_write": 셀/범위 쓰기 직후 즉시 저장 (느림, 안전)
+                            # - "on_close": Workbook 닫을 때 저장
+                            # - "on_exit": Context manager 종료 시 저장 (권장)
+
+# =============================================================================
+# 4. 에러 처리 정책 (error_handling)
+# =============================================================================
+# 파일/시트 없을 때, 저장 실패 시 동작 정의
+error_handling:
+  on_file_not_found: "error" # 파일 없을 때 동작:
+                            # - "error": 예외 발생 (기본값, 엄격)
+                            # - "create": 자동 생성 (신규 파일 생성)
+                            # - "skip": 무시하고 진행 (위험)
+  
+  on_sheet_not_found: "error" # 시트 없을 때 동작:
+                            # - "error": 예외 발생 (기본값, 엄격)
+                            # - "create": 자동 생성 (신규 시트 추가)
+                            # - "first": 첫 번째 시트 사용 (fallback)
+  
+  on_save_error:             # 저장 실패 시 동작
+    action: "error"          # - "error": 예외 발생 (기본값)
+                            # - "skip": 무시하고 진행
+                            # - "retry": 재시도
+    retry_count: 3           # 재시도 횟수 (action="retry"일 때만)
+    retry_delay: 1.0         # 재시도 간격(초) (action="retry"일 때만)
+
+# =============================================================================
+# 5. 경로 검증 정책 (path_validation)
+# =============================================================================
+# fso_utils 통합: 파일 경로 검증, 생성, 템플릿 복사 등
+path_validation:
+  fso:                       # fso_utils FSOOpsPolicy 설정
+    as_type: "file"          # 타입: "file"(파일) 또는 "dir"(디렉토리)
+    exist:                   # 존재 여부 정책
+      must_exist: true       # 파일이 반드시 존재해야 하는지 (true=엄격, false=유연)
+      create_if_missing: false # 없으면 자동 생성 (must_exist=false일 때만 가능)
+      overwrite: false       # 기존 파일 덮어쓰기 허용 (create_if_missing=true일 때)
+  
+  template_path: null        # 템플릿 파일 경로 (지정 시 템플릿 복사해서 생성)
+                            # 예: "templates/excel_template.xlsx"
+  
+  backup_if_exists: false    # 기존 파일 있을 때 백업 생성 (.bak)
+
+# =============================================================================
+# 6. 로깅 정책 (log)
+# =============================================================================
+# logs_utils LogPolicy 사용 (loguru 기반)
+# null이면 로깅 비활성화
+log:
+  enabled: true              # 로깅 활성화 여부
+  name: "xl_utils"           # 로거 이름
+  level: "INFO"              # 로그 레벨: TRACE, DEBUG, INFO, SUCCESS, WARNING, ERROR, CRITICAL
+  sinks:                     # 로그 출력 대상 (복수 가능)
+    - sink_type: "console"   # 콘솔 출력
+      level: "INFO"
+      colorize: true
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+    # - sink_type: "file"    # 파일 출력 (선택)
+    #   file_path: "logs/xl_utils.log"
+    #   level: "DEBUG"
+    #   rotation: "10 MB"    # 10MB마다 새 파일
+    #   retention: "7 days"  # 7일 보관
+  context: {}                # 추가 컨텍스트 정보
+
+# =============================================================================
+# 사용 시나리오별 설정 예시
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 시나리오 1: 대용량 배치 처리 (성능 최우선)
+# -----------------------------------------------------------------------------
+# performance:
+#   screen_updating: false    # 화면 갱신 끔 (10배 빠름)
+#   calculation: "manual"     # 수동 계산 (100배 빠름)
+#   display_alerts: false     # 경고창 끔
+#   interactive: false        # 사용자 입력 차단
+# save:
+#   strategy: "on_exit"       # 마지막에만 저장 (빠름)
+# xw_app:
+#   visible: false            # 백그라운드 실행
+
+# -----------------------------------------------------------------------------
+# 시나리오 2: 디버깅/개발 (가시성 최우선)
+# -----------------------------------------------------------------------------
+# xw_app:
+#   visible: true             # Excel 창 보임
+#   screen_updating: true     # 변화 확인
+# save:
+#   strategy: "on_write"      # 즉시 저장 (안전)
+# log:
+#   level: "DEBUG"            # 상세 로그
+# performance:
+#   display_alerts: true      # 경고창 표시
+
+# -----------------------------------------------------------------------------
+# 시나리오 3: 안정성 최우선 (운영 환경)
+# -----------------------------------------------------------------------------
+# save:
+#   strategy: "on_exit"       # 종료 시 저장
+# error_handling:
+#   on_file_not_found: "error" # 엄격한 에러 처리
+#   on_sheet_not_found: "error"
+#   on_save_error:
+#     action: "retry"         # 재시도
+#     retry_count: 5
+#     retry_delay: 2.0
+# path_validation:
+#   backup_if_exists: true    # 백업 생성
+
+# -----------------------------------------------------------------------------
+# 시나리오 4: 유연한 처리 (자동 생성)
+# -----------------------------------------------------------------------------
+# error_handling:
+#   on_file_not_found: "create" # 파일 자동 생성
+#   on_sheet_not_found: "create" # 시트 자동 생성
+# path_validation:
+#   fso:
+#     exist:
+#       must_exist: false
+#       create_if_missing: true
+#   template_path: "templates/base.xlsx" # 템플릿 사용
+
+# =============================================================================
+# 런타임 오버라이드
+# =============================================================================
+# Python 코드에서 동적으로 정책 변경 가능:
+#
+# excel_load = ExcelLoad(
+#     "config.yaml",
+#     save__strategy="manual",              # save.strategy 오버라이드
+#     performance__screen_updating=False,    # performance.screen_updating 오버라이드
+#     log__level="DEBUG"                     # log.level 오버라이드
+# )
+#
+# 네이밍 규칙: {section}__{key} (double underscore)
+# =============================================================================

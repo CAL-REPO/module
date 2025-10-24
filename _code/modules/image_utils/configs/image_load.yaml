@@ -1,0 +1,70 @@
+﻿# ImageLoad (Adapter) Configuration
+# Adapter는 순수 로직 + save + meta 담당 (모든 기능)
+
+image_load:
+  # --------------------------------------------------------------------------
+  # Save - 이미지 저장 정책
+  # --------------------------------------------------------------------------
+  save:
+    save_copy: true
+    directory: null  # null이면 downloads()
+    name:
+      as_type: file
+      suffix: _processed
+      tail_mode: counter
+      ensure_unique: true
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+    format: null
+    quality: 95
+
+  # --------------------------------------------------------------------------
+  # Meta - 메타데이터 저장 정책
+  # --------------------------------------------------------------------------
+  meta:
+    save_meta: true
+    directory: null
+    name:
+      as_type: file
+      suffix: _meta
+      extension: .json
+      ensure_unique: false
+    ops:
+      as_type: file
+      exist:
+        create_if_missing: true
+        overwrite: true
+      ext:
+        default_ext: .json
+
+  # --------------------------------------------------------------------------
+  # Process - 이미지 처리 정책
+  # --------------------------------------------------------------------------
+  process:
+    resize_to: null
+    blur_radius: null
+    convert_mode: null
+  
+  # --------------------------------------------------------------------------
+  # Log - 모듈별 로그 정책 (Dual Logging 지원)
+  # --------------------------------------------------------------------------
+  # enabled: true + EntryPoint에서 log_manager 주입 시 → Dual Logging 활성화
+  #   - Parent logger: 통합 로그 (전체 파이프라인 기록)
+  #   - Module logger: 모듈별 상세 로그 (디버깅용)
+  log:
+    enabled: true
+    name: 'image_load_module'
+    level: 'DEBUG'
+    sinks:
+      - sink_type: 'file'
+        file_path: 'logs/modules/image_load_{time:YYYY-MM-DD}.log'
+        level: 'DEBUG'
+        format: '<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
+        rotation: '5 MB'
+        retention: '3 days'
+        enqueue: true
+      - sink_type: 'console'
+        level: 'DEBUG'
+        colorize: true

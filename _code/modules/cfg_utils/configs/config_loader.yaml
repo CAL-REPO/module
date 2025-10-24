@@ -78,7 +78,6 @@ source:
 # ============================================================
 keypath:
   separator: "__"             # KeyPath 구분자 (a__b__c → a.b.c)
-  # override_requires_base: true  # Override 시 base 키 존재 필요 (Deprecated)
 
 
 # ============================================================
@@ -94,7 +93,7 @@ log:
       colorize: true
       format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
     # - sink_type: "file"     # 파일 출력 (선택)
-    #   filepath: "logs/cfg_loader.log"
+    #   file_path: "logs/cfg_loader.log"
     #   level: "DEBUG"
     #   rotation: "10 MB"
     #   retention: "7 days"
