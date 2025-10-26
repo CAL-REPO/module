@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ..core.interfaces import Navigator, ResourceFetcher
-from ..core.policy import CrawlPolicy, ExtractorType
+from ..core.policy import CrawlPolicy, SyncCrawlPolicy, ExtractorType, ExtractorPolicy
 
 if TYPE_CHECKING:
     from .adapter import SyncSeleniumAdapter
@@ -51,7 +51,7 @@ class AsyncDOMExtractor:
             elements = soup.select(selector)
             return [
                 {
-                    "kind": "dom",
+                    "type": "dom",
                     "selector": selector,
                     "html": str(el),
                     "text": el.get_text(strip=True),
@@ -59,7 +59,7 @@ class AsyncDOMExtractor:
                 }
                 for el in elements
             ]
-        return [{"kind": "dom", "html": html, "selector": selector}]
+        return [{"type": "dom", "html": html, "selector": selector}]
 
 
 class AsyncJSExtractor:
@@ -74,7 +74,7 @@ class AsyncJSExtractor:
         result = await self.navigator.execute_js(snippet)
         if not isinstance(result, list):
             result = [result]
-        return [{"kind": "js", "payload": item} for item in result]
+        return [{"type": "js", "payload": item} for item in result]
 
 
 class AsyncAPIExtractor:
@@ -93,7 +93,7 @@ class AsyncAPIExtractor:
             method=self.policy.extractor.api_method,
             payload=self.policy.extractor.payload,
         )
-        return [{"kind": "api", "payload": payload}]
+        return [{"type": "api", "payload": payload}]
 
 
 class AsyncExtractorFactory:
@@ -130,11 +130,11 @@ class SyncDOMExtractor:
     def __init__(
         self,
         adapter: Optional['SyncSeleniumAdapter'],
-        policy: 'CrawlPolicy'
+        policy: ExtractorPolicy
     ):
         self.adapter = adapter
         self.policy = policy
-        self.extractor_policy = getattr(policy, 'extractor', None)
+        self.extractor_policy = policy  # 직접 ExtractorPolicy
     
     def extract(self, dom: str) -> Dict[str, Any]:
         """DOM에서 단일 아이템 데이터 추출 (상품 상세).
@@ -229,11 +229,11 @@ class SyncJSExtractor:
     def __init__(
         self,
         adapter: Optional['SyncSeleniumAdapter'],
-        policy: 'CrawlPolicy'
+        policy: ExtractorPolicy
     ):
         self.adapter = adapter
         self.policy = policy
-        self.extractor_policy = getattr(policy, 'extractor', None)
+        self.extractor_policy = policy  # 직접 ExtractorPolicy
     
     def extract(self, dom: Optional[str] = None) -> Dict[str, Any]:
         """JavaScript snippet 실행하여 데이터 추출.
@@ -299,7 +299,7 @@ class SyncExtractorFactory:
     def __init__(
         self,
         adapter: Optional['SyncSeleniumAdapter'],
-        policy: 'CrawlPolicy'
+        policy: ExtractorPolicy
     ):
         self.adapter = adapter
         self.policy = policy
@@ -313,13 +313,7 @@ class SyncExtractorFactory:
         Raises:
             ValueError: 지원하지 않는 extractor type
         """
-        extractor_policy = getattr(self.policy, 'extractor', None)
-        
-        if not extractor_policy:
-            # 기본값: DOM Extractor
-            return SyncDOMExtractor(self.adapter, self.policy)
-        
-        etype = extractor_policy.type
+        etype = self.policy.type
         
         if etype == ExtractorType.DOM:
             return SyncDOMExtractor(self.adapter, self.policy)

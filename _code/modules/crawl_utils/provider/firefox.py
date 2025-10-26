@@ -166,10 +166,103 @@ class FirefoxWebDriver:
             options.add_argument("--headless")
             self.logger.info("Headless mode enabled")
         
-        # User-Agent
-        if self.config.user_agent:
-            options.set_preference("general.useragent.override", self.config.user_agent)
-            self.logger.info(f"User-Agent: {self.config.user_agent}")
+        # ✅ User-Agent 3단계 Fallback: 명시적 설정 → 자동 감지 → 캐시 로드 → 예외
+        ua = self.config.user_agent
+        
+        # 기본값(rv:144.0) 또는 비어있으면 자동 감지 시도
+        if not ua or "rv:144.0" in ua:
+            from pathlib import Path
+            import json
+            from datetime import datetime, timezone
+            
+            # 캐시 파일 경로
+            cache_path = Path(__file__).parent.parent / "configs" / "browser_version.json"
+            
+            # Step 1: 자동 감지
+            try:
+                from crawl_utils.provider.browser_version import get_firefox_version, build_user_agent
+                
+                current_version = get_firefox_version()
+                if current_version:
+                    ua = build_user_agent("firefox", current_version)
+                    self.logger.info(f"✅ Auto-detected UA: Firefox/{current_version}")
+                    
+                    # 캐시 저장 (자동 감지 성공 시)
+                    try:
+                        cache_path.parent.mkdir(parents=True, exist_ok=True)
+                        cache_data = {
+                            "firefox": {
+                                "user_agent": ua,
+                                "version": current_version,
+                                "updated_at": datetime.now(timezone.utc).isoformat(),
+                                "source": "auto_detection"
+                            }
+                        }
+                        cache_path.write_text(json.dumps(cache_data, indent=2, ensure_ascii=False), encoding="utf-8")
+                        self.logger.debug(f"Cached UA to: {cache_path}")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to cache UA: {e}")
+                else:
+                    # Step 2: 캐시 로드 (자동 감지 실패 시)
+                    if cache_path.exists():
+                        try:
+                            cache_data = json.loads(cache_path.read_text(encoding="utf-8"))
+                            cached_ua = cache_data.get("firefox", {}).get("user_agent")
+                            cached_version = cache_data.get("firefox", {}).get("version")
+                            
+                            if cached_ua:
+                                ua = cached_ua
+                                self.logger.warning(
+                                    f"⚠️ Auto-detection failed, loaded cached UA: Firefox/{cached_version}"
+                                )
+                            else:
+                                raise ValueError("Invalid cache format")
+                        except Exception as e:
+                            self.logger.error(f"Failed to load cached UA: {e}")
+                            # Step 3: 예외 발생 (캐시 로드 실패)
+                            raise RuntimeError(
+                                "Failed to detect Firefox version and load cached UA.\n"
+                                "Using outdated default UA (rv:144.0) may cause server-side bot detection.\n\n"
+                                "Please fix one of the following:\n"
+                                "  1. Ensure Firefox is installed in default location\n"
+                                "     - C:\\Program Files\\Mozilla Firefox\\firefox.exe\n"
+                                "     - C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe\n"
+                                "  2. Set explicit user_agent in config YAML:\n"
+                                "     webdriver_manager:\n"
+                                "       user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0'\n"
+                                "  3. Run PowerShell with administrator privileges\n"
+                                "  4. Check PowerShell execution policy: Get-ExecutionPolicy\n"
+                                f"  5. Fix cache file: {cache_path}"
+                            )
+                    else:
+                        # Step 3: 예외 발생 (캐시 파일 없음)
+                        raise RuntimeError(
+                            "Failed to detect Firefox version and no cached UA found.\n"
+                            "Using outdated default UA (rv:144.0) may cause server-side bot detection.\n\n"
+                            "Please fix one of the following:\n"
+                            "  1. Ensure Firefox is installed in default location\n"
+                            "     - C:\\Program Files\\Mozilla Firefox\\firefox.exe\n"
+                            "     - C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe\n"
+                            "  2. Set explicit user_agent in config YAML:\n"
+                            "     webdriver_manager:\n"
+                            "       user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0'\n"
+                            "  3. Run PowerShell with administrator privileges\n"
+                            "  4. Check PowerShell execution policy: Get-ExecutionPolicy"
+                        )
+            except RuntimeError:
+                raise  # Re-raise RuntimeError
+            except Exception as e:
+                # 기타 예외 발생 시에도 중단
+                raise RuntimeError(
+                    f"Failed to configure Firefox User-Agent: {e}\n\n"
+                    "Please set explicit user_agent in config YAML:\n"
+                    "  webdriver_manager:\n"
+                    "    user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0'"
+                ) from e
+        
+        if ua:
+            options.set_preference("general.useragent.override", ua)
+            self.logger.info(f"User-Agent: {ua}")
         
         # Accept-Languages
         if self.config.accept_languages:

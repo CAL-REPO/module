@@ -64,6 +64,11 @@ class KeyPathNormalizer(Normalizer):
     def _parse_string_path(self, key_str: str) -> List[str]:
         """문자열 경로를 파싱 (정책 기반)
         
+        배열 인덱스 지원:
+        - "sku__options[*]__name" → ["sku", "options", "[*]", "name"]
+        - "items[0]__title" → ["items", "[0]", "title"]
+        - "data[1][2]" → ["data", "[1]", "[2]"]
+        
         Args:
             key_str: 경로 문자열
         
@@ -95,22 +100,35 @@ class KeyPathNormalizer(Normalizer):
         return parts
     
     def _parse_list_indices(self, parts: List[str]) -> List[str]:
-        """[0], [1] 형태를 배열 인덱스로 변환 (선택 기능)
+        """배열 인덱스 패턴을 세그먼트로 분리
+        
+        패턴 지원:
+        - "options[*]" → ["options", "[*]"]
+        - "items[0]" → ["items", "[0]"]
+        - "data[1][2]" → ["data", "[1]", "[2]"]
+        - "values[*]" → ["values", "[*]"]
         
         Args:
             parts: 파싱된 세그먼트 리스트
         
         Returns:
-            인덱스 변환된 세그먼트 리스트
+            배열 인덱스가 분리된 세그먼트 리스트
         """
+        import re
         result = []
+        
+        # 배열 인덱스 패턴: [숫자] 또는 [*]
+        index_pattern = re.compile(r'(\[(?:\d+|\*)\])')
+        
         for part in parts:
-            if part.startswith("[") and part.endswith("]"):
-                try:
-                    idx = int(part[1:-1])
-                    result.append(f"[{idx}]")
-                except ValueError:
-                    result.append(part)
+            if '[' in part:
+                # "options[*]" → ["options", "[*]"]
+                # "data[1][2]" → ["data", "[1]", "[2]"]
+                segments = index_pattern.split(part)
+                for seg in segments:
+                    if seg:  # 빈 문자열 제외
+                        result.append(seg)
             else:
                 result.append(part)
+        
         return result

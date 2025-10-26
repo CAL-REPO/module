@@ -1,11 +1,11 @@
 # ============================================================================
-# ExcelLoader (Adapter) - Complete Configuration Example
+# ExcelLoad (Adapter) - Complete Configuration Example
 # ============================================================================
-# ExcelLoader (Adapter) 전용 설정 파일
+# ExcelLoad Adapter 전용 설정 파일
 # image_utils의 ImageLoad 패턴과 동일한 구조입니다.
 
 # --------------------------------------------------------------------------
-# ExcelLoader Adapter Policy
+# ExcelLoad Adapter Policy
 # --------------------------------------------------------------------------
 excel_load:
   # --------------------------------------------------------------------------

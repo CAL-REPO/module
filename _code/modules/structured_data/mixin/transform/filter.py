@@ -29,6 +29,14 @@ class FilterMixin(BaseOperationsMixin):
         policy: Policy instance controlling filtering behavior.
     """
     
+    def _default_policy(self) -> None:
+        """Default policy (FilterMixin doesn't need policy).
+        
+        Returns:
+            None
+        """
+        return None  # type: ignore
+    
     def filter_df_query(self, df: pd.DataFrame, query: str) -> pd.DataFrame:
         """Filter DataFrame rows using pandas query string.
         

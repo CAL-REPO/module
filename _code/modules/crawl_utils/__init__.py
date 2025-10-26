@@ -20,43 +20,41 @@ from crawl_utils.provider.policy import (
 # Core Policies
 from crawl_utils.core.policy import (
     CrawlPolicy,
-    NavigationPolicy,
-    ScrollPolicy,
+    SyncCrawlPolicy,
     ExtractorPolicy,
     WaitPolicy,
-    NormalizationPolicy,
-    NormalizationRule,
-    StoragePolicy,
-    StorageTargetPolicy,
-    HttpSessionPolicy,
-    ExecutionMode,
+    NavigationPolicy,
+    ScrollPolicy,
+    ExecutionPolicy,
+    RetryPolicy,
+    ItemSaveResult,
+    ItemSaveSummary,
+    ItemPostProcessPolicy,
 )
 
 # Fetchers
 from crawl_utils.services.fetcher import AsyncHTTPFetcher, AsyncDummyFetcher, SyncHTTPFetcher
 
-# Storage and normalization
-from crawl_utils.services.saver import AsyncFileSaver, SyncFileSaver
-from crawl_utils.services.normalizer import DataNormalizer
-from crawl_utils.services.smart_normalizer import SmartNormalizer
+# PreProcessor
+from crawl_utils.services.pre_processor import PreProcessor
 
-# Adapter & EntryPoint (Two-Policy pattern)
+# Pipeline
+from crawl_utils.services.pipeline import SyncPipeline
+
+# PostProcessor (v5.0)
+from crawl_utils.services.item_saver import (
+    AsyncItemSaver,
+    SyncItemSaver,
+)
+
+# Adapter (OTO pattern)
 from crawl_utils.adapter import SyncCrawl
-from crawl_utils.entry_point import Crawler
 
 # Note: 고수준 오케스트레이션(CrawlPipeline/SyncRunner/EntryPoints/SiteCrawler)
 # 은 현재 패키지에서 제공하지 않습니다.
 
-# Filter Utils (NEW)
-from crawl_utils.utils.filter_utils import (
-    manual_filter_urls,
-    filter_by_price,
-    filter_by_rating,
-    filter_by_custom,
-)
-
 # Models
-from crawl_utils.core.models import NormalizedItem, SaveSummary, SavedArtifact
+from crawl_utils.core.policy import ItemList
 
 __all__ = [
     # WebDriver Manager (Recommended)
@@ -69,25 +67,31 @@ __all__ = [
     "WebDriverManagerPolicy", "FirefoxConfig", "ChromeConfig", "ProviderType",
     
     # Crawl Policies
-    "CrawlPolicy", "NavigationPolicy", "ScrollPolicy",
-    "ExtractorPolicy", "WaitPolicy", "NormalizationPolicy",
-    "NormalizationRule", "StoragePolicy", "StorageTargetPolicy",
-    "HttpSessionPolicy", "ExecutionMode",
+    "CrawlPolicy", "SyncCrawlPolicy", "NavigationPolicy", "ScrollPolicy",
+    "ExtractorPolicy", "WaitPolicy", 
+    "ExecutionPolicy", "RetryPolicy",
+    "ItemSaveResult", "ItemSaveSummary",
+    "ItemPostProcessPolicy",
 
     # Fetchers
     "AsyncHTTPFetcher", "AsyncDummyFetcher", "SyncHTTPFetcher",
-
-    # Storage and normalization
-    "AsyncFileSaver", "SyncFileSaver", "DataNormalizer", "SmartNormalizer",
     
-    # Adapter & EntryPoint (Two-Policy pattern)
-    "SyncCrawl", "Crawler",
+    # PreProcessor
+    "PreProcessor",
+    
+    # Pipeline
+    "SyncPipeline",
+    
+    # PostProcessor (v5.0)
+    # Services - ItemSaver (PostProcessor)
+    "AsyncItemSaver",
+    "SyncItemSaver",
+    
+    # Adapter (OTO pattern)
+    "SyncCrawl",
     
     # (고수준 오케스트레이션은 미노출)
-    
-    # Filter Utils
-    "manual_filter_urls", "filter_by_price", "filter_by_rating", "filter_by_custom",
 
     # Models
-    "NormalizedItem", "SaveSummary", "SavedArtifact",
+    "ItemList",
 ]

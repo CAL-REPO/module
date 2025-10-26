@@ -11,13 +11,15 @@ Crawl Utils Services
 
 파일 구조:
 ----------
+- pre_processor.py: PreProcessor (URL 분석 및 정책 결정)
+- pipeline.py: SyncPipeline (Navigator + Scroll + Extractor + Normalizer)
 - adapter.py: AsyncSeleniumAdapter, SyncSeleniumAdapter
 - navigator.py: SeleniumNavigator (Async), SyncNavigator (Sync)
 - extractor.py: DOMExtractor, JSExtractor, APIExtractor, ExtractorFactory (Async Only)
 - fetcher.py: HTTPFetcher (Async), SyncHTTPFetcher (Sync), DummyFetcher
 - saver.py: FileSaver (Async), SyncFileSaver (Sync)
-- normalizer.py: DataNormalizer (Sync, Rule 기반)
-- smart_normalizer.py: SmartNormalizer (Sync, 자동 타입 추론)
+- normalizer.py: Normalizer (Sync, Rule + Auto 통합)
+- auto_normalizer.py: AutoNormalizer (Sync, 독립적 자동 타입 추론)
 
 네이밍 규칙:
 -----------
@@ -62,6 +64,21 @@ Note: 고수준 오케스트레이션(CrawlPipeline/SyncCrawlRunner)은 현재 �
 from __future__ import annotations
 
 # ============================================================================
+# PreProcessor: URL 분석 및 크롤링 정책 결정
+# ============================================================================
+from .pre_processor import (
+    PreProcessor,  # URL 분석 → 정책 결정 → Preset 병합
+)
+
+# ============================================================================
+# Pipeline: 크롤링 파이프라인 통합
+# ============================================================================
+from .pipeline import (
+    SyncPipeline,  # Navigator + Scroll + Extractor + Normalizer
+    AsyncPipeline,  # TODO: 향후 구현
+)
+
+# ============================================================================
 # Adapter: Selenium WebDriver 어댑터
 # ============================================================================
 from .adapter import (
@@ -102,23 +119,11 @@ from .fetcher import (
 )
 
 # ============================================================================
-# Saver: 파일 저장
-# ============================================================================
-from .saver import (
-    AsyncFileSaver,  # Async 파일 저장 (asyncio.to_thread 사용)
-    SyncFileSaver,   # Sync 파일 저장 (직접 파일 I/O)
-)
-
-# ============================================================================
 # Normalizer: 데이터 정규화 (Sync Only - 순수 데이터 변환)
 # ============================================================================
-from .normalizer import (
-    DataNormalizer,  # Rule 기반 정규화 (NormalizationPolicy 사용)
-)
-
-from .smart_normalizer import (
-    SmartNormalizer,  # 자동 타입 추론 정규화 (TypeInferencer 사용)
-)
+# from .auto_normalizer import (
+#     AutoNormalizer,  # 자동 타입 추론 정규화 (TypeInferencer 사용)
+# )
 
 
 # ============================================================================
@@ -131,14 +136,32 @@ from .crawl_methods import (
 )
 
 # ============================================================================
-# PostProcessor: 후처리 서비스 (Extract → Normalize → Save)
+# ItemSaver: 파일 저장 (v7.0 - Renamed from PostProcessor)
 # ============================================================================
-from .post_processor import (
-    SyncPostProcessor,  # Sync 후처리 (KeyPath 추출 + 템플릿 + 파일 저장)
+from .item_saver import (
+    AsyncItemSaver,
+    SyncItemSaver,
 )
 
 
 __all__ = [
+    # ========================================
+    # PreProcessor
+    # ========================================
+    "PreProcessor",
+    
+    # ========================================
+    # Pipeline
+    # ========================================
+    "SyncPipeline",
+    "AsyncPipeline",
+    
+    # ========================================
+    # ItemSaver (v7.0 - Renamed from PostProcessor)
+    # ========================================
+    "AsyncItemSaver",
+    "SyncItemSaver",
+    
     # ========================================
     # Adapter
     # ========================================
@@ -166,17 +189,6 @@ __all__ = [
     "AsyncDummyFetcher",
     "SyncHTTPFetcher",
     
-    # ========================================
-    # Saver
-    # ========================================
-    "AsyncFileSaver",
-    "SyncFileSaver",
-    
-    # ========================================
-    # Normalizer (Sync Only)
-    # ========================================
-    "DataNormalizer",
-    "SmartNormalizer",
     
     # ========================================
     # Sync Extractor
@@ -191,11 +203,6 @@ __all__ = [
     "CrawlProductDetail",
     "CrawlProductSearch",
     "CrawlMethodFactory",
-    
-    # ========================================
-    # PostProcessor
-    # ========================================
-    "SyncPostProcessor",
 ]
 
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""XLOTO Adapter Package."""
+"""xloto.adapter"""
 
-from xloto.adapter.xloto import XlOto  # noqa: F401
+from .xloto import XlOTO
 
-__all__ = ["XlOto"]
+__all__ = ["XlOTO"]

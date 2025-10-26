@@ -7,16 +7,16 @@ webdriver_manager:
   # -------------------------------------------------------------------------
   # 공통 설정 (모든 브라우저)
   # -------------------------------------------------------------------------
-  provider: "firefox"  # firefox, chrome, edge
-  region: "global"
+  provider: ""  # firefox, chrome, edge
+  region: ""
   
   headless: false
   window_size: [1920, 1080]
   
   # -------------------------------------------------------------------------
-  # Accept-Language (지역별 고정값)
+  # Accept-Language (지역별 고정값, region에 따라 Preset으로 자동 결정)
   # -------------------------------------------------------------------------
-  accept_languages: ""
+  # accept_languages: ""
   
   # -------------------------------------------------------------------------
   # User-Agent (browser_versions.json에서 런타임 주입)
@@ -34,7 +34,7 @@ webdriver_manager:
   # -------------------------------------------------------------------------
   firefox:
     binary_path: "C:/Program Files/Mozilla Firefox/firefox.exe"
-    profile_path: ""
+    profile_path: "M:/Firefox_Profile/THKIM"
     driver_path: "M:/WebDriver/geckodriver_win32.exe"
     use_webdriver_manager: true
     
@@ -59,7 +59,7 @@ webdriver_manager:
     level: 'DEBUG'
     sinks:
       - sink_type: 'file'
-        file_path: 'logs/modules/crawl_webdriver_{time:YYYY-MM-DD}.log'
+        file_path: '{{modules_dir}}/crawl_utils/test/logs/crawl_webdriver_{time:YYYY-MM-DD}.log'
         level: 'DEBUG'
         format: '<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
         rotation: '5 MB'

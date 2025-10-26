@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from ..core.interfaces import BrowserController
-from ..core.policy import CrawlPolicy, ScrollStrategy, WaitHook, WaitCondition
+from ..core.policy import CrawlPolicy, SyncCrawlPolicy, NavigationPolicy, ScrollStrategy, WaitHook, WaitCondition
 
 if TYPE_CHECKING:
     from .adapter import SyncSeleniumAdapter
@@ -111,7 +111,7 @@ class AsyncNavigator:
 class SyncNavigator:
     """Synchronous Navigator using SyncSeleniumAdapter."""
 
-    def __init__(self, driver: 'SyncSeleniumAdapter', policy: CrawlPolicy):
+    def __init__(self, driver: 'SyncSeleniumAdapter', policy: Optional[NavigationPolicy] = None):
         self._driver = driver
         self._policy = policy
         self._current_url: str | None = None
@@ -119,9 +119,9 @@ class SyncNavigator:
     def _build_url(self, page: int | None = None, query: str | None = None, extra: dict | None = None) -> str:
         """Build URL from navigation policy.
         
-        Note: Should only be called when self._policy.navigation is not None.
+        Note: Should only be called when self._policy is not None.
         """
-        nav = self._policy.navigation
+        nav = self._policy
         if not nav:
             raise ValueError("Cannot build URL: navigation policy is None")
         
@@ -153,13 +153,13 @@ class SyncNavigator:
             Final loaded URL
         """
         # Detail 크롤링: base_url을 직접 사용
-        if not self._policy.navigation:
+        if not self._policy:
             self._driver.get(base_url)
             self._current_url = base_url
             return base_url
         
         # Search 크롤링: navigation policy로 URL 구성
-        url = self._build_url(page=self._policy.navigation.start_page, query=query, extra=params)
+        url = self._build_url(page=self._policy.start_page, query=query, extra=params)
         self._driver.get(url)
         self._current_url = url
         return url

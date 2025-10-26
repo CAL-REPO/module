@@ -1,0 +1,133 @@
+2025-10-25 09:10:24 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:10:25 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:10:25 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:10:36 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:10:36 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:10:49 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:10:49 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:10:59 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:10:59 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:13:18 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:13:19 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:13:19 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:13:40 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:13:40 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:13:57 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:13:57 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:14:10 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:14:10 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:18:50 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:18:50 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:18:50 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:19:03 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:19:03 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:19:15 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:19:15 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:19:27 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:19:27 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:21:10 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:21:10 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:21:10 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:21:27 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:21:27 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:21:40 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:21:40 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:21:53 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:21:53 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:24:25 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:24:25 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:24:25 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:24:37 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:24:37 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:24:49 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:24:49 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:24:59 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:24:59 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:32:23 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:32:23 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:32:23 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:32:35 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:32:35 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:32:48 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:32:48 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:32:59 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:32:59 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:34:27 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:34:27 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:34:27 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:34:38 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:34:38 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:34:48 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:34:48 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:34:58 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:34:58 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:38:43 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:38:43 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:38:43 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:38:54 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:38:54 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:39:05 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:39:05 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:39:19 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:39:19 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:45:48 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:45:48 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:45:48 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:46:03 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:46:03 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:46:17 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:46:17 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:46:31 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:46:31 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:48:38 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:48:38 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:48:38 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:48:51 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:48:51 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:49:04 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:49:04 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:49:15 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:49:15 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:53:08 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:53:09 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:53:09 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:53:19 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:53:19 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:53:30 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:53:30 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:53:42 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:53:42 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:57:30 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 09:57:30 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:57:30 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:57:42 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:57:42 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 09:57:53 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:57:53 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 09:58:07 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 09:58:07 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 10:02:03 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 10:02:04 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:02:04 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 10:02:21 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:02:21 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 10:02:39 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:02:39 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 10:03:47 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 10:03:48 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:03:48 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 10:04:05 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:04:05 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 10:04:23 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:04:23 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 10:04:44 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:04:44 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 10:07:00 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 10:07:00 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:07:00 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 10:07:22 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:07:22 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json
+2025-10-25 10:07:36 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:07:36 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\01_overlay_meta.json
+2025-10-25 10:07:58 | ERROR    | image_utils.adapter.overlay:_log_both:121 - Failed to save overlaid image: unknown file extension: 
+2025-10-25 10:07:58 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\scripts\xloto\test\images\02_overlay_meta.json

@@ -38,28 +38,38 @@ class XwAppLifecycle:
         return self.app
     
     def _apply_settings(self):
-        """Excel 설정 적용 (display + performance)"""
-        if not self.app:
-            return
+        """Apply performance and UI settings"""
+        # ✅ Calculation 설정 (None이면 skip)
+        if self.performance.calculation is not None:
+            try:
+                calc_map = {
+                    "automatic": -4105,
+                    "manual": -4135,
+                    "semiautomatic": 2
+                }
+                self.app.api.Calculation = calc_map.get(self.performance.calculation, -4105)
+            except Exception as e:
+                # Excel 보호 모드 등에서 설정 실패 시 무시
+                import logging
+                logging.debug(f"Unable to set Calculation property: {e}")
         
-        # Display 설정 (기존)
-        self.app.display_alerts = self.performance.display_alerts
-        self.app.screen_updating = self.performance.screen_updating
-        
-        # Performance 설정 (신규)
-        if hasattr(self.app.api, 'Calculation'):
-            calc_map = {
-                "auto": -4105,      # xlCalculationAutomatic
-                "manual": -4135,    # xlCalculationManual
-                "semiauto": -4050   # xlCalculationSemiautomatic
-            }
-            self.app.api.Calculation = calc_map.get(self.performance.calculation, -4105)
-        
-        if hasattr(self.app.api, 'EnableEvents'):
+        # EnableEvents 설정
+        try:
             self.app.api.EnableEvents = self.performance.enable_events
+        except Exception:
+            pass
         
-        if hasattr(self.app.api, 'Interactive'):
+        # Interactive 설정
+        try:
             self.app.api.Interactive = self.performance.interactive
+        except Exception:
+            pass
+        
+        # EnableCancelKey 설정
+        try:
+            self.app.api.EnableCancelKey = self.performance.enable_cancel_key
+        except Exception:
+            pass
     
     def quit(self):
         """직접 실행한 Excel만 종료"""

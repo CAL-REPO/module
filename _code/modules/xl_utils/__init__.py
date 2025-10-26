@@ -4,36 +4,31 @@ xl_utils
 Excel automation and worksheet utilities for data extraction and manipulation.
 Exports only intended API.
 
-Main Components:
-- ExcelLoader: Main entrypoint (ImageLoader pattern)
-- ExcelLoad: Adapter for pure Excel logic
+Main Component:
+- ExcelLoad: Adapter for Excel file access and cell manipulation
 
 비즈니스 로직 (DataFrame 처리 등)은 사용자 단에서 수행
 xl_utils는 Excel 파일 접근 및 셀 조작만 담당
 
 다른 모듈에서 재사용:
-    >>> from xl_utils import ExcelLoader
+    >>> from xl_utils import ExcelLoad
     >>> 
     >>> # From YAML config
-    >>> with ExcelLoader("configs/excel_loader.yaml") as xl:
-    ...     ws = xl.get_worksheet()
-    ...     ws.cell_ops.write(1, 1, "Title")
-    
-    >>> # Direct adapter usage (advanced)
-    >>> from xl_utils import ExcelLoad
     >>> excel_load = ExcelLoad("configs/excel_load.yaml")
     >>> with excel_load:
     ...     ws = excel_load.get_worksheet("data.xlsx", "Sheet1")
+    ...     ws.cell_ops.write(1, 1, "Title")
+    
+    >>> # With runtime override
+    >>> excel_load = ExcelLoad("config.yaml", xw_app__visible=True)
 """
 from .core.policy import (
-    # New Policies (Adapter vs EntryPoint pattern)
+    # Adapter Policy
     ExcelLoadPolicy,
-    ExcelLoaderPolicy,
     
     # Sub-policies
     XwAppPolicy,
-    SourceConfig,  # 변경: TargetConfig → SourceConfig
-    SheetConfig,   # 신규 추가
+    SheetConfig,
     
     # Unified Policies
     SavePolicy,
@@ -42,11 +37,8 @@ from .core.policy import (
     PathValidationPolicy,
 )
 
-# Adapter (비즈니스 로직, source 없음)
+# Adapter (비즈니스 로직)
 from .adapter import ExcelLoad
-
-# EntryPoint (외부 진입점, source 포함)
-from .entry_point import ExcelLoader
 
 # Services (low-level)
 from .services.xw_app import XwApp
@@ -62,20 +54,15 @@ from .core.save_helper import SavePolicyHelper
 from .presets import get_preset, PRESETS
 
 __all__ = [
-    # Adapter (비즈니스 로직, source 없음)
+    # Adapter
     "ExcelLoad",
     
-    # EntryPoint (외부 진입점, source 포함)
-    "ExcelLoader",
-    
-    # New Policies (Adapter vs EntryPoint pattern)
+    # Policies
     "ExcelLoadPolicy",
-    "ExcelLoaderPolicy",
     
     # Sub-policies
     "XwAppPolicy",
-    "SourceConfig",  # 변경: TargetConfig → SourceConfig
-    "SheetConfig",   # 신규 추가
+    "SheetConfig",
     
     # Unified Policies
     "SavePolicy",

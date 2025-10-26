@@ -114,6 +114,12 @@ class Translate:
     def _load_config(self, cfg_like, **overrides) -> TranslatePolicy:
         """Load TranslatePolicy from various sources.
         
+        ConfigLikeLoader가 모든 경우를 처리:
+        1. Policy 인스턴스 → 그대로 반환
+        2. Path/str → ConfigLoader로 YAML 로드
+        3. dict → ConfigLoader로 파싱 (Policy.name section 자동 추출)
+        4. None → 기본 YAML 또는 Pydantic 기본값
+        
         Args:
             cfg_like: TranslatePolicy instance, YAML path, dict, or None
             **overrides: Runtime overrides

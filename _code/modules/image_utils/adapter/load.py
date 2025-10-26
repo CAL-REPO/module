@@ -65,7 +65,21 @@ class ImageLoad:
             self._module_logger.debug("Module-specific logger enabled for detailed debugging")
     
     def _load_config(self, cfg_like, **overrides) -> ImageLoadPolicy:
-        """Load ImageLoadPolicy."""
+        """Load ImageLoadPolicy.
+        
+        ConfigLikeLoader가 모든 경우를 처리:
+        1. Policy 인스턴스 → 그대로 반환
+        2. Path/str → ConfigLoader로 YAML 로드
+        3. dict → ConfigLoader로 파싱 (Policy.name section 자동 추출)
+        4. None → 기본 YAML 또는 Pydantic 기본값
+        
+        Args:
+            cfg_like: ImageLoadPolicy, YAML 경로, dict, 또는 None
+            **overrides: Runtime overrides
+        
+        Returns:
+            ImageLoadPolicy instance
+        """
         from cfg_utils.services.config_like_loader import ConfigLikeLoader
         
         return ConfigLikeLoader.load(
@@ -217,6 +231,10 @@ class ImageLoad:
             image: Processed PIL Image
             source_path: Original source file path for name generation
             policy: ImageLoadPolicy (working_policy from run())
+        
+        Note:
+            ⚠️ source_path.stem이 자동으로 name 인자로 전달되어 NamePolicy.name override
+            ⚠️ source_path.suffix를 extension 인자로 전달하여 원본 확장자 유지
         """
         try:
             from fso_utils import FSOPathBuilder
@@ -225,8 +243,9 @@ class ImageLoad:
             # Use directory or downloads() as fallback
             target_dir = policy.save.directory or downloads()
             
-            # Extract source stem for name override
+            # Extract source stem and extension
             source_stem = source_path.stem
+            source_ext = source_path.suffix.lstrip(".")  # Remove leading dot
             
             # Build output path using FSOPathBuilder
             builder = FSOPathBuilder(
@@ -234,8 +253,8 @@ class ImageLoad:
                 name_policy=policy.save.name,
                 ops_policy=policy.save.ops
             )
-            # Override name with source stem (if policy.save.name.name is still template)
-            output_path = builder.build(name=source_stem)
+            # Override name and extension with source values
+            output_path = builder.build(name=source_stem, extension=source_ext)
             
             # Ensure directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)

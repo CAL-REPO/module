@@ -67,12 +67,16 @@ class EdgeConfig(BaseModel):
 class WebDriverManagerPolicy(BaseModel):
     """통합 WebDriver Manager 정책 (모든 브라우저 지원)
     
-    Section명: webdriver (브라우저 독립)
+    Section명: Policy.name 필드 사용 (기본값: "webdriver_manager")
     provider 필드로 Firefox/Chrome/Edge 구분
+    
+    ConfigLikeLoader 사용:
+    - Policy.name 필드로 자동 section 추출
+    - SectionExtractor.get_policy_name(WebDriverManagerPolicy) 사용
     
     Example YAML:
         ```yaml
-        webdriver:
+        webdriver_manager:  # ✅ Policy.name 필드 사용
           provider: "firefox"  # firefox, chrome, edge
           region: "china"
           
@@ -90,17 +94,13 @@ class WebDriverManagerPolicy(BaseModel):
             user_data_dir: "M:/Chrome_Profile/China"
         ```
     """
-    name: str = Field(default="webdriver", description="Config section name (always 'webdriver')")
+    name: str = Field(default="webdriver_manager", description="Config section name (ConfigLikeLoader용)")
     region: str = Field(default="", description="Region identifier (china, global, us, eu)")
     provider: ProviderType = Field(default="firefox", description="WebDriver provider type")
     
     # 기본 WebDriver 설정 (모든 브라우저 공통)
     headless: bool = Field(False, description="Run browser in headless mode")
     window_size: Optional[Tuple[int, int]] = Field((1920, 1080), description="Browser window size")
-    
-    # Session 관리 (모든 브라우저 공통)
-    session_path: Optional[Path] = Field(None, description="Path to save/load session data")
-    save_session: bool = Field(False, description="Enable session save/restore")
     
     # User-Agent & Accept-Language (모든 브라우저 공통)
     user_agent: str = Field(
@@ -163,9 +163,4 @@ class WebDriverManagerPolicy(BaseModel):
                 "Edge provider requires 'edge' config section. "
                 "Add 'edge:' section to your YAML config."
             )
-        
-        # Session 디렉토리 생성
-        if self.session_path and self.save_session:
-            Path(self.session_path).parent.mkdir(parents=True, exist_ok=True)
-        
         return self

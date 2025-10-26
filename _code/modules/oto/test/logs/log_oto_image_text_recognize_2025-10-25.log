@@ -1,0 +1,16 @@
+2025-10-25 03:31:39 | DEBUG    | image_utils.adapter.text_recognize:__init__:98 - Module-specific logger enabled for detailed debugging
+2025-10-25 03:32:13 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_002.jpg
+2025-10-25 03:32:13 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_meta.json
+2025-10-25 03:47:16 | DEBUG    | image_utils.adapter.text_recognize:__init__:98 - Module-specific logger enabled for detailed debugging
+2025-10-25 03:47:50 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_003.jpg
+2025-10-25 03:47:50 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_meta.json
+2025-10-25 04:23:52 | DEBUG    | image_utils.adapter.text_recognize:__init__:98 - Module-specific logger enabled for detailed debugging
+2025-10-25 04:24:40 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_001.jpg
+2025-10-25 04:24:40 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_meta.json
+2025-10-25 04:24:50 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_text_recognize_001.jpg
+2025-10-25 04:24:50 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_text_recognize_meta.json
+2025-10-25 04:27:08 | DEBUG    | image_utils.adapter.text_recognize:__init__:98 - Module-specific logger enabled for detailed debugging
+2025-10-25 04:27:37 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_002.jpg
+2025-10-25 04:27:37 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_text_recognize_meta.json
+2025-10-25 04:27:47 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_text_recognize_002.jpg
+2025-10-25 04:27:47 | INFO     | image_utils.adapter.text_recognize:_log_both:129 - OCR metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_text_recognize_meta.json

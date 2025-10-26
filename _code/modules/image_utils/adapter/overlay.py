@@ -94,7 +94,21 @@ class ImageOverlay:
     # ==========================================================================
     
     def _load_config(self, cfg_like, **overrides) -> ImageOverlayPolicy:
-        """Load ImageOverlayPolicy."""
+        """Load ImageOverlayPolicy.
+        
+        ConfigLikeLoader가 모든 경우를 처리:
+        1. Policy 인스턴스 → 그대로 반환
+        2. Path/str → ConfigLoader로 YAML 로드
+        3. dict → ConfigLoader로 파싱 (Policy.name section 자동 추출)
+        4. None → 기본 YAML 또는 Pydantic 기본값
+        
+        Args:
+            cfg_like: ImageOverlayPolicy, YAML 경로, dict, 또는 None
+            **overrides: Runtime overrides
+        
+        Returns:
+            ImageOverlayPolicy instance
+        """
         from cfg_utils.services.config_like_loader import ConfigLikeLoader
         
         return ConfigLikeLoader.load(
@@ -164,22 +178,22 @@ class ImageOverlay:
             ...     save__directory="output",
             ...     save__name__name="test"
             ... )
+        
+        Note:
+            ⚠️ overrides는 모듈 내부 KeyPath 형식 (접두사 없음)
+            ⚠️ Composite Adapter에서 image_overlay__ 접두사 제거 후 전달
+            ⚠️ source_path.stem이 자동으로 save.name.name 기본값이 됨
         """
+        from keypath_utils import KeyPathDict
+        
         # 런타임 override 적용
         if overrides:
-            from keypath_utils import KeyPathDict
             override_dict = KeyPathDict.to_nested_dict(overrides)
             working_policy = self.policy.model_copy(deep=True)
-            
-            # Pydantic 모델을 dict로 변환
+            # override_dict를 working_policy에 병합
             policy_dict = working_policy.model_dump()
-            
-            # KeyPathDict로 deep merge
             kp_dict = KeyPathDict(policy_dict)
             kp_dict.merge(override_dict, deep=True, inplace=True)
-            
-            # 병합된 dict로 새 Policy 객체 생성
-            from ..core.policy import ImageOverlayPolicy
             working_policy = ImageOverlayPolicy(**kp_dict.data)
         else:
             working_policy = self.policy
@@ -296,6 +310,10 @@ class ImageOverlay:
             image: Overlaid PIL Image
             source_path: Original source file path for name generation
             policy: ImageOverlayPolicy (working_policy from run())
+        
+        Note:
+            ⚠️ source_path.stem이 자동으로 name 인자로 전달되어 NamePolicy.name override
+            ⚠️ source_path.suffix를 extension 인자로 전달하여 원본 확장자 유지
         """
         try:
             from fso_utils import FSOPathBuilder
@@ -304,8 +322,9 @@ class ImageOverlay:
             # Use directory or downloads() as fallback
             target_dir = policy.save.directory or downloads()
             
-            # Extract source stem for name override
+            # Extract source stem and extension
             source_stem = source_path.stem
+            source_ext = source_path.suffix.lstrip(".")  # Remove leading dot
             
             # Build output path using FSOPathBuilder
             builder = FSOPathBuilder(
@@ -313,7 +332,8 @@ class ImageOverlay:
                 name_policy=policy.save.name,
                 ops_policy=policy.save.ops
             )
-            output_path = builder.build(name=source_stem)
+            # Override name and extension with source values
+            output_path = builder.build(name=source_stem, extension=source_ext)
             
             # Ensure directory exists
             output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -339,6 +359,9 @@ class ImageOverlay:
             result: Overlay result dict
             source_path: Original source file path for name generation
             policy: ImageOverlayPolicy (working_policy from run())
+        
+        Note:
+            ⚠️ source_path.stem이 자동으로 name 인자로 전달되어 NamePolicy.name override
         """
         try:
             import json
@@ -358,6 +381,7 @@ class ImageOverlay:
                 name_policy=policy.meta.name,
                 ops_policy=policy.meta.ops
             )
+            # FSOPathBuilder.build(name=...) automatically overrides NamePolicy.name
             meta_path = builder.build(name=source_stem)
             
             # Extract metadata

@@ -10,6 +10,13 @@ from crawl_utils.provider.policy import (
     EdgeConfig,
     ProviderType,
 )
+from crawl_utils.provider.browser_version import (
+    get_firefox_version,
+    get_chrome_version,
+    get_edge_version,
+    get_browser_version,
+    build_user_agent,
+)
 
 __all__ = [
     "FirefoxWebDriver",
@@ -18,4 +25,10 @@ __all__ = [
     "ChromeConfig",
     "EdgeConfig",
     "ProviderType",
+    # Browser version utilities
+    "get_firefox_version",
+    "get_chrome_version",
+    "get_edge_version",
+    "get_browser_version",
+    "build_user_agent",
 ]

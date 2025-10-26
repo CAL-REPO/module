@@ -1,0 +1,190 @@
+2025-10-25 08:51:27.970 | ERROR    | scripts.xloto.adapter.xloto:run:462 - AttributeError: 'XlOTO' object has no attribute '_cas_extractor'
+
+2025-10-25 08:51:27.974 | ERROR    | scripts.xloto.adapter.xloto:run:465 - Traceback (most recent call last):
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 359, in run
+    cas_list = self.cas_extractor.extract(df, ws.column_resolver)
+               ^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 255, in cas_extractor
+    if self._cas_extractor is None:
+       ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'XlOTO' object has no attribute '_cas_extractor'. Did you mean: 'cas_extractor'?
+
+
+2025-10-25 08:51:51.386 | ERROR    | scripts.xloto.adapter.xloto:run:465 - NotImplementedError: FilterMixin must implement _default_policy()
+
+2025-10-25 08:51:51.389 | ERROR    | scripts.xloto.adapter.xloto:run:468 - Traceback (most recent call last):
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 362, in run
+    cas_list = self.cas_extractor.extract(df, ws.column_resolver)
+               ^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 259, in cas_extractor
+    self._cas_extractor = CasExtractor(
+                          ^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\services\cas_extractor.py", line 72, in __init__
+    self.df_filter = FilterMixin()
+                     ^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\modules\structured_data\core\mixin.py", line 35, in __init__
+    self.policy: PolicyT = policy if policy is not None else self._default_policy()
+                                                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\modules\structured_data\core\mixin.py", line 49, in _default_policy
+    raise NotImplementedError(
+NotImplementedError: FilterMixin must implement _default_policy()
+
+
+2025-10-25 08:54:57.334 | ERROR    | scripts.xloto.adapter.xloto:run:465 - NotImplementedError: FilterMixin must implement _default_policy()
+
+2025-10-25 08:54:57.337 | ERROR    | scripts.xloto.adapter.xloto:run:468 - Traceback (most recent call last):
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 362, in run
+    cas_list = self.cas_extractor.extract(df, ws.column_resolver)
+               ^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 259, in cas_extractor
+    self._cas_extractor = CasExtractor(
+                          ^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\services\cas_extractor.py", line 72, in __init__
+    self.df_filter = FilterMixin()
+                     ^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\modules\structured_data\core\mixin.py", line 35, in __init__
+    self.policy: PolicyT = policy if policy is not None else self._default_policy()
+                                                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\modules\structured_data\core\mixin.py", line 49, in _default_policy
+    raise NotImplementedError(
+NotImplementedError: FilterMixin must implement _default_policy()
+
+
+2025-10-25 08:57:11.831 | ERROR    | scripts.xloto.adapter.xloto:run:465 - NotImplementedError: FilterMixin must implement _default_policy()
+
+2025-10-25 08:57:11.835 | ERROR    | scripts.xloto.adapter.xloto:run:468 - Traceback (most recent call last):
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 362, in run
+    cas_list = self.cas_extractor.extract(df, ws.column_resolver)
+               ^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\adapter\xloto.py", line 259, in cas_extractor
+    self._cas_extractor = CasExtractor(
+                          ^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\scripts\xloto\services\cas_extractor.py", line 72, in __init__
+    self.df_filter = FilterMixin()
+                     ^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\modules\structured_data\core\mixin.py", line 35, in __init__
+    self.policy: PolicyT = policy if policy is not None else self._default_policy()
+                                                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "M:\CALife\CAShop - 구매대행\_code\modules\structured_data\core\mixin.py", line 49, in _default_policy
+    raise NotImplementedError(
+NotImplementedError: FilterMixin must implement _default_policy()
+
+
+2025-10-25 09:10:25.265 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:10:36.912 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:10:49.099 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:10:59.746 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:13:19.165 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:13:40.661 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:13:57.763 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:14:10.684 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:18:50.228 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:19:03.126 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:19:15.407 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:19:27.705 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:21:10.237 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:21:27.627 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:21:40.762 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:21:53.974 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:24:25.516 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:24:37.356 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:24:49.281 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:24:59.990 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:32:23.464 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:32:35.824 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:32:48.511 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:32:59.358 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:34:27.650 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:34:38.250 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:34:48.349 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:34:58.440 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:38:43.292 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:38:54.290 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:39:05.716 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:39:19.900 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:45:48.816 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:46:03.656 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:46:17.322 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:46:31.035 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:48:38.453 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:48:51.356 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:49:04.584 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:49:15.942 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:53:09.028 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:53:19.979 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:53:30.535 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:53:42.780 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:57:30.652 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:57:42.119 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:57:53.595 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 09:58:07.913 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:02:04.099 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:02:21.289 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:02:39.368 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:03:48.104 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:04:05.369 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:04:23.431 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:04:44.656 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:07:00.383 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:07:22.926 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:07:36.918 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+
+2025-10-25 10:07:58.657 | ERROR    | image_utils.adapter.overlay:_log_both:117 - Failed to save overlaid image: unknown file extension: 
+

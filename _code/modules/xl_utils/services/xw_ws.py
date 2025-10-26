@@ -277,22 +277,56 @@ class XwWsDataFrameOps:
     
     def to_dataframe(
         self,
-        anchor: str = "A1",
+        anchor: Optional[str] = None,
         *,
+        used_range: bool = False,
         header: bool = True,
         index: bool = False,
         expand: str = "table",
     ) -> pd.DataFrame:
-        """시트 데이터를 DataFrame으로 변환"""
-        df = self.sheet.range(anchor).options(
-            pd.DataFrame,
-            header=header,
-            index=index,
-            expand=expand
-        ).value
+        """시트 데이터를 DataFrame으로 변환
+        
+        Args:
+            anchor: 시작 셀 (used_range=True이면 무시됨)
+            used_range: True면 used_range 사용, False면 anchor 기준
+            header: 첫 행을 헤더로 사용
+            index: 첫 열을 인덱스로 사용
+            expand: 확장 방식 ("table", "down", "right")
+        
+        Returns:
+            DataFrame
+        
+        Example:
+            >>> # used_range 사용 (전체 데이터)
+            >>> df = ws.to_dataframe(used_range=True)
+            >>> 
+            >>> # anchor 기준
+            >>> df = ws.to_dataframe(anchor="A1")
+        """
+        if used_range:
+            # used_range 사용 (전체 데이터 영역)
+            df = self.sheet.used_range.options(
+                pd.DataFrame,
+                header=header,
+                index=index
+            ).value
+        else:
+            # anchor 기준 (기본: A1)
+            anchor = anchor or "A1"
+            df = self.sheet.range(anchor).options(
+                pd.DataFrame,
+                header=header,
+                index=index,
+                expand=expand
+            ).value
         
         if self.drop_empty_rows and isinstance(df, pd.DataFrame):
-            df = df.dropna(how="all").dropna(axis=1, how="all")
+            # 빈 행만 제거, 빈 컬럼은 유지
+            df = df.dropna(how="all")
+        
+        # 컬럼명 정규화: 공백/줄바꿈 제거 (Excel 셀 내 줄바꿈 처리)
+        if isinstance(df, pd.DataFrame) and header:
+            df.columns = [str(col).strip().replace('\n', '').replace('\r', '') for col in df.columns]
         
         return df
     
@@ -373,14 +407,29 @@ class XwWs:
     
     def to_dataframe(
         self,
-        anchor: str = "A1",
+        anchor: Optional[str] = None,
         *,
+        used_range: bool = False,
         header: bool = True,
         index: bool = False,
         expand: str = "table",
     ) -> pd.DataFrame:
-        """DataFrame 변환 (편의 메서드)"""
-        return self.df_ops.to_dataframe(anchor, header=header, index=index, expand=expand)
+        """DataFrame 변환 (편의 메서드)
+        
+        Args:
+            anchor: 시작 셀 (used_range=True이면 무시됨)
+            used_range: True면 used_range 사용
+            header: 첫 행을 헤더로 사용
+            index: 첫 열을 인덱스로 사용
+            expand: 확장 방식
+        """
+        return self.df_ops.to_dataframe(
+            anchor=anchor,
+            used_range=used_range,
+            header=header,
+            index=index,
+            expand=expand
+        )
     
     def from_dataframe(
         self,

@@ -24,7 +24,7 @@ METHOD_PATTERNS = {
     "search": [
         "/category/",
         "/search",
-        "/wholesale/",
+        "/wholesale",  # /wholesale/ 또는 /wholesale? 모두 매칭
         "/w/wholesale",
         "/s?",
         "/search?",

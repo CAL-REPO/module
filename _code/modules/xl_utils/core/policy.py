@@ -64,54 +64,21 @@ class SheetConfig(BaseModel):
         return self.column_alias
 
 
-class SourceConfig(BaseModel):
-    """Source Excel file and sheet configuration.
+class FileConfig(BaseModel):
+    """파일별 설정 (App 단위 사용 시)
     
     Attributes:
-        file_path: Excel file path
-        sheet: Sheet configuration (sheet_name + column_alias)
+        file_path: Excel 파일 경로
+        sheets: Sheet 설정 리스트
+    
+    Example:
+        >>> FileConfig(
+        ...     file_path="data.xlsx",
+        ...     sheets=[SheetConfig(sheet_name="Sheet1", column_alias="PRODUCT_LIST")]
+        ... )
     """
-    file_path: str = Field(default="", description="Excel file path")
-    sheet: Union[str, int, SheetConfig] = Field(
-        default_factory=lambda: SheetConfig(),
-        description="Sheet config (str/int or SheetConfig)"
-    )
-    
-    @field_validator('sheet', mode='before')
-    @classmethod
-    def normalize_sheet(cls, v):
-        """Normalize sheet value to SheetConfig.
-        
-        Args:
-            v: str, int, dict, or SheetConfig
-        
-        Returns:
-            SheetConfig instance
-        """
-        if isinstance(v, SheetConfig):
-            return v
-        
-        # str or int -> SheetConfig(sheet_name=v)
-        if isinstance(v, (str, int)):
-            return SheetConfig(sheet_name=v)
-        
-        # dict -> SheetConfig(**v)
-        if isinstance(v, dict):
-            return SheetConfig(**v)
-        
-        return v
-    
-    def get_sheet_name(self) -> Union[str, int]:
-        """Get sheet name from sheet config."""
-        if isinstance(self.sheet, SheetConfig):
-            return self.sheet.sheet_name
-        return self.sheet
-    
-    def get_column_aliases(self) -> Dict[str, List[str]]:
-        """Get column aliases from sheet config."""
-        if isinstance(self.sheet, SheetConfig):
-            return self.sheet.get_column_aliases()
-        return {}
+    file_path: Optional[str] = Field(default=None, description="Excel 파일 경로")
+    sheets: List[SheetConfig] = Field(default_factory=list, description="Sheet 설정 리스트")
 
 
 class XwAppPolicy(BaseModel):
@@ -246,33 +213,52 @@ class PathValidationPolicy(BaseModel):
 
 
 # =============================================================================
+# Workbook Configuration
+# =============================================================================
+
+class XwWbPolicy(BaseModel):
+    """Workbook 설정 정책"""
+    read_only: bool = Field(False, description="읽기 전용 모드")
+    update_links: bool = Field(False, description="링크 업데이트 여부")
+    ignore_read_only_recommended: bool = Field(True, description="읽기 전용 권장 무시")
+
+
+# =============================================================================
 # ExcelLoad Adapter Policy
 # =============================================================================
 
 class ExcelLoadPolicy(BaseModel):
-    """Adapter Policy (target 없음, 순수 비즈니스 로직)
+    """Adapter Policy (Excel 파일 접근 정책)
     
-    Excel 파일 접근 및 조작 정책만 포함.
-    target은 인자로 받아서 처리합니다.
+    xl_utils는 Excel 접근만 담당, 비즈니스 로직은 사용자 단에서 처리
     
     Attributes:
-        name: Policy 식별자 (SectionExtractor 호환)
+        name: Policy 식별자
+        
+        # ===== App 레벨 =====
+        xw_app: Excel Application 설정
+        
+        # ===== Workbook 레벨 =====
+        xw_wb: Workbook 설정
         
         # ===== 통합 정책 =====
         save: 통합 저장 정책
         performance: 성능 최적화 정책
         error_handling: 에러 처리 정책
-        path_validation: 경로 검증 정책 (fso_utils 통합)
+        path_validation: 경로 검증 정책
         
-        # ===== 기본 정책 =====
-        xw_app: Excel Application 실행 정책
-        
-        log: 로깅 설정 (logs_utils LogPolicy)
+        log: 로깅 설정
     
-    우선순위 규칙:
-        통합 정책이 모든 동작 제어
+    Note:
+        Sheet별 설정(column_alias 등)은 get_worksheet() 호출 시 인자로 전달
     """
-    name: str = Field(default="excel", description="Policy name for section extraction")
+    name: str = Field(default="excel_load", description="Policy name for section extraction")
+    
+    # ===== App 레벨 =====
+    xw_app: XwAppPolicy = Field(default_factory=XwAppPolicy)  # type: ignore
+    
+    # ===== Workbook 레벨 =====
+    xw_wb: XwWbPolicy = Field(default_factory=XwWbPolicy)  # type: ignore
     
     # ===== 통합 정책 =====
     save: SavePolicy = Field(default_factory=SavePolicy)  # type: ignore
@@ -280,8 +266,8 @@ class ExcelLoadPolicy(BaseModel):
     error_handling: ErrorHandlingPolicy = Field(default_factory=ErrorHandlingPolicy)  # type: ignore
     path_validation: PathValidationPolicy = Field(default_factory=PathValidationPolicy)  # type: ignore
     
-    # ===== 기본 정책 =====
-    xw_app: XwAppPolicy = Field(default_factory=XwAppPolicy)  # type: ignore
+    # ===== 파일/시트 설정 (App 단위 사용 시) =====
+    files: List[FileConfig] = Field(default_factory=list, description="파일/시트 설정 리스트 (App 단위 사용)")
     
     log: Optional[LogPolicy] = None  # ✨ logging 설정 (Optional)
     
@@ -303,20 +289,4 @@ class ExcelLoadPolicy(BaseModel):
         elif self.save.strategy == "on_exit":
             return event == "exit"
         return False
-
-
-class ExcelLoaderPolicy(BaseModel):
-    """EntryPoint Policy (source 포함, source 역할)
-    
-    source에서 Excel 파일 정보를 가져와 ExcelLoad에 전달합니다.
-    
-    Attributes:
-        name: Policy 식별자 (SectionExtractor 호환)
-        source: 소스 Excel 파일 설정
-        excel: ExcelLoad adapter 설정 (ExcelLoadPolicy)
-    """
-    name: str = Field(default="excel_loader", description="Section name in YAML config")
-    source: SourceConfig = Field(default_factory=SourceConfig)  # type: ignore
-    excel: ExcelLoadPolicy = Field(default_factory=ExcelLoadPolicy)  # type: ignore
-
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Protocol, Sequence, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .models import NormalizedItem
+    from .policy import ItemList
 
 
 class BrowserController(Protocol):
@@ -33,7 +33,7 @@ class ResourceFetcher(Protocol):
 
 
 class CrawlSaver(Protocol):
-    async def save_many(self, items: Sequence["NormalizedItem"], fetcher: Optional[ResourceFetcher] = None) -> Any: ...
+    async def save_items(self, items: Sequence["ItemList"], fetcher: Optional[ResourceFetcher] = None) -> Any: ...
 
 
 class ExtractorBase(Protocol):

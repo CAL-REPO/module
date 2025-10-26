@@ -39,7 +39,7 @@ class ImageFileManager:
     """
     
     # 지원하는 이미지 확장자
-    IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', 'WEBP', '.webp']
+    IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
     
     def __init__(
         self,
@@ -70,31 +70,17 @@ class ImageFileManager:
         origin_dir = self._get_origin_dir(cas_no)
         translated_dir = self._get_translated_dir(cas_no)
         
-        # 디버깅: 경로 확인
-        print(f"\n[ImageFileManager DEBUG]")
-        print(f"  CAS No: {cas_no}")
-        print(f"  Origin Dir: {origin_dir}")
-        print(f"  Origin Exists: {origin_dir.exists()}")
-        
         if not origin_dir.exists():
-            print(f"  ❌ Origin directory does not exist!")
             return []
         
         # Original 폴더의 모든 이미지
         origin_images = self._scan_images(origin_dir)
-        print(f"  Origin Images Found: {len(origin_images)}")
-        if origin_images:
-            print(f"  Origin Image Paths:")
-            for img in origin_images:
-                print(f"    - {img}")
         
         # Translated 폴더에 없는 파일만 필터링
         missing_images = []
         for img_path in origin_images:
             if not self._is_translated(img_path, translated_dir):
                 missing_images.append(img_path)
-        
-        print(f"  Missing Images: {len(missing_images)}")
         
         return missing_images
     
@@ -105,13 +91,17 @@ class ImageFileManager:
             directory: 스캔할 디렉토리
         
         Returns:
-            이미지 파일 경로 리스트
+            이미지 파일 경로 리스트 (중복 제거됨)
+        
+        Note:
+            Windows에서 glob은 대소문자 구분하지 않으므로 set으로 중복 제거
         """
         images = []
         for ext in self.IMAGE_EXTENSIONS:
-            # glob은 대소문자 구분하므로 각 확장자별로 검색
             images.extend(list(directory.glob(f"*{ext}")))
-        return images
+        
+        # 중복 제거 (Windows에서 .jpg와 .JPG가 같은 파일 매칭)
+        return list(set(images))
     
     def _is_translated(self, origin_path: Path, translated_dir: Path) -> bool:
         """이미지가 번역되었는지 확인.

@@ -19,6 +19,11 @@ DOMAIN_MAPPING = {
             "aliexpress.com.br",
         ],
         "region": "global",  # WebDriver region
+        # ✅ 선택 필드: 쿠키 선동기화가 실제로 이득인 도메인만 기입
+        "cookie_sync_domains": [
+            "aliexpress.com",     # 메인 도메인
+            "alicdn.com"          # CDN 상위(서브 포함)
+        ],
         "description": "AliExpress - 글로벌 B2C 플랫폼"
     },
     

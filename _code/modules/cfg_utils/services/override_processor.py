@@ -20,6 +20,60 @@ from typing import Optional, Set
 from modules.keypath_utils import KeyPathState, KeyPathDict
 
 
+def filter_overrides_by_prefix(overrides: dict, prefix: str) -> dict:
+    """접두사가 일치하는 overrides만 필터링하고 접두사 제거.
+    
+    런타임 override를 여러 모듈에 분배할 때 사용.
+    EntryPoint에서 받은 전체 override를 각 모듈별로 필터링.
+    
+    Args:
+        overrides: 전체 overrides dict
+            예: {
+                "config__src": "custom.yaml",
+                "oto__image_load__save__enabled": True, 
+                "oto__translate__target_lang": "KO"
+            }
+        prefix: 접두사 (모듈명 + "__")
+            예: "config__", "oto__", "image_load__"
+    
+    Returns:
+        접두사가 제거된 overrides dict
+            예: prefix="oto__" 입력 시
+            {
+                "image_load__save__enabled": True,
+                "translate__target_lang": "KO"
+            }
+    
+    Example:
+        >>> # EntryPoint에서 사용
+        >>> all_overrides = {
+        ...     "config__src": "custom.yaml",
+        ...     "oto__image_overlay__opacity": 0.8,
+        ...     "oto__translate__target_lang": "KO"
+        ... }
+        >>> 
+        >>> # ConfigLoader에 전달
+        >>> config_overrides = filter_overrides_by_prefix(all_overrides, "config__")
+        >>> config = ConfigLoader(..., **config_overrides)
+        >>> # {"src": "custom.yaml"}
+        >>> 
+        >>> # Oto Adapter에 전달
+        >>> oto_overrides = filter_overrides_by_prefix(all_overrides, "oto__")
+        >>> oto.run(source_path=path, **oto_overrides)
+        >>> # {"image_overlay__opacity": 0.8, "translate__target_lang": "KO"}
+    
+    Note:
+        ⚠️ Adapter 내부의 _filter_overrides()와 다름:
+        - 이 함수: EntryPoint → 여러 모듈 분배 (1단계)
+        - Adapter._filter_overrides(): Adapter → 하위 모듈 분배 (2단계)
+    """
+    filtered = {}
+    for key, value in overrides.items():
+        if key.startswith(prefix):
+            filtered[key[len(prefix):]] = value
+    return filtered
+
+
 class OverrideProcessor:
     """Override 소스 처리기.
     

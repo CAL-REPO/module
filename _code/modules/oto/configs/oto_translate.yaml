@@ -1,0 +1,69 @@
+# ============================================================================
+# Translate - OTO Configuration
+# ============================================================================
+# OTO 파이프라인에서 사용하는 Translate 설정
+
+translate:
+
+  # --------------------------------------------------------------------------
+  # 1 Provider - 번역 제공자 설정
+  # --------------------------------------------------------------------------
+  provider:
+    provider: "deepl"            # Provider: "deepl" | "google" | "mock"
+    target_lang: "KO"           # Target language code
+    source_lang: "AUTO"         # Source language (AUTO for auto-detection)
+    model_type: "prefer_quality_optimized"  # DeepL model type
+    timeout: 30                  # API request timeout (seconds)
+
+  # --------------------------------------------------------------------------
+  # 3. Chinese Text Preprocessing - 중국어 전처리
+  # --------------------------------------------------------------------------
+  zh:
+    mode: "clause"              # Chunking mode: "off" | "clause"
+    max_len: 48                 # Maximum chunk length
+    min_len: 80                 # Minimum chunk length
+    phrase_map: []              # List of [source, target] phrase replacements
+
+  # --------------------------------------------------------------------------
+  # Process - 번역 후처리 설정
+  # --------------------------------------------------------------------------
+  process:
+    preserve_formatting: true           # 포맷 보존 여부
+    cache_enabled: true                 # 캐시 사용 여부
+
+  # --------------------------------------------------------------------------
+  # 4. Store - 번역 결과 저장 설정
+  # --------------------------------------------------------------------------
+  store:
+    save_db: true               # Save translations to SQLite cache
+    db_dir: "{{modules_dir}}/oto/test"
+    db_name: "translate_cache.sqlite3"
+    save_tr: false              # Save results to JSON file
+    tr_dir: "{{modules_dir}}/oto/test/images"
+    tr_name: "translated_text.json"
+  
+  # --------------------------------------------------------------------------
+  # Log - 로그 설정 (Dual Logging - Secondary)
+  # --------------------------------------------------------------------------
+  log:
+    enabled: true                      # 기본값: false (사용자 선택)
+    name: "log_oto_translate"        # 모듈별 로거 이름
+    level: "DEBUG"                      # 로그 레벨
+    sinks:
+      - sink_type: "file"
+        file_path: "{{modules_dir}}/oto/test/logs/log_oto_translate_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "7 days"
+        compression: null
+        enqueue: true
+        serialize: false
+        backtrace: true
+        diagnose: true
+        colorize: true
+        catch: true
+      # - sink_type: "console"
+      #   level: "INFO"
+      #   format: "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+      #   colorize: true

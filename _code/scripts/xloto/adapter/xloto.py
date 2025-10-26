@@ -1,168 +1,192 @@
 # -*- coding: utf-8 -*-
-"""XLOTO Adapter - Excel + OTO Pipeline Integration.
+"""XLOTO Adapter - Excel + OTO 파이프라인
 
-Pass-through Pattern (Oto와 동일):
-1. ConfigLoader 실행은 EntryPoint/external script 책임
-2. XlOto는 cfg_like dict만 받음 (excel + xloto + oto 전체)
-3. SectionExtractor로 excel, oto 섹션 동적 추출
-4. Lazy-load로 성능 최적화
-5. 인스턴스 재사용 가능
+Architecture:
+    1. ConfigLoader가 모든 section 병합 (excel, image_load, image_text_recognize, translate, image_overlay, paths, log)
+    2. SectionExtractor.extract_batch()로 section 추출 (Policy.name 기반)
+    3. ExcelLoad 내부 생성 (Lazy Loading)
+    4. Oto에 개별 모듈 cfg_like 전달 (OTO와 동일한 패턴)
+    5. CasExtractor/ExcelUpdater Service 사용
 
-Adapter Pattern:
-- __init__에서 cfg_like (통합 dict), cfg_like_excel, cfg_like_oto 받음
-- SectionExtractor로 개별 섹션 추출 (Cascading Priority)
-- run()에 excel_controller, cas_list_override만 전달
-- Standalone 사용 가능
+Pass-through Pattern (OTO와 동일):
+    - cfg_like를 SectionExtractor로 추출
+    - 각 모듈에 추출된 cfg_like 전달
+    - OTO가 내부에서 필요한 section만 사용
 
 Example:
-    >>> # EntryPoint에서 ConfigLoader 실행
+    >>> # 외부에서 ConfigLoader 실행 (권장)
     >>> from cfg_utils import ConfigLoader
     >>> config = ConfigLoader(
     ...     config_loader_cfg_path="configs/loader/config_loader_xloto.yaml",
     ...     env_os=["CASHOP_PATHS"]
     ... )
-    >>> 
-    >>> # XlOto는 merged dict만 받음
-    >>> xloto = XlOto(cfg_like=config.to_dict())
-    >>> result = xloto.run(excel_controller=xl)
+    >>> xloto = XlOTO(cfg_like=config.to_dict(), log_manager=log_manager)
+    >>> result = xloto.run(excel_path="data.xlsx")
 """
 
 from __future__ import annotations
-
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 from datetime import datetime
 
 from pydantic import BaseModel
 
-from cfg_utils.services.config_like_loader import ConfigLikeLoader
 from cfg_utils.services.section_extractor import SectionExtractor
 from logs_utils import LogManager
 
-from xloto.policy.xloto_policy import XlOtoPolicy
-from oto.adapter.oto import Oto
-from oto.policy.oto_policy import OTOPolicy
+from xl_utils.adapter.excel_load import ExcelLoad
+from xl_utils.core.policy import ExcelLoadPolicy
 
-# Services
-from xloto.services import ImageFileManager
+from image_utils.core.policy import ImageLoadPolicy, ImageTextRecognizePolicy, ImageOverlayPolicy
+from translate_utils.core.policy import TranslatePolicy
 
-# xl_utils는 필요시 lazy import
-# from xl_utils import XlController
+from oto.adapter.oto import OTO
+
+from xloto.core.policy import XlOtoPolicy
+from xloto.services.image_file_manager import ImageFileManager
+from xloto.services.cas_extractor import CasExtractor
+from xloto.services.excel_updater import ExcelUpdater
 
 
-class XlOto:
-    """XLOTO Pipeline Adapter (Pass-through Pattern).
+class XlOTO:
+    """Excel + OTO 파이프라인 (OTO와 동일한 패턴)
     
-    Excel + OTO 파이프라인 통합:
-    1. Excel에서 CAS No 추출
-    2. 이미지 OTO 처리
-    3. Excel 업데이트
+    Architecture:
+        1. ConfigLoader가 모든 section 병합
+        2. SectionExtractor.extract_batch()로 section 추출
+        3. ExcelLoad/Oto 내부 생성 (Lazy Loading)
+        4. OTO에 전체 cfg_like 전달 (OTO가 내부에서 필요한 section 추출)
+        5. CasExtractor/ExcelUpdater Service로 로직 분리
     
-    Pass-through Pattern (SectionExtractor 사용):
-    - ConfigLoader는 EntryPoint에서 실행
-    - XlOto는 merged dict만 받음
-    - SectionExtractor로 excel, oto 섹션 동적 추출
-    - Cascading Priority: individual cfg_like > merged_config[section] > None
+    Pass-through Pattern:
+        - XlOto는 cfg_like를 받아서 SectionExtractor로 Excel section만 추출
+        - OTO에는 전체 cfg_like 전달 (OTO가 내부에서 4개 모듈 section 추출)
+        - 불필요한 section이 OTO에 전달되어도 무시됨 (영향 미미)
     
-    Attributes:
-        policy: XlOtoPolicy 설정 (paths, log)
-        log: loguru logger
-        oto: Oto adapter (lazy-loaded)
-        _cfg_like_excel: Excel 설정 (extracted)
-        _cfg_like_oto: OTO 설정 (extracted)
+    Lazy Loading:
+        - ExcelLoad, Oto, ImageFileManager 첫 사용 시 초기화
     
     Example:
-        >>> # EntryPoint에서 ConfigLoader 실행
+        >>> # 외부에서 ConfigLoader 실행 (권장)
         >>> from cfg_utils import ConfigLoader
         >>> config = ConfigLoader(
         ...     config_loader_cfg_path="configs/loader/config_loader_xloto.yaml",
         ...     env_os=["CASHOP_PATHS"]
         ... )
-        >>> 
-        >>> # XlOto는 merged dict만 받음
-        >>> xloto = XlOto(cfg_like=config.to_dict())
-        >>> result = xloto.run(excel_controller=xl)
+        >>> xloto = XlOTO(cfg_like=config.to_dict(), log_manager=log_manager)
+        >>> result = xloto.run(excel_path="data.xlsx")
         
-        >>> # Individual cfg_like 우선 (Cascading Priority)
-        >>> xloto = XlOto(
+        >>> # 개별 cfg_like 우선 (OTO와 동일)
+        >>> xloto = XlOTO(
         ...     cfg_like=config.to_dict(),
-        ...     cfg_like_excel="custom_excel.yaml",  # Override
-        ...     cfg_like_oto={"image_load": {...}}   # Override
+        ...     cfg_like_excel={"aliases": {...}},
+        ...     cfg_like_image_load={"max_size": 2048},
+        ...     log_manager=log_manager
+        ... )
+        
+        >>> # Runtime override
+        >>> result = xloto.run(
+        ...     excel_path="data.xlsx",
+        ...     excel__xw_app__visible=True,
+        ...     image_overlay__save__directory="output/cas123"
         ... )
     """
     
     def __init__(
         self,
-        cfg_like: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like: Union[dict, None] = None,
         *,
         cfg_like_excel: Union[BaseModel, Path, str, dict, None] = None,
-        cfg_like_oto: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_image_load: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_image_text_recognize: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_translate: Union[BaseModel, Path, str, dict, None] = None,
+        cfg_like_image_overlay: Union[BaseModel, Path, str, dict, None] = None,
         log_manager: Optional[LogManager] = None,
         **overrides: Any
     ):
-        """Initialize XlOto adapter.
+        """Pass-through 패턴 초기화 (OTO와 동일)
         
-        Pass-through Pattern:
-        - cfg_like: ConfigLoader merged dict (전체 통합 설정)
-        - cfg_like_excel: Excel 개별 설정 (우선순위 높음)
-        - cfg_like_oto: OTO 개별 설정 (우선순위 높음)
-        - overrides: 런타임 오버라이드
-        
-        SectionExtractor 동작:
-        1. merged_config = cfg_like or {}
-        2. overrides 병합 (KeyPathDict)
-        3. SectionExtractor.extract_batch()로 섹션 추출
-           - excel: "excel" 섹션 (XlController용)
-           - oto: "oto" 섹션 (Oto adapter용)
-        4. Cascading Priority: individual > merged > None
+        Architecture:
+            1. ConfigLoader가 모든 section 병합
+            2. Runtime overrides 병합
+            3. SectionExtractor.extract_batch()로 Excel section 추출
+            4. OTO에 전체 cfg_like + 개별 cfg_like 전달
         
         Args:
-            cfg_like: XlOtoPolicy, YAML 경로, dict, 또는 None
-            cfg_like_excel: Excel 개별 설정 (ConfigLikeLoader로 로드 가능)
-            cfg_like_oto: OTO 개별 설정 (ConfigLikeLoader로 로드 가능)
-            log_manager: 외부 LogManager (선택사항)
-            **overrides: 런타임 오버라이드 (KeyPathDict 형식, 예: excel__aliases__cas="CAS번호")
+            cfg_like: 병합된 dict (ConfigLoader.to_dict() 결과)
+            cfg_like_excel: ExcelLoadPolicy 개별 설정 (우선순위 1)
+            cfg_like_image_load: ImageLoadPolicy 개별 설정
+            cfg_like_image_text_recognize: ImageTextRecognizePolicy 개별 설정
+            cfg_like_translate: TranslatePolicy 개별 설정
+            cfg_like_image_overlay: ImageOverlayPolicy 개별 설정
+            log_manager: LogManager 인스턴스
+            **overrides: 런타임 오버라이드
+        
+        Cascading Priority:
+            1. cfg_like_excel (개별 cfg_like) - 최우선
+            2. cfg_like["excel"] (병합 dict의 section)
+            3. None (Pydantic 기본값)
         
         Note:
-            ⚠️ ConfigLoader 실행은 EntryPoint/external script 책임!
-            ⚠️ cfg_like=None이면 빈 dict로 처리 (Pydantic 기본값 사용)
+            ⚠️ OTO는 전체 cfg_like를 받아 내부에서 4개 모듈 section 추출
+            ⚠️ 불필요한 section이 OTO에 전달되어도 무시됨 (영향 미미)
         """
-        from data_utils.keypath_dict import KeyPathDict
-        
-        # Merge overrides into cfg_like
+        # ========================================
+        # Config 준비
+        # ========================================
         merged_config = cfg_like or {}
+        
+        # Runtime overrides 병합
         if overrides:
+            from keypath_utils import KeyPathDict
             override_dict = KeyPathDict.to_nested_dict(overrides)
             merged_config = {**merged_config, **override_dict}
         
-        # SectionExtractor로 섹션 추출 (Cascading Priority)
-        # - "excel": XlController용 설정
-        # - "oto": Oto adapter용 설정 (image_load, translate, overlay 등 포함)
-        # Note: excel, oto는 하드코딩이 아닌 섹션명 (ConfigLoader source[1]과 일치)
-        extracted = {
-            "excel": SectionExtractor.extract(
-                merged_config=merged_config,
-                individual_cfg=cfg_like_excel,
-                policy_class=None,  # Excel은 Policy 없음 (dict만 사용)
-                section_name="excel"
-            ),
-            "oto": SectionExtractor.extract(
-                merged_config=merged_config,
-                individual_cfg=cfg_like_oto,
-                policy_class=OTOPolicy
-            )
-        }
+        # ========================================
+        # SectionExtractor.extract_batch() (Excel + ImageOverlay section 추출)
+        # ========================================
+        extracted = SectionExtractor.extract_batch(
+            merged_config=merged_config,
+            individual_cfgs={
+                ExcelLoadPolicy: cfg_like_excel,
+                ImageOverlayPolicy: cfg_like_image_overlay,
+            }
+        )
         
-        self._cfg_like_excel = extracted["excel"]
-        self._cfg_like_oto = extracted["oto"]
+        # Policy.name으로 추출
+        self._cfg_excel = extracted[
+            SectionExtractor.get_policy_name(ExcelLoadPolicy)
+        ]
+        overlay_cfg = extracted[
+            SectionExtractor.get_policy_name(ImageOverlayPolicy)
+        ]
         
-        # XlOtoPolicy 생성 (paths, log만 관리)
+        # OTO에 전달할 cfg_like (전체 config + 개별 cfg_like)
+        self._cfg_oto = merged_config
+        if cfg_like_image_load:
+            self._cfg_like_image_load = cfg_like_image_load
+        if cfg_like_image_text_recognize:
+            self._cfg_like_image_text_recognize = cfg_like_image_text_recognize
+        if cfg_like_translate:
+            self._cfg_like_translate = cfg_like_translate
+        if cfg_like_image_overlay:
+            self._cfg_like_image_overlay = cfg_like_image_overlay
+        
+        # ========================================
+        # XlOtoPolicy 생성
+        # ========================================
         try:
-            self.policy = XlOtoPolicy(**merged_config)
-        except Exception:
-            self.policy = XlOtoPolicy()
+            # merged_config에서 xloto 섹션 추출
+            xloto_config = merged_config.get("xloto", {})
+            self.policy = XlOtoPolicy(**xloto_config)
+        except Exception as e:
+            self.log.warning(f"Failed to create XlOtoPolicy from config: {e}")
+            self.log.warning("Using default XlOtoPolicy (may cause errors)")
+            raise  # ← Required field이므로 에러 발생시켜야 함
         
-        # LogManager 초기화 (parent logger only)
+        # ========================================
+        # Logger 초기화
+        # ========================================
         if log_manager:
             self.log = log_manager.logger
             self._parent_log_manager = log_manager
@@ -173,112 +197,93 @@ class XlOto:
             self._parent_log_manager = None
             self.log = LogManager({"enabled": False}).logger
         
-        # Oto adapter는 lazy-load
-        self._oto: Optional[Oto] = None
-        
-        # Services 초기화
-        self._cas_extractor: Optional[CasExtractor] = None
+        # ========================================
+        # Lazy Loading (첫 사용 시 초기화)
+        # ========================================
+        self._excel_load: Optional[ExcelLoad] = None
+        self._OTO: Optional[OTO] = None
         self._image_manager: Optional[ImageFileManager] = None
+        self._cas_extractor: Optional[CasExtractor] = None
+        self._excel_updater: Optional[ExcelUpdater] = None
         
-        self.log.debug("XlOto adapter initialized")
+        self.log.debug("XLOTO adapter initialized")
     
     # ==========================================================================
-    # Service Lazy Loading
+    # Lazy Loading Properties
     # ==========================================================================
     
-    def get_cas_extractor(self) -> CasExtractor:
-        """CasExtractor service lazy-loading.
+    @property
+    def excel_load(self) -> ExcelLoad:
+        """ExcelLoad Adapter lazy-loading"""
+        if self._excel_load is None:
+            # ⚠️ 파일 경로는 run()에서 받음 (여기서는 생성 안 함)
+            pass
+        return self._excel_load  # type: ignore
+    
+    @property
+    def OTO(self) -> OTO:
+        """OTO Adapter lazy-loading (OTO와 동일한 패턴)
         
-        Note:
-            ⚠️ Excel config는 __init__에서 이미 추출됨 (_cfg_like_excel)
-        
-        Returns:
-            CasExtractor 인스턴스
+        OTO에 전체 cfg_like + 개별 cfg_like 전달
+        OTO가 내부에서 4개 모듈 section 추출
         """
-        if self._cas_extractor is None:
-            # __init__에서 추출한 excel config 사용
-            excel_config = self._cfg_like_excel or {}
-            
-            self._cas_extractor = CasExtractor(
-                aliases=excel_config.get("aliases", {}),
-                cas_column=self.policy.filter.cas_column if hasattr(self.policy, 'filter') else "cas",
-                download_column=self.policy.filter.download_column if hasattr(self.policy, 'filter') else "download",
-                translation_column=self.policy.filter.translation_column if hasattr(self.policy, 'filter') else "translation"
+        if self._OTO is None:
+            self._OTO = OTO(
+                cfg_like=self._cfg_oto,  # type: ignore
+                log_manager=self._parent_log_manager,
             )
-        return self._cas_extractor
+            self.log.debug("OTO adapter created")
+        return self._OTO
     
-    def get_image_manager(self) -> ImageFileManager:
-        """ImageFileManager service lazy-loading.
-        
-        Returns:
-            ImageFileManager 인스턴스
-        """
+    @property
+    def image_manager(self) -> ImageFileManager:
+        """ImageFileManager lazy-loading"""
         if self._image_manager is None:
             self._image_manager = ImageFileManager(
                 public_img_dir=self.policy.paths.public_img_dir,
                 origin_dirname=self.policy.paths.origin_dirname,
                 translated_dirname=self.policy.paths.translated_dirname
             )
+            self.log.debug("ImageFileManager created")
         return self._image_manager
     
-    # ==========================================================================
-    # Oto Adapter Lazy Loading
-    # ==========================================================================
-    
-    def get_oto(self) -> Oto:
-        """Oto adapter lazy-loading.
-        
-        Pass-through Pattern:
-        - __init__에서 이미 추출한 _cfg_like_oto 사용
-        - ConfigLoader 실행은 EntryPoint 책임
-        
-        Returns:
-            Oto adapter 인스턴스
-        
-        Note:
-            ⚠️ ConfigLoader 실행 제거 (EntryPoint에서 실행)
-            ⚠️ _cfg_like_oto는 __init__에서 SectionExtractor로 추출됨
-        """
-        if self._oto is None:
-            # __init__에서 추출한 oto config 사용
-            # - image_load, text_recognize, translate, overlay 섹션 모두 포함
-            self._oto = Oto(
-                cfg_like=self._cfg_like_oto,
-                log_manager=None,  # Oto가 자체 LogManager 생성
+    @property
+    def cas_extractor(self) -> CasExtractor:
+        """CasExtractor Service lazy-loading"""
+        if self._cas_extractor is None:
+            self._cas_extractor = CasExtractor(
+                include_download=True,
+                include_translation=True
             )
-            
-            self.log.debug("Oto adapter created")
-        
-        return self._oto
+            self.log.debug("CasExtractor created")
+        return self._cas_extractor
+    
+    @property
+    def excel_updater(self) -> ExcelUpdater:
+        """ExcelUpdater Service lazy-loading"""
+        if self._excel_updater is None:
+            self._excel_updater = ExcelUpdater()
+            self.log.debug("ExcelUpdater created")
+        return self._excel_updater
     
     # ==========================================================================
-    # Core Pipeline Methods
+    # Main Pipeline
     # ==========================================================================
     
-    def run(
-        self,
-        *,
-        excel_controller = None,  # Type: Optional[XlController] (lazy import)
-        cas_list_override: Optional[List[str]] = None,
-        **overrides: Any
-    ) -> Dict[str, Any]:
-        """XLOTO Pipeline 실행.
+    def run(self, **overrides: Any) -> Dict[str, Any]:
+        """XLOTO Pipeline 실행 (단일 파일 + 단일 시트)
         
         Pipeline Flow:
-            1. Excel에서 CAS No 추출 (download=날짜, translation≠날짜)
-            2. 각 CAS No별 이미지 OTO 처리
-            3. Excel translation 셀에 날짜 기록
-        
-        Pass-through Pattern:
-            - ConfigLoader 실행 제거 (EntryPoint 책임)
-            - __init__에서 추출한 _cfg_like_excel, _cfg_like_oto 사용
+            1. Policy에서 파일 경로/시트명 가져오기
+            2. open_workbook(policy.excel.file_path)
+            3. get_worksheet(policy.excel.sheet.sheet_name, column_aliases)
+            4. CasExtractor로 CAS No 추출
+            5. OTO 파이프라인 실행
+            6. ExcelUpdater로 업데이트
         
         Args:
-            excel_controller: 외부 XlController (선택사항, 없으면 생성)
-            cas_list_override: CAS No 리스트 강제 지정 (테스트용)
-            **overrides: Oto Adapter로 전달할 runtime overrides
-                예: image_load__save__name__suffix="step1"
-                    image_overlay__save__name__suffix="final"
+            **overrides: 런타임 오버라이드
+                image_overlay__save__directory="output/cas123"
         
         Returns:
             결과 딕셔너리:
@@ -290,229 +295,192 @@ class XlOto:
                 "error": Optional[str]
             }
         
-        Note:
-            ⚠️ ConfigLoader는 EntryPoint에서 실행 (xloto.py 등)
-            ⚠️ Excel config는 __init__에서 추출된 _cfg_like_excel 사용
+        Example:
+            >>> xloto = XlOTO(cfg_like=config.to_dict())
+            >>> result = xloto.run()
+            ...     excel_path="data.xlsx",
+            ...     image_overlay__save__directory="output"
+            ... )
         """
         result = {
             "success": False,
             "total_cas": 0,
             "processed_cas": 0,
             "cas_results": [],
-            "error": None,
+            "error": None
         }
         
         try:
             self.log.info("="*80)
-            self.log.info("🚀 XLOTO Pipeline Starting")
+            self.log.info("XLOTO Pipeline Starting")
             self.log.info("="*80)
             
-            # __init__에서 추출한 excel config 사용
-            excel_config = self._cfg_like_excel or {}
-            
             # ================================================================
-            # Step 1: Excel에서 CAS No 추출
+            # Step 1: Load Excel (ExcelLoad Adapter)
             # ================================================================
-            self.log.info("\n[1/3] Extracting CAS No from Excel...")
+            self.log.info("[1/4] Loading Excel file...")
             
-            if cas_list_override:
-                cas_list = cas_list_override
-                self.log.info(f"  Using override CAS list: {len(cas_list)} items")
-            else:
-                if excel_controller:
-                    xl = excel_controller
-                    close_excel = False
-                else:
-                    from xl_utils import XlController
-                    xl = XlController(cfg_like=excel_config)
-                    xl.__enter__()
-                    close_excel = True
+            # Policy에서 파일 경로 가져오기
+            excel_path = self.policy.excel.file_path
+            self.log.debug(f"  Excel path from policy: {excel_path}")
+            
+            # ExcelLoad 생성 (App 단위 - open_workbook 사용)
+            excel = ExcelLoad(
+                cfg_like=self._cfg_excel,  # type: ignore
+                log_manager=self._parent_log_manager,
+            )
+            
+            with excel:
+                # Workbook 열기
+                wb = excel.open_workbook(excel_path)
                 
-                try:
-                    # DataFrame 추출
-                    ws = xl.get_worksheet()
-                    df = ws.to_dataframe(anchor="A1", header=True, index=False)
+                # Worksheet 가져오기 (XlOtoPolicy.excel.sheet에서 설정 가져오기)
+                column_aliases = self.policy.excel.sheet.get_column_aliases()
+                self.log.debug(f"  column_aliases: {column_aliases}")
+                ws = excel.get_worksheet(
+                    wb,
+                    sheet_name=self.policy.excel.sheet.sheet_name,
+                    column_aliases=column_aliases if column_aliases else None
+                )
+                df = ws.to_dataframe(used_range=True, header=True, index=False)
+                
+                self.log.success(f"  Loaded DataFrame: {len(df)} rows")
+                
+                # ============================================================
+                # Step 2: Extract CAS No (CasExtractor Service)
+                # ============================================================
+                self.log.info("[2/4] Extracting CAS No...")
+                
+                # ws.column_resolver 확인
+                if ws.column_resolver is None:
+                    raise ValueError("XwWs.column_resolver is None (preset not configured)")
+                
+                cas_list = self.cas_extractor.extract(df, ws.column_resolver)
+                
+                self.log.success(f"  Extracted {len(cas_list)} CAS No")
+                self.log.debug(f"  CAS List: {cas_list}")
+                
+                if not cas_list:
+                    result["success"] = True
+                    return result
+                
+                result["total_cas"] = len(cas_list)
+                
+                # ============================================================
+                # Step 3: Process CAS images (Oto + ImageFileManager)
+                # ============================================================
+                self.log.info(f"[3/4] Processing {len(cas_list)} CAS No...")
+                
+                processed_count = 0
+                cas_results = []
+                
+                for idx, cas_item in enumerate(cas_list, 1):
+                    cas_no = cas_item["cas_no"]
+                    self.log.info(f"  [{idx}/{len(cas_list)}] Processing: {cas_no}")
                     
-                    self.log.info(f"  Loaded DataFrame: {len(df)} rows")
+                    # Find missing images
+                    missing_images = self.image_manager.get_missing_images(cas_no)
+                    if not missing_images:
+                        self.log.info("    No images to process (already translated)")
+                        # 이미 번역된 경우도 cas_results에 추가 (success=True, processed_count=0)
+                        cas_results.append({
+                            "cas_no": cas_no,
+                            "success": True,
+                            "processed_count": 0,
+                            "translation_row": cas_item.get("translation_row"),
+                            "translation_col": cas_item.get("translation_col"),
+                            "status": "already_translated"
+                        })
+                        continue
                     
-                    # CAS No 추출 (Service 사용)
-                    cas_extractor = self.get_cas_extractor()
-                    cas_list = cas_extractor.extract(df)
+                    self.log.info(f"    Found {len(missing_images)} images")
                     
-                    self.log.success(f"  ✅ Extracted {len(cas_list)} CAS No")
+                    # Process each image with OTO
+                    success_count = 0
                     
-                finally:
-                    if close_excel:
-                        xl.__exit__(None, None, None)
-            
-            if not cas_list:
-                self.log.warning("No CAS No to process")
-                result["success"] = True
-                return result
-            
-            result["total_cas"] = len(cas_list)
-            
-            # ================================================================
-            # Step 2: 각 CAS No별 이미지 OTO 처리
-            # ================================================================
-            self.log.info(f"\n[2/3] Processing {len(cas_list)} CAS No...")
-            
-            # Oto adapter 생성 (lazy-load)
-            oto = self.get_oto()
-            
-            # ImageFileManager 생성
-            image_manager = self.get_image_manager()
-            
-            processed_count = 0
-            cas_results = []
-            
-            for idx, cas_item in enumerate(cas_list, 1):
-                cas_no = cas_item["cas_no"]
-                
-                self.log.info(f"\n{'='*80}")
-                self.log.info(f"[{idx}/{len(cas_list)}] Processing: {cas_no}")
-                self.log.info(f"{'='*80}")
-                
-                # 미처리 이미지 찾기 (Service 사용)
-                missing_images = image_manager.get_missing_images(cas_no)
-                
-                if not missing_images:
-                    self.log.info(f"  ℹ️  No images to process")
-                    cas_results.append({
-                        "cas_no": cas_no,
-                        "success": True,
-                        "processed_count": 0,
-                        "message": "No images to process"
-                    })
-                    continue
-                
-                self.log.info(f"  📸 Found {len(missing_images)} images")
-                
-                # 이미지 처리
-                success_count = 0
-                for img_idx, img_path in enumerate(missing_images, 1):
-                    self.log.info(f"\n     [{img_idx}/{len(missing_images)}] {img_path.name}")
+                    # Translated 폴더 경로를 overlay save directory로 사용
+                    translated_dir = self.image_manager.get_translated_dir(cas_no)
                     
-                    try:
-                        # Oto adapter 실행 (overrides 전달)
-                        oto_result = oto.run(
-                            source_path=img_path,
-                            **overrides
-                        )
+                    for img_idx, img_path in enumerate(missing_images, 1):
+                        self.log.info(f"    [{img_idx}/{len(missing_images)}] {img_path.name}")
                         
-                        if oto_result.get("success"):
-                            # 번역된 이미지 저장 (Service 사용)
-                            final_image = oto_result.get("image")
-                            if final_image:
-                                output_dir = image_manager.get_translated_dir(cas_no)
-                                output_dir.mkdir(parents=True, exist_ok=True)
-                                
-                                output_path = output_dir / img_path.name
-                                final_image.save(output_path, quality=95)
-                                
-                                self.log.success(f"        ✅ Saved: {output_path.name}")
-                                success_count += 1
-                        else:
-                            error_msg = oto_result.get("error", "Unknown error")
-                            self.log.error(f"        ❌ Failed: {error_msg}")
-                    
-                    except Exception as e:
-                        self.log.error(f"        ❌ Error: {e}")
-                        import traceback
-                        self.log.debug(traceback.format_exc())
-                
-                self.log.success(f"\n  ✅ Processed: {success_count}/{len(missing_images)}")
-                
-                if success_count > 0:
-                    processed_count += 1
-                    cas_results.append({
-                        "cas_no": cas_no,
-                        "success": True,
-                        "processed_count": success_count,
-                        "total_count": len(missing_images),
-                        **cas_item  # translation_row, translation_col 포함
-                    })
-                else:
-                    cas_results.append({
-                        "cas_no": cas_no,
-                        "success": False,
-                        "processed_count": 0,
-                        "message": "All images failed"
-                    })
-            
-            result["processed_cas"] = processed_count
-            result["cas_results"] = cas_results
-            
-            self.log.info(f"\n{'='*80}")
-            self.log.success(f"[2/3] ✅ Processed {processed_count}/{len(cas_list)} CAS No")
-            self.log.info(f"{'='*80}")
-            
-            # ================================================================
-            # Step 3: Excel translation 셀 업데이트
-            # ================================================================
-            if processed_count > 0 and not cas_list_override:
-                self.log.info("\n[3/3] Updating Excel translation cells...")
-                
-                current_date = datetime.now().strftime("%Y-%m-%d")
-                
-                if excel_controller:
-                    xl = excel_controller
-                    close_excel = False
-                else:
-                    from xl_utils import XlController
-                    xl = XlController(cfg_like=excel_config)
-                    xl.__enter__()
-                    close_excel = True
-                
-                try:
-                    ws = xl.get_worksheet()
-                    
-                    # 성공한 CAS No만 업데이트
-                    successful_cas = [r for r in cas_results if r.get("success") and r.get("processed_count", 0) > 0]
-                    
-                    for cas_item in successful_cas:
-                        row = cas_item.get("translation_row")
-                        col = cas_item.get("translation_col")
-                        
-                        if row and col:
-                            # 컬럼명 → 인덱스 변환
-                            df = ws.to_dataframe(anchor="A1", header=True, index=False)
-                            col_idx = df.columns.get_loc(col)
-                            if isinstance(col_idx, int):
-                                col_idx += 1  # 1-based
-                            else:
-                                col_idx = 1  # fallback
+                        try:
+                            # OTO Pipeline (Translated 폴더로 직접 저장)
+                            self.log.debug(f"      Override: directory={translated_dir}, filename={img_path.name}")
+                            oto_result = self.OTO.run(
+                                source_path=img_path,
+                                image_overlay__save__directory=translated_dir,
+                                **overrides
+                            )
                             
-                            ws.write_cell(row, col_idx, current_date)
-                            self.log.info(f"     ✅ {cas_item['cas_no']}: ({row}, {col_idx}) = {current_date}")
+                            if oto_result.get("success"):
+                                self.log.success(f"      Saved to: {translated_dir / img_path.name}")
+                                success_count += 1
+                            else:
+                                self.log.error(f"      Failed: {oto_result.get('error')}")
+                        
+                        except Exception as e:
+                            self.log.error(f"      Error: {e}")
                     
-                    self.log.success(f"  ✅ Updated {len(successful_cas)} cells")
+                    self.log.success(f"    Processed: {success_count}/{len(missing_images)}")
+                    
+                    # Success 또는 일부 성공한 경우 cas_results에 추가
+                    if success_count > 0:
+                        processed_count += 1
+                        cas_results.append({
+                            "cas_no": cas_no,
+                            "success": True,
+                            "processed_count": success_count,
+                            "translation_row": cas_item.get("translation_row"),
+                            "translation_col": cas_item.get("translation_col"),
+                            "status": "processed"
+                        })
+                    else:
+                        # 모든 이미지 처리 실패
+                        cas_results.append({
+                            "cas_no": cas_no,
+                            "success": False,
+                            "processed_count": 0,
+                            "translation_row": cas_item.get("translation_row"),
+                            "translation_col": cas_item.get("translation_col"),
+                            "status": "failed"
+                        })
                 
-                finally:
-                    if close_excel:
-                        xl.__exit__(None, None, None)
-            else:
-                self.log.info("\n[3/3] Skipping Excel update (no processed items or override mode)")
+                result["processed_cas"] = processed_count
+                result["cas_results"] = cas_results
+                
+                # ============================================================
+                # Step 4: Update Excel (ExcelUpdater Service)
+                # ============================================================
+                if cas_results:
+                    self.log.info("[4/4] Updating Excel...")
+                    
+                    updated_count = self.excel_updater.update(
+                        worksheet=ws,
+                        cas_results=cas_results,
+                        date_value=datetime.now().strftime("%Y-%m-%d")
+                    )
+                    
+                    self.log.success(f"  Updated {updated_count} cells")
+                    
+                    # 명시적 저장
+                    self.log.debug("  Saving workbook...")
+                    wb.book.save()
+                    self.log.success("  Workbook saved")
+                
+                result["success"] = True
             
-            # ================================================================
-            # Complete
-            # ================================================================
-            result["success"] = True
-            
-            self.log.info(f"\n{'='*80}")
-            self.log.success(f"✅ XLOTO Pipeline Completed")
-            self.log.info(f"   Total: {result['total_cas']} CAS No")
-            self.log.info(f"   Processed: {result['processed_cas']} CAS No")
-            self.log.info(f"{'='*80}\n")
-            
+            self.log.info("="*80)
+            self.log.success("XLOTO Pipeline Completed")
+            self.log.info(f"   Total: {result['total_cas']}")
+            self.log.info(f"   Processed: {result['processed_cas']}")
+            self.log.info("="*80)
+        
         except Exception as e:
-            result["error"] = f"Unexpected error: {type(e).__name__}: {e}"
+            result["error"] = f"{type(e).__name__}: {e}"
             self.log.error(result["error"])
             
             import traceback
             self.log.error(traceback.format_exc())
         
         return result
-    
-    def __repr__(self) -> str:
-        return f"XlOto(policy={self.policy.__class__.__name__})"

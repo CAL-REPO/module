@@ -1,0 +1,110 @@
+# ============================================================
+# ExcelLoadPolicy - XLOTO Excel 설정
+# ============================================================
+# xl_utils ExcelLoad Adapter 전용 설정
+
+excel:
+  # ==========================================================================
+  # 0. Files 설정 (파일/시트 구성)
+  # ==========================================================================
+  files:
+    - file_path: "{{scripts_dir}}/xloto/test/01.All Product List.xlsx"
+      sheets:
+        - sheet_name: "Purchase"
+          column_alias: "PRODUCT_LIST"
+
+  # ==========================================================================
+  # 1. Excel Application 설정 (xw_app)
+  # ==========================================================================
+  xw_app:
+    visible: true                    # Excel 창 표시 (디버깅용)
+    display_alerts: false            # 경고창 끔
+    screen_updating: false           # 화면 갱신 끔 (빠름)
+    add_book: false                  # 빈 워크북 생성 안 함
+
+  # ==========================================================================
+  # 2. Workbook 설정 (xw_wb)
+  # ==========================================================================
+  xw_wb:
+    read_only: false                 # 읽기 전용 모드
+    update_links: false              # 외부 링크 업데이트 안 함
+    ignore_read_only_recommended: true  # 읽기 전용 권장 무시
+
+  # ==========================================================================
+  # 3. 저장 정책 (save)
+  # ==========================================================================
+  save:
+    strategy: "on_exit"              # 종료 시 저장
+    target: "current_wb"             # 현재 워크북만
+    backup: false                    # 백업 안 함
+    save_attached_instance: false    # 기존 인스턴스 저장 안 함
+
+  # ==========================================================================
+  # 4. 성능 최적화 (performance)
+  # ==========================================================================
+  performance:
+    screen_updating: false           # 화면 갱신 끔 (10배 빠름)
+    display_alerts: false            # 경고창 끔
+    calculation: "auto"              # 자동 계산 (null=비활성화)
+    enable_events: false             # 이벤트 끔
+    interactive: false               # 사용자 입력 차단
+    clear_clipboard: true            # 종료 시 클립보드 비우기
+
+  # ==========================================================================
+  # 5. 에러 처리 (error_handling)
+  # ==========================================================================
+  error_handling:
+    on_file_not_found: "error"       # 파일 없으면 에러
+    on_sheet_not_found: "error"      # 시트 없으면 에러
+    on_save_error:
+      action: "error"                # 저장 실패 시 에러
+      retry_count: 3
+      retry_delay: 1.0
+
+  # ==========================================================================
+  # 6. 경로 검증 (path_validation)
+  # ==========================================================================
+  path_validation:
+    fso:
+      as_type: "file"
+      exist:
+        must_exist: true             # 파일 반드시 존재해야 함
+        create_if_missing: false     # 자동 생성 안 함
+        overwrite: false             # 덮어쓰기 안 함
+    template_path: null
+    backup_if_exists: false
+
+  # ==========================================================================
+  # 7. 로깅 설정 (log)
+  # ==========================================================================
+  log:
+    enabled: false
+    name: "log_xloto_excel"
+    level: "INFO"
+    sinks:
+      # Console
+      - sink_type: "console"
+        level: "INFO"
+        format: "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+        colorize: true
+        enqueue: false
+        catch: true
+      
+      # File (Debug)
+      - sink_type: "file"
+        file_path: "{{logs_dir}}/xloto/excel_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "7 days"
+        compression: null
+        enqueue: true
+        serialize: false
+        backtrace: true
+        diagnose: true
+        colorize: true
+        catch: true
+    
+    context:
+      module: "xl_utils"
+      project: "xloto"

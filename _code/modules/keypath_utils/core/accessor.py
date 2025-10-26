@@ -40,6 +40,18 @@ class KeyPathAccessor:
     def get(self, path: KeyPath, default: Any = None) -> Any:
         """경로의 값을 조회합니다.
         
+        배열 인덱스 지원:
+        - [0], [1], [2]: 특정 인덱스 접근
+        - [*]: 전체 배열 반환
+        
+        Examples:
+            >>> data = {"items": [{"name": "A"}, {"name": "B"}]}
+            >>> accessor = KeyPathAccessor(data)
+            >>> accessor.get("items__[0]__name")
+            "A"
+            >>> accessor.get("items__[*]__name")
+            ["A", "B"]
+        
         Args:
             path: 조회할 경로
             default: 경로가 없을 때 반환할 기본값
@@ -47,11 +59,35 @@ class KeyPathAccessor:
         Returns:
             조회된 값 또는 default
         """
-        cur = self._data
-        for k in self._normalize_path(path):
-            if not isinstance(cur, dict) or k not in cur:
-                return default
-            cur = cur[k]
+        cur: Any = self._data
+        normalized_path = self._normalize_path(path)
+        
+        for k in normalized_path:
+            # 배열 인덱스 처리
+            if k.startswith("[") and k.endswith("]"):
+                if not isinstance(cur, list):
+                    return default
+                
+                index_str = k[1:-1]
+                
+                # [*] 패턴: 전체 배열 반환
+                if index_str == "*":
+                    return cur
+                
+                # [숫자] 패턴: 특정 인덱스 접근
+                try:
+                    index = int(index_str)
+                    if index < 0 or index >= len(cur):
+                        return default
+                    cur = cur[index]
+                except (ValueError, IndexError):
+                    return default
+            else:
+                # 일반 dict 접근
+                if not isinstance(cur, dict) or k not in cur:
+                    return default
+                cur = cur[k]
+        
         return cur
 
     def exists(self, path: KeyPath) -> bool:
@@ -69,17 +105,72 @@ class KeyPathAccessor:
     def set(self, path: KeyPath, value: Any) -> None:
         """경로에 값을 설정합니다. 중간 경로가 없으면 자동 생성합니다.
         
+        배열 인덱스 지원:
+        - [0], [1], [2]: 특정 인덱스에 값 설정
+        - [*]: 지원하지 않음 (ValueError 발생)
+        
         Args:
             path: 설정할 경로
             value: 설정할 값
+            
+        Raises:
+            ValueError: [*] 패턴 사용 시 (설정 불가)
         """
         keys = self._normalize_path(path)
-        cur = self._data
-        for k in keys[:-1]:
-            if k not in cur or not isinstance(cur[k], dict):
-                cur[k] = {}
-            cur = cur[k]
-        cur[keys[-1]] = value
+        cur: Any = self._data
+        
+        for i, k in enumerate(keys[:-1]):
+            # 배열 인덱스 처리
+            if k.startswith("[") and k.endswith("]"):
+                if not isinstance(cur, list):
+                    raise TypeError(f"Cannot access array index on non-list: {k}")
+                
+                index_str = k[1:-1]
+                
+                # [*] 패턴은 set에서 지원하지 않음
+                if index_str == "*":
+                    raise ValueError("Cannot set value with [*] wildcard pattern")
+                
+                # [숫자] 패턴: 특정 인덱스 접근
+                try:
+                    index = int(index_str)
+                    # 배열 크기 자동 확장
+                    while len(cur) <= index:
+                        cur.append({})
+                    cur = cur[index]
+                except ValueError:
+                    raise ValueError(f"Invalid array index: {k}")
+            else:
+                # 일반 dict 접근
+                if k not in cur or not isinstance(cur[k], (dict, list)):
+                    # 다음 키가 배열 인덱스인지 확인
+                    next_k = keys[i + 1] if i + 1 < len(keys) else None
+                    if next_k and next_k.startswith("["):
+                        cur[k] = []
+                    else:
+                        cur[k] = {}
+                cur = cur[k]
+        
+        # 마지막 키 처리
+        last_key = keys[-1]
+        if last_key.startswith("[") and last_key.endswith("]"):
+            if not isinstance(cur, list):
+                raise TypeError(f"Cannot access array index on non-list: {last_key}")
+            
+            index_str = last_key[1:-1]
+            if index_str == "*":
+                raise ValueError("Cannot set value with [*] wildcard pattern")
+            
+            try:
+                index = int(index_str)
+                # 배열 크기 자동 확장
+                while len(cur) <= index:
+                    cur.append(None)
+                cur[index] = value
+            except ValueError:
+                raise ValueError(f"Invalid array index: {last_key}")
+        else:
+            cur[last_key] = value
 
     def delete(self, path: KeyPath, ignore_missing: bool = True) -> None:
         """경로의 값을 삭제합니다.

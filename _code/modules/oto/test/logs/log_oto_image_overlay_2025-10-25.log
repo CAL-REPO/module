@@ -1,0 +1,16 @@
+2025-10-25 03:32:13 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 03:32:13 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlaid image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_002.jpg
+2025-10-25 03:32:13 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_meta.json
+2025-10-25 03:47:50 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 03:47:50 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlaid image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_003.jpg
+2025-10-25 03:47:50 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_meta.json
+2025-10-25 04:24:40 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 04:24:40 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlaid image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_001.jpg
+2025-10-25 04:24:40 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_meta.json
+2025-10-25 04:24:55 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlaid image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_overlay_001.jpg
+2025-10-25 04:24:55 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_overlay_meta.json
+2025-10-25 04:27:37 | DEBUG    | image_utils.adapter.overlay:__init__:90 - Module-specific logger enabled for detailed debugging
+2025-10-25 04:27:37 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlaid image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_002.jpg
+2025-10-25 04:27:37 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\01_overlay_meta.json
+2025-10-25 04:27:48 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlaid image saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_overlay_002.jpg
+2025-10-25 04:27:48 | INFO     | image_utils.adapter.overlay:_log_both:121 - Overlay metadata saved: M:\CALife\CAShop - 구매대행\_code\modules\oto\test\images\02_overlay_meta.json

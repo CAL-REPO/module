@@ -2,15 +2,19 @@
 """crawl_utils.presets.sites
 ==============================
 
-Site별 크롤링 정책 모듈
+Site별 크롤링 정책 모듈 (v2.0 - Python Preset Functions Only)
 """
 
-from .aliexpress_detail import ALIEXPRESS_DETAIL_POLICY
-from .taobao_detail import TAOBAO_DETAIL_POLICY
+from .aliexpress import (
+    get_aliexpress_detail_preset,
+    get_aliexpress_search_preset
+)
 
 
 __all__ = [
-    "ALIEXPRESS_DETAIL_POLICY",
-    "TAOBAO_DETAIL_POLICY",
+    # v2.0 - Function-based Presets
+    "get_aliexpress_detail_preset",
+    "get_aliexpress_search_preset",
 ]
+
 

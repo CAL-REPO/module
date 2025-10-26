@@ -27,8 +27,12 @@ class WebDriverManager:
     이 클래스는 설정 로딩과 WebDriver 선택을 담당합니다.
     실제 WebDriver 로직은 FirefoxWebDriver, ChromeWebDriver 등이 처리합니다.
     
+    ConfigLikeLoader 사용:
+    - Policy.name 필드로 자동 section 추출 ("webdriver_manager")
+    - SectionExtractor.get_policy_name(WebDriverManagerPolicy) 사용
+    
     Example:
-        >>> # YAML 파일에서 로드 (자동으로 webdriver 섹션 인식)
+        >>> # YAML 파일에서 로드 (Policy.name = "webdriver_manager" 자동 인식)
         >>> with WebDriverManager("configs/webdriver_china.yaml") as manager:
         ...     manager.driver.get("https://taobao.com")
         ...     print(manager.driver.title)
@@ -50,6 +54,15 @@ class WebDriverManager:
         >>> from crawl_utils.provider.policy import WebDriverManagerPolicy
         >>> policy = WebDriverManagerPolicy(provider="firefox", ...)
         >>> manager = WebDriverManager(policy)
+        
+        >>> # SyncCrawl에서 사용 (OTO 패턴)
+        >>> # SectionExtractor가 자동으로 Policy.name으로 추출
+        >>> wd_manager = WebDriverManager(
+        ...     cfg_like=self._cfg_like_webdriver_manager,  # SectionExtractor로 추출
+        ...     log_manager=self._parent_log_manager,
+        ...     region="china",  # **overrides
+        ...     provider="firefox"
+        ... )
     """
     
     def __init__(
@@ -84,6 +97,12 @@ class WebDriverManager:
     
     def _load_config(self, cfg_like, **overrides) -> WebDriverManagerPolicy:
         """Load WebDriverManagerPolicy from various sources.
+        
+        ConfigLikeLoader가 모든 경우를 처리:
+        1. Policy 인스턴스 → 그대로 반환
+        2. Path/str → ConfigLoader로 YAML 로드
+        3. dict → ConfigLoader로 파싱 (Policy.name section 자동 추출)
+        4. None → 기본 YAML 또는 Pydantic 기본값
         
         Args:
             cfg_like: WebDriverManagerPolicy instance, YAML path, dict, or None
