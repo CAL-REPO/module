@@ -64,13 +64,6 @@ Note: 고수준 오케스트레이션(CrawlPipeline/SyncCrawlRunner)은 현재 �
 from __future__ import annotations
 
 # ============================================================================
-# PreProcessor: URL 분석 및 크롤링 정책 결정
-# ============================================================================
-from .pre_processor import (
-    PreProcessor,  # URL 분석 → 정책 결정 → Preset 병합
-)
-
-# ============================================================================
 # Pipeline: 크롤링 파이프라인 통합
 # ============================================================================
 from .pipeline import (
@@ -90,7 +83,7 @@ from .adapter import (
 # Navigator: 페이지 네비게이션 (로드, 스크롤, 대기)
 # ============================================================================
 from .navigator import (
-    AsyncNavigator,      # Async 네비게이터
+    # AsyncNavigator,      # Async 네비게이터
     SyncNavigator,       # Sync 네비게이터
 )
 
@@ -99,10 +92,10 @@ from .navigator import (
 # ============================================================================
 from .extractor import (
     # Async
-    AsyncExtractorFactory,  # Extractor 생성 팩토리 (Async)
-    AsyncDOMExtractor,      # DOM 기반 추출 (BeautifulSoup)
-    AsyncJSExtractor,       # JavaScript 실행 기반 추출
-    AsyncAPIExtractor,      # API 호출 기반 추출
+    # AsyncExtractorFactory,  # Extractor 생성 팩토리 (Async)
+    # AsyncDOMExtractor,      # DOM 기반 추출 (BeautifulSoup)
+    # AsyncJSExtractor,       # JavaScript 실행 기반 추출
+    # AsyncAPIExtractor,      # API 호출 기반 추출
     # Sync
     SyncDOMExtractor,       # Sync DOM 추출 (BeautifulSoup)
     SyncJSExtractor,        # Sync JavaScript 실행 기반 추출
@@ -144,12 +137,7 @@ from .item_saver import (
 )
 
 
-__all__ = [
-    # ========================================
-    # PreProcessor
-    # ========================================
-    "PreProcessor",
-    
+__all__ = [    
     # ========================================
     # Pipeline
     # ========================================
@@ -171,16 +159,16 @@ __all__ = [
     # ========================================
     # Navigator
     # ========================================
-    "AsyncNavigator",
+    # "AsyncNavigator",
     "SyncNavigator",
     
     # ========================================
     # Extractor (Async Only)
     # ========================================
-    "AsyncExtractorFactory",
-    "AsyncDOMExtractor",
-    "AsyncJSExtractor",
-    "AsyncAPIExtractor",
+    # "AsyncExtractorFactory",
+    # "AsyncDOMExtractor",
+    # "AsyncJSExtractor",
+    # "AsyncAPIExtractor",
     
     # ========================================
     # Fetcher

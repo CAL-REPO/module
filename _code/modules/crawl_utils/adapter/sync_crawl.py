@@ -46,6 +46,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional, Union
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
@@ -57,7 +58,7 @@ from ..presets import (
     get_webdriver_override,
     PROVIDER_SPECIFIC_FIELDS,
 )
-from ..core.policy import SyncCrawlPolicy, CrawlPolicy
+from ..core.policy import SyncCrawlPolicy
 from ..adapter.webdriver_manager import WebDriverManager
 from ..services.adapter import SyncSeleniumAdapter
 from ..services.navigator import SyncNavigator
@@ -208,7 +209,7 @@ class SyncCrawl:
             merged_config=merged_config,
             individual_cfgs={
                 WebDriverManagerPolicy: cfg_like_webdriver_manager,
-                CrawlPolicy: cfg_like_crawl,
+                SyncCrawlPolicy: cfg_like_crawl,
             }
         )
         
@@ -217,7 +218,7 @@ class SyncCrawl:
             SectionExtractor.get_policy_name(WebDriverManagerPolicy)
         ]
         self._cfg_like_crawl = extracted[
-            SectionExtractor.get_policy_name(CrawlPolicy)
+            SectionExtractor.get_policy_name(SyncCrawlPolicy)
         ]
         
         # ========================================
@@ -444,7 +445,8 @@ class SyncCrawl:
             webdriver_overrides: WebDriver override dict (region, provider 포함)
         """
         webdriver_manager = None
-        
+        session_bridge = None
+
         try:
             # ========================================
             # WebDriver 시작 (cfg_like + overrides 직접 전달)
@@ -464,7 +466,35 @@ class SyncCrawl:
             
             # SyncSeleniumAdapter로 래핑
             adapter = SyncSeleniumAdapter(driver=webdriver_manager._webdriver)
-            
+            session_bridge_policy = crawl_policy.session_bridge
+            http_session_policy = crawl_policy.http_session
+            cookie_bridge_policy = crawl_policy.cookie_bridge
+
+            if session_bridge_policy or http_session_policy or cookie_bridge_policy:
+                try:
+                    from ..services.session_bridge import SessionBridge
+
+                    webdriver_for_bridge = adapter._drv
+                    accept_language = getattr(webdriver_manager.config, "accept_languages", None)
+                    user_agent = (
+                        session_bridge_policy.user_agent
+                        if session_bridge_policy and session_bridge_policy.user_agent
+                        else getattr(webdriver_manager.config, "user_agent", None)
+                    )
+                    proxy = session_bridge_policy.proxy if session_bridge_policy else None
+
+                    session_bridge = SessionBridge.from_webdriver(
+                        webdriver=webdriver_for_bridge,
+                        user_agent=user_agent,
+                        accept_language=accept_language,
+                        proxy=proxy,
+                    )
+                    self.log.debug("Session bridge initialized")
+                except Exception as bridge_exc:
+                    session_bridge = None
+                    self.log.warning(f"Failed to initialize session bridge: {bridge_exc}")
+
+
             # Navigator로 페이지 로드
             self.log.info(f"Loading: {url}")
             navigator = SyncNavigator(driver=adapter, policy=crawl_policy.navigation)
@@ -488,7 +518,25 @@ class SyncCrawl:
                     timeout=crawl_policy.wait.timeout_sec,
                     condition=crawl_policy.wait.condition
                 )
-            
+
+            if session_bridge:
+                parsed = urlparse(url)
+                sync_targets: List[str] = []
+                if parsed.hostname:
+                    sync_targets.append(parsed.hostname)
+                if cookie_bridge_policy and cookie_bridge_policy.cookie_sync_domains:
+                    sync_targets.extend(cookie_bridge_policy.cookie_sync_domains)
+
+                for domain in sync_targets:
+                    try:
+                        session_bridge.sync_cookies_from_webdriver(domain)
+                        self.log.debug(f"Synced cookies for domain: {domain}")
+                    except Exception as sync_exc:
+                        self.log.debug(f"Cookie sync failed for {domain}: {sync_exc}")
+
+                session_bridge.ensure_headers(referer=url, default_referer=url)
+
+
             # ========================================
             # Step 6: Pipeline 실행 (Extract → ItemPostProcessor → PostProcessor)
             # ========================================
@@ -535,7 +583,25 @@ class SyncCrawl:
                 
                 try:
                     saver = SyncItemSaver()
-                    fetcher = SyncHTTPFetcher()
+                    fetcher_kwargs: Dict[str, Any] = {}
+
+                    if http_session_policy:
+                        fetcher_kwargs.update(
+                            {
+                                "timeout": http_session_policy.timeout_read_sec,
+                                "timeout_connect": http_session_policy.timeout_connect_sec,
+                                "timeout_read": http_session_policy.timeout_read_sec,
+                                "allow_redirects": http_session_policy.allow_redirects,
+                                "stream_download": http_session_policy.stream_download,
+                                "reuse_session": http_session_policy.reuse,
+                            }
+                        )
+
+                    fetcher = SyncHTTPFetcher(
+                        session=session_bridge.http_session if session_bridge else None,
+                        **fetcher_kwargs,
+                    )
+                    
                     save_summary = saver.save_items(normalized_items, fetcher=fetcher)
                     
                     # SaveSummary에서 경로 수집

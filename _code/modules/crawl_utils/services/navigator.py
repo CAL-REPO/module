@@ -9,98 +9,98 @@ import time
 from typing import TYPE_CHECKING, Optional
 
 from ..core.interfaces import BrowserController
-from ..core.policy import CrawlPolicy, SyncCrawlPolicy, NavigationPolicy, ScrollStrategy, WaitHook, WaitCondition
+from ..core.policy import SyncCrawlPolicy, NavigationPolicy, ScrollStrategy, WaitHook, WaitCondition
 
 if TYPE_CHECKING:
     from .adapter import SyncSeleniumAdapter
 
 
-class AsyncNavigator:
-    """Asynchronous Navigator for page navigation."""
+# class AsyncNavigator:
+#     """Asynchronous Navigator for page navigation."""
     
-    def __init__(self, driver: BrowserController, policy: CrawlPolicy):
-        self._driver = driver
-        self._policy = policy
-        self._current_url: str | None = None
+#     def __init__(self, driver: BrowserController, policy: CrawlPolicy):
+#         self._driver = driver
+#         self._policy = policy
+#         self._current_url: str | None = None
 
-    def _build_url(self, page: int | None = None, query: str | None = None, extra: dict | None = None) -> str:
-        """Build URL from navigation policy.
+#     def _build_url(self, page: int | None = None, query: str | None = None, extra: dict | None = None) -> str:
+#         """Build URL from navigation policy.
         
-        Note: Should only be called when self._policy.navigation is not None.
-        """
-        nav = self._policy.navigation
-        if not nav:
-            raise ValueError("Cannot build URL: navigation policy is None")
+#         Note: Should only be called when self._policy.navigation is not None.
+#         """
+#         nav = self._policy.navigation
+#         if not nav:
+#             raise ValueError("Cannot build URL: navigation policy is None")
         
-        if nav.url_template:
-            base = dict(nav.params)
-            if page is not None:
-                base[nav.page_param] = page
-            if query is not None:
-                base["query"] = query
-            if extra:
-                base.update(extra)
-            return nav.url_template.format(**base)
-        suffix = []
-        if query is not None:
-            suffix.append(f"q={query}")
-        if page is not None:
-            suffix.append(f"{nav.page_param}={page}")
-        return str(nav.base_url) + ("?" + "&".join(suffix) if suffix else "")
+#         if nav.url_template:
+#             base = dict(nav.params)
+#             if page is not None:
+#                 base[nav.page_param] = page
+#             if query is not None:
+#                 base["query"] = query
+#             if extra:
+#                 base.update(extra)
+#             return nav.url_template.format(**base)
+#         suffix = []
+#         if query is not None:
+#             suffix.append(f"q={query}")
+#         if page is not None:
+#             suffix.append(f"{nav.page_param}={page}")
+#         return str(nav.base_url) + ("?" + "&".join(suffix) if suffix else "")
 
-    async def load(self, base_url: str, query: str | None = None, params: dict | None = None) -> str:
-        """Navigate to URL (async version).
+#     async def load(self, base_url: str, query: str | None = None, params: dict | None = None) -> str:
+#         """Navigate to URL (async version).
         
-        Args:
-            base_url: Target URL to load
-            query: Search query (optional, for search method)
-            params: Additional URL parameters (optional)
+#         Args:
+#             base_url: Target URL to load
+#             query: Search query (optional, for search method)
+#             params: Additional URL parameters (optional)
         
-        Returns:
-            Final loaded URL
-        """
-        # Detail 크롤링: base_url을 직접 사용
-        if not self._policy.navigation:
-            await self._driver.get(base_url)
-            self._current_url = base_url
-            return base_url
+#         Returns:
+#             Final loaded URL
+#         """
+#         # Detail 크롤링: base_url을 직접 사용
+#         if not self._policy.navigation:
+#             await self._driver.get(base_url)
+#             self._current_url = base_url
+#             return base_url
         
-        # Search 크롤링: navigation policy로 URL 구성
-        url = self._build_url(page=self._policy.navigation.start_page, query=query, extra=params)
-        await self._driver.get(url)
-        self._current_url = url
-        return url
+#         # Search 크롤링: navigation policy로 URL 구성
+#         url = self._build_url(page=self._policy.navigation.start_page, query=query, extra=params)
+#         await self._driver.get(url)
+#         self._current_url = url
+#         return url
 
-    async def paginate(self, page: int) -> str:
-        url = self._build_url(page=page)
-        await self._driver.get(url)
-        self._current_url = url
-        return url
+#     async def paginate(self, page: int) -> str:
+#         url = self._build_url(page=page)
+#         await self._driver.get(url)
+#         self._current_url = url
+#         return url
 
-    async def scroll(self, strategy: ScrollStrategy | str, max_scrolls: int, pause_sec: float) -> None:
-        strategy_value = strategy.value if isinstance(strategy, ScrollStrategy) else str(strategy)
-        if strategy_value == ScrollStrategy.INFINITE.value:
-            for _ in range(max_scrolls):
-                await self._driver.scroll_bottom()
-                await asyncio.sleep(pause_sec)
+#     async def scroll(self, strategy: ScrollStrategy | str, max_scrolls: int, pause_sec: float) -> None:
+#         strategy_value = strategy.value if isinstance(strategy, ScrollStrategy) else str(strategy)
+#         if strategy_value == ScrollStrategy.INFINITE.value:
+#             for _ in range(max_scrolls):
+#                 await self._driver.scroll_bottom()
+#                 await asyncio.sleep(pause_sec)
 
-    async def wait(self, hook: WaitHook | str, selector: str | None, timeout: float, condition: str) -> None:
-        hook_value = hook.value if isinstance(hook, WaitHook) else str(hook)
-        condition_value = condition if isinstance(condition, str) else str(condition)
-        require_visible = condition_value == WaitCondition.VISIBILITY.value
+#     async def wait(self, hook: WaitHook | str, selector: str | None, timeout: float, condition: str) -> None:
+#         hook_value = hook.value if isinstance(hook, WaitHook) else str(hook)
+#         condition_value = condition if isinstance(condition, str) else str(condition)
+#         require_visible = condition_value == WaitCondition.VISIBILITY.value
 
-        if hook_value == WaitHook.CSS.value:
-            await self._driver.wait_css(selector or "html", timeout, visible=require_visible)
-        elif hook_value == WaitHook.XPATH.value:
-            await self._driver.wait_xpath(selector or "//html", timeout, visible=require_visible)
-        else:
-            await asyncio.sleep(max(timeout, 0))
+#         if hook_value == WaitHook.CSS.value:
+#             await self._driver.wait_css(selector or "html", timeout, visible=require_visible)
+#         elif hook_value == WaitHook.XPATH.value:
+#             await self._driver.wait_xpath(selector or "//html", timeout, visible=require_visible)
+#         else:
+#             await asyncio.sleep(max(timeout, 0))
 
-    async def get_dom(self) -> str:
-        return await self._driver.get_dom()
+#     async def get_dom(self) -> str:
+#         return await self._driver.get_dom()
 
-    async def execute_js(self, script: str):
-        return await self._driver.execute_js(script)
+#     async def execute_js(self, script: str):
+#         return await self._driver.execute_js(script)
 
 
 # ============================================================================

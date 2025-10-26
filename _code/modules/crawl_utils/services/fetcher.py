@@ -98,14 +98,30 @@ class SyncHTTPFetcher:
         timeout: Optional[int] = None,
         session: Optional[requests.Session] = None,
         default_headers: Optional[Dict[str, str]] = None,
+        timeout_connect: Optional[float] = None,
+        timeout_read: Optional[float] = None,
+        allow_redirects: bool = True,
+        stream_download: bool = False,
+        reuse_session: bool = True,
     ):
-        self._timeout = timeout or 30
+        self._timeout = float(timeout or 30)
+        self._timeout_connect = timeout_connect
+        self._timeout_read = timeout_read
+        self._allow_redirects = allow_redirects
+        self._stream_download = stream_download
+        self._reuse_session = reuse_session
         self._external_session = session
         self._session: Optional[requests.Session] = session
         self._default_headers = dict(default_headers or {})
 
     def _get_session(self) -> requests.Session:
         """Get or create requests Session."""
+        if not self._reuse_session and self._external_session is None:
+            session = requests.Session()
+            if self._default_headers:
+                session.headers.update(self._default_headers)
+            return session
+        
         if self._session is None:
             self._session = requests.Session()
             if self._default_headers:
@@ -117,6 +133,13 @@ class SyncHTTPFetcher:
             )
         return self._session
 
+    def _build_timeout(self) -> float | tuple[float, float]:
+        if self._timeout_connect is not None or self._timeout_read is not None:
+            connect = self._timeout_connect if self._timeout_connect is not None else self._timeout
+            read = self._timeout_read if self._timeout_read is not None else self._timeout
+            return (connect, read)
+        return self._timeout
+
     def fetch_json(
         self,
         url: str,
@@ -127,19 +150,48 @@ class SyncHTTPFetcher:
     ) -> Dict[str, Any]:
         """Fetch JSON synchronously."""
         session = self._get_session()
-        resp = session.request(method, url, params=params, json=payload, timeout=self._timeout)
+        close_after = not self._reuse_session and self._external_session is None
+        resp = session.request(
+            method,
+            url,
+            params=params,
+            json=payload,
+            timeout=self._build_timeout(),
+            allow_redirects=self._allow_redirects,
+        )
         resp.raise_for_status()
         try:
-            return resp.json()
+            result = resp.json()
         except Exception:
-            return {"status": resp.status_code, "text": resp.text}
+            result = {"status": resp.status_code, "text": resp.text}
+        finally:
+            if close_after:
+                session.close()
+        return result
 
     def fetch_bytes(self, url: str, *, method: str = "GET") -> bytes:
         """Fetch bytes synchronously."""
         session = self._get_session()
         resp = session.request(method, url, timeout=self._timeout)
+        close_after = not self._reuse_session and self._external_session is None
+        resp = session.request(
+            method,
+            url,
+            timeout=self._build_timeout(),
+            allow_redirects=self._allow_redirects,
+            stream=self._stream_download,
+        )
         resp.raise_for_status()
-        return resp.content
+        try:
+            if self._stream_download:
+                chunks = [chunk for chunk in resp.iter_content(chunk_size=8192) if chunk]
+                data = b"".join(chunks)
+            else:
+                data = resp.content
+        finally:
+            if close_after:
+                session.close()
+        return data
 
     def close(self) -> None:
         """Close session."""

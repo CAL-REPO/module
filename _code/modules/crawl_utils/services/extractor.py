@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from ..core.interfaces import Navigator, ResourceFetcher
-from ..core.policy import CrawlPolicy, SyncCrawlPolicy, ExtractorType, ExtractorPolicy
+from ..core.policy import SyncCrawlPolicy, ExtractorType, ExtractorPolicy
 
 if TYPE_CHECKING:
     from .adapter import SyncSeleniumAdapter
@@ -36,85 +36,85 @@ except Exception:  # pragma: no cover - optional dependency
 # ============================================================================
 
 
-class AsyncDOMExtractor:
-    """Asynchronous DOM-based data extractor using BeautifulSoup."""
+# class AsyncDOMExtractor:
+#     """Asynchronous DOM-based data extractor using BeautifulSoup."""
     
-    def __init__(self, navigator: Navigator, policy: CrawlPolicy):
-        self.navigator = navigator
-        self.policy = policy
+#     def __init__(self, navigator: Navigator, policy: CrawlPolicy):
+#         self.navigator = navigator
+#         self.policy = policy
 
-    async def extract(self) -> List[Dict[str, Any]]:
-        html = await self.navigator.get_dom()
-        selector = self.policy.extractor.item_selector
-        if selector and BeautifulSoup:
-            soup = BeautifulSoup(html, "html.parser")
-            elements = soup.select(selector)
-            return [
-                {
-                    "type": "dom",
-                    "selector": selector,
-                    "html": str(el),
-                    "text": el.get_text(strip=True),
-                    "attrs": dict(el.attrs),
-                }
-                for el in elements
-            ]
-        return [{"type": "dom", "html": html, "selector": selector}]
+#     async def extract(self) -> List[Dict[str, Any]]:
+#         html = await self.navigator.get_dom()
+#         selector = self.policy.extractor.item_selector
+#         if selector and BeautifulSoup:
+#             soup = BeautifulSoup(html, "html.parser")
+#             elements = soup.select(selector)
+#             return [
+#                 {
+#                     "type": "dom",
+#                     "selector": selector,
+#                     "html": str(el),
+#                     "text": el.get_text(strip=True),
+#                     "attrs": dict(el.attrs),
+#                 }
+#                 for el in elements
+#             ]
+#         return [{"type": "dom", "html": html, "selector": selector}]
 
 
-class AsyncJSExtractor:
-    """Asynchronous JavaScript-based data extractor."""
+# class AsyncJSExtractor:
+#     """Asynchronous JavaScript-based data extractor."""
     
-    def __init__(self, navigator: Navigator, policy: CrawlPolicy):
-        self.navigator = navigator
-        self.policy = policy
+#     def __init__(self, navigator: Navigator, policy: CrawlPolicy):
+#         self.navigator = navigator
+#         self.policy = policy
 
-    async def extract(self) -> List[Dict[str, Any]]:
-        snippet = self.policy.extractor.js_snippet or "return [];"
-        result = await self.navigator.execute_js(snippet)
-        if not isinstance(result, list):
-            result = [result]
-        return [{"type": "js", "payload": item} for item in result]
+#     async def extract(self) -> List[Dict[str, Any]]:
+#         snippet = self.policy.extractor.js_snippet or "return [];"
+#         result = await self.navigator.execute_js(snippet)
+#         if not isinstance(result, list):
+#             result = [result]
+#         return [{"type": "js", "payload": item} for item in result]
 
 
-class AsyncAPIExtractor:
-    """Asynchronous API-based data extractor."""
+# class AsyncAPIExtractor:
+#     """Asynchronous API-based data extractor."""
     
-    def __init__(self, fetcher: ResourceFetcher, policy: CrawlPolicy):
-        self.fetcher = fetcher
-        self.policy = policy
+#     def __init__(self, fetcher: ResourceFetcher, policy: CrawlPolicy):
+#         self.fetcher = fetcher
+#         self.policy = policy
 
-    async def extract(self) -> List[Dict[str, Any]]:
-        endpoint = self.policy.extractor.api_endpoint
-        if not endpoint:
-            return []
-        payload = await self.fetcher.fetch_json(
-            endpoint,
-            method=self.policy.extractor.api_method,
-            payload=self.policy.extractor.payload,
-        )
-        return [{"type": "api", "payload": payload}]
+#     async def extract(self) -> List[Dict[str, Any]]:
+#         endpoint = self.policy.extractor.api_endpoint
+#         if not endpoint:
+#             return []
+#         payload = await self.fetcher.fetch_json(
+#             endpoint,
+#             method=self.policy.extractor.api_method,
+#             payload=self.policy.extractor.payload,
+#         )
+#         return [{"type": "api", "payload": payload}]
 
 
-class AsyncExtractorFactory:
-    """Factory for creating async extractors based on policy."""
+# class AsyncExtractorFactory:
+#     """Factory for creating async extractors based on policy."""
     
-    def __init__(self, policy: CrawlPolicy, navigator: Navigator, fetcher: Optional[ResourceFetcher] = None):
-        self.policy = policy
-        self.navigator = navigator
-        self.fetcher = fetcher
+#     def __init__(self, policy: CrawlPolicy, navigator: Navigator, fetcher: Optional[ResourceFetcher] = None):
+#         self.policy = policy
+#         self.navigator = navigator
+#         self.fetcher = fetcher
 
-    def create(self):
-        etype = self.policy.extractor.type
-        if etype == ExtractorType.DOM:
-            return AsyncDOMExtractor(self.navigator, self.policy)
-        if etype == ExtractorType.JS:
-            return AsyncJSExtractor(self.navigator, self.policy)
-        if etype == ExtractorType.API:
-            if not self.fetcher:
-                raise ValueError("API extractor requires a ResourceFetcher instance.")
-            return AsyncAPIExtractor(self.fetcher, self.policy)
-        raise ValueError(f"Unsupported extractor type: {etype}")
+#     def create(self):
+#         etype = self.policy.extractor.type
+#         if etype == ExtractorType.DOM:
+#             return AsyncDOMExtractor(self.navigator, self.policy)
+#         if etype == ExtractorType.JS:
+#             return AsyncJSExtractor(self.navigator, self.policy)
+#         if etype == ExtractorType.API:
+#             if not self.fetcher:
+#                 raise ValueError("API extractor requires a ResourceFetcher instance.")
+#             return AsyncAPIExtractor(self.fetcher, self.policy)
+#         raise ValueError(f"Unsupported extractor type: {etype}")
 
 
 # ============================================================================

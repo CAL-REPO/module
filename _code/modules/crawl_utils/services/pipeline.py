@@ -58,11 +58,11 @@ from typing import List, Optional, TYPE_CHECKING
 from pathlib import Path
 
 from ..core.policy import ItemList, ItemKind
-from ..core.policy import CrawlPolicy
+from ..core.policy import SyncCrawlPolicy
 from .adapter import SyncSeleniumAdapter
 from .navigator import SyncNavigator
 from .extractor import SyncExtractorFactory
-from .Item_Post_Processor import ItemPostProcessor
+from .item_post_processor import ItemPostProcessor
 
 if TYPE_CHECKING:
     from selenium.webdriver.remote.webdriver import WebDriver
@@ -75,18 +75,17 @@ class SyncPipeline:
     Navigator → Scroll → Extractor → PostProcessor 순서로 실행.
     
     Attributes:
-        policy: CrawlPolicy (PreProcessor에서 생성)
         adapter: SyncSeleniumAdapter (Selenium WebDriver 래퍼)
         navigator: SyncNavigator (페이지 네비게이션)
         extractor_factory: SyncExtractorFactory (추출기 생성)
         post_processor: ItemPostProcessor (v7.0 - Jinja2 제거)
     """
     
-    def __init__(self, policy: CrawlPolicy, driver: 'WebDriver'):
+    def __init__(self, policy: SyncCrawlPolicy, driver: 'WebDriver'):
         """Initialize Pipeline.
         
         Args:
-            policy: CrawlPolicy (PreProcessor에서 생성된 최종 정책)
+            policy: SyncCrawlPolicy
             driver: Selenium WebDriver
         """
         self.policy = policy
