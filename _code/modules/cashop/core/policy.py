@@ -165,8 +165,8 @@ class CashopBasePolicy(BaseModel):
         ⚠️ Excel 파일 경로는 ExcelLoadPolicy.files[0].file_path에서 가져옴.
     """
     name: str = Field(
-        ...,  # Required! "xloto" or "xlcrawl"
-        description="Pipeline 이름 (xloto/xlcrawl)"
+        "cashop_base",  # Required! "xloto" or "xlcrawl"
+        description="Pipeline 이름 "
     )
     
     # ===== Paths 설정 (공통) =====

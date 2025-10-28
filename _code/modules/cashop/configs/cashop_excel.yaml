@@ -3,7 +3,7 @@
 # ============================================================
 # xl_utils ExcelLoad Adapter 전용 설정
 
-excel:
+excel_load:
   # ==========================================================================
   # 0. Files 설정 (파일/시트 구성)
   # ==========================================================================
@@ -17,9 +17,9 @@ excel:
   # 1. Excel Application 설정 (xw_app)
   # ==========================================================================
   xw_app:
-    visible: true                    # Excel 창 표시 (디버깅용)
-    display_alerts: false            # 경고창 끔
-    screen_updating: false           # 화면 갱신 끔 (빠름)
+    visible: true                    # Excel 창 표시
+    display_alerts: true             # 경고창 표시 (사용자 확인 가능)
+    screen_updating: true            # 화면 갱신 활성화 (사용자가 변경 사항 실시간 확인)
     add_book: false                  # 빈 워크북 생성 안 함
 
   # ==========================================================================
@@ -43,12 +43,12 @@ excel:
   # 4. 성능 최적화 (performance)
   # ==========================================================================
   performance:
-    screen_updating: false           # 화면 갱신 끔 (10배 빠름)
-    display_alerts: false            # 경고창 끔
-    calculation: "auto"              # 자동 계산 (null=비활성화)
-    enable_events: false             # 이벤트 끔
-    interactive: false               # 사용자 입력 차단
-    clear_clipboard: true            # 종료 시 클립보드 비우기
+    screen_updating: true            # 화면 갱신 활성화 (사용자가 변경 사항 확인)
+    display_alerts: true             # 경고창 표시
+    calculation: "auto"              # 자동 계산
+    enable_events: true              # 이벤트 활성화 (매크로 등 동작)
+    interactive: true                # 사용자 입력 허용 ⚠️ 중요!
+    clear_clipboard: false           # 클립보드 유지
 
   # ==========================================================================
   # 5. 에러 처리 (error_handling)
@@ -56,10 +56,9 @@ excel:
   error_handling:
     on_file_not_found: "error"       # 파일 없으면 에러
     on_sheet_not_found: "error"      # 시트 없으면 에러
-    on_save_error:
-      action: "error"                # 저장 실패 시 에러
-      retry_count: 3
-      retry_delay: 1.0
+    on_save_error: "error"           # 저장 실패 시 에러 ("error" | "retry" | "ignore")
+    retry_count: 3                   # 재시도 횟수 (on_save_error="retry"일 때 사용)
+    retry_delay: 1.0                 # 재시도 대기 시간(초)
 
   # ==========================================================================
   # 6. 경로 검증 (path_validation)

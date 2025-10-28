@@ -21,6 +21,13 @@ class XwAppLifecycle:
         self.performance = performance or PerformancePolicy()
         self.app: Optional[xw.App] = None
         self.launched_by_self = False
+        
+        # ⚠️ 원래 설정 저장 (복원용)
+        self._original_screen_updating: Optional[bool] = None
+        self._original_calculation: Optional[int] = None
+        self._original_enable_events: Optional[bool] = None
+        self._original_interactive: Optional[bool] = None
+        self._original_enable_cancel_key: Optional[int] = None
     
     def start(self) -> xw.App:
         """Excel Application 실행"""
@@ -38,7 +45,36 @@ class XwAppLifecycle:
         return self.app
     
     def _apply_settings(self):
-        """Apply performance and UI settings"""
+        """Apply performance and UI settings (원래 값 저장)"""
+        if not self.app:
+            return
+        
+        # ⚠️ 원래 설정 저장 (복원용)
+        try:
+            self._original_screen_updating = self.app.api.ScreenUpdating
+        except:
+            pass
+        
+        try:
+            self._original_calculation = self.app.api.Calculation
+        except:
+            pass
+        
+        try:
+            self._original_enable_events = self.app.api.EnableEvents
+        except:
+            pass
+        
+        try:
+            self._original_interactive = self.app.api.Interactive
+        except:
+            pass
+        
+        try:
+            self._original_enable_cancel_key = self.app.api.EnableCancelKey
+        except:
+            pass
+        
         # ✅ Calculation 설정 (None이면 skip)
         if self.performance.calculation is not None:
             try:
@@ -67,20 +103,69 @@ class XwAppLifecycle:
         
         # EnableCancelKey 설정
         try:
-            self.app.api.EnableCancelKey = self.performance.enable_cancel_key
+            if hasattr(self.performance, 'enable_cancel_key'):
+                self.app.api.EnableCancelKey = self.performance.enable_cancel_key
         except Exception:
             pass
     
+    def _restore_settings(self):
+        """Restore original Excel settings (attached instance 포함)"""
+        if not self.app:
+            return
+        
+        # ⚠️ Attached instance라도 설정 복원 필요!
+        try:
+            if self._original_screen_updating is not None:
+                self.app.api.ScreenUpdating = self._original_screen_updating
+        except:
+            pass
+        
+        try:
+            if self._original_calculation is not None:
+                self.app.api.Calculation = self._original_calculation
+        except:
+            pass
+        
+        try:
+            if self._original_enable_events is not None:
+                self.app.api.EnableEvents = self._original_enable_events
+        except:
+            pass
+        
+        try:
+            if self._original_interactive is not None:
+                self.app.api.Interactive = self._original_interactive
+        except:
+            pass
+        
+        try:
+            if self._original_enable_cancel_key is not None:
+                self.app.api.EnableCancelKey = self._original_enable_cancel_key
+        except:
+            pass
+    
     def quit(self):
-        """직접 실행한 Excel만 종료"""
-        if not self.app or not self.launched_by_self:
+        """Excel 종료 또는 설정 복원"""
+        if not self.app:
             return
         
         try:
             # Performance 정책: 종료 시 클립보드 비우기
             if self.performance.clear_clipboard and hasattr(self.app.api, 'CutCopyMode'):
                 self.app.api.CutCopyMode = False
-            
+        except:
+            pass
+        
+        # ⚠️ Attached instance: 설정 복원만 (종료 안 함)
+        if not self.launched_by_self:
+            self._restore_settings()
+            print("[INFO] Excel settings restored (attached instance).")
+            return
+        
+        # ⚠️ Launched by self: 설정 복원 + 종료
+        self._restore_settings()
+        
+        try:
             self.app.quit()
             print("[INFO] Excel Application closed.")
         except Exception as e:

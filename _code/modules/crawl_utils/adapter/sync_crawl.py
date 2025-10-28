@@ -269,6 +269,33 @@ class SyncCrawl:
         
         # ✅ Phase 2: WebDriver Pool (동일 설정 재사용)
         self._webdriver_pool: Dict[str, WebDriverManager] = {}
+        
+        # ✅ Context Manager: Pool 수동 관리 플래그
+        self._manual_pool_management = False
+
+    # ==========================================================================
+    # Context Manager (WebDriver Pool 수동 관리)
+    # ==========================================================================
+    
+    def __enter__(self):
+        """컨텍스트 매니저 진입: Pool 수동 관리 모드 활성화
+        
+        Example:
+            >>> with sync_crawl:  # Pool cleanup 연기
+            ...     for url in urls:
+            ...         sync_crawl.run([url])  # 브라우저 재사용
+            ... # __exit__에서 Pool cleanup
+        """
+        self._manual_pool_management = True
+        self.log.info("♻️ WebDriver Pool: Manual management enabled")
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """컨텍스트 매니저 종료: Pool cleanup 수행"""
+        self._manual_pool_management = False
+        self._cleanup_webdriver_pool()
+        self.log.info("🧹 WebDriver Pool: Cleaned up")
+        return False  # Exception을 재발생시킴
 
     # ==========================================================================
     # Adapter Lazy Loading (with log_manager injection)
@@ -405,9 +432,14 @@ class SyncCrawl:
                         # self.log.debug(f"SyncCrawlPolicy created: scroll={merged_dict.get('scroll', {}).get('strategy', 'none')}")
                     except Exception as e:
                         self.log.error(f"❌ Failed to create SyncCrawlPolicy: {e}")
-                        # self.log.debug(f"merged_dict keys: {list(merged_dict.keys())}")
-                        # Fallback: 기본값만 사용
-                        crawl_policy = SyncCrawlPolicy()
+                        self.log.warning(f"⏭️  Skipping URL due to invalid policy: {url}")
+                        all_results.append({
+                            "url": url,
+                            "error": f"Invalid SyncCrawlPolicy: {e}",
+                            "success": False
+                        })
+                        continue  # ✅ WebDriver 시작 안하고 다음 URL로
+                    
                     # ========================================
                     # Step 3: WebDriver 설정 구성 및 Pool 관리
                     # ========================================
@@ -492,8 +524,9 @@ class SyncCrawl:
                     all_results.append({"url": url, "error": str(e), "success": False})
         
         finally:
-            # ✅ Phase 2: 모든 URL 처리 후 WebDriver Pool 정리
-            self._cleanup_webdriver_pool()
+            # ✅ Phase 2: Pool cleanup (컨텍스트 매니저 사용 시 skip)
+            if not self._manual_pool_management:
+                self._cleanup_webdriver_pool()
         
         return all_results
     

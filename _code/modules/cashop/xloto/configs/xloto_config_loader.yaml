@@ -24,7 +24,7 @@ source:
       overwrite: true
 
   # excel 섹션 (Adapter Policy 섹션명)
-  - src: ["{{cashop_configs_dir}}/cashop_excel.yaml", "excel"]
+  - src: ["{{cashop_configs_dir}}/cashop_excel.yaml", "excel_load"]
     yaml_parser:
       safe_mode: true
       encoding: "utf-8"

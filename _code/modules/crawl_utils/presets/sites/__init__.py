@@ -10,11 +10,20 @@ from .aliexpress import (
     get_aliexpress_search_preset
 )
 
+from .tb_tm_1688 import (
+    get_taobao_detail_preset,
+    get_tmall_detail_preset,
+    get_1688_detail_preset
+)
+
 
 __all__ = [
     # v2.0 - Function-based Presets
     "get_aliexpress_detail_preset",
     "get_aliexpress_search_preset",
+    "get_taobao_detail_preset",
+    "get_tmall_detail_preset",
+    "get_1688_detail_preset",
 ]
 
 

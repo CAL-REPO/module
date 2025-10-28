@@ -94,6 +94,7 @@ class XlCrawl:
         self,
         cfg_like: Union[dict, None] = None,
         *,
+        cfg_like_base: Union[BaseModel, Path, str, dict, None] = None,
         cfg_like_excel: Union[BaseModel, Path, str, dict, None] = None,
         cfg_like_sync_crawl: Union[BaseModel, Path, str, dict, None] = None,
         cfg_like_webdriver_manager: Union[BaseModel, Path, str, dict, None] = None,
@@ -105,11 +106,12 @@ class XlCrawl:
         Architecture:
             1. ConfigLoader가 모든 section 병합
             2. Runtime overrides 병합
-            3. SectionExtractor.extract_batch()로 Excel section 추출
+            3. SectionExtractor.extract_batch()로 모든 section 추출
             4. SyncCrawl에 전체 cfg_like + 개별 cfg_like 전달
         
         Args:
             cfg_like: 병합된 dict (ConfigLoader.to_dict() 결과)
+            cfg_like_base: CashopBasePolicy 개별 설정 (우선순위 1)
             cfg_like_excel: ExcelLoadPolicy 개별 설정 (우선순위 1)
             cfg_like_sync_crawl: SyncCrawlPolicy 개별 설정
             cfg_like_webdriver_manager: WebDriverManagerPolicy 개별 설정
@@ -117,8 +119,8 @@ class XlCrawl:
             **overrides: 런타임 오버라이드
         
         Cascading Priority:
-            1. cfg_like_excel (개별 cfg_like) - 최우선
-            2. cfg_like["excel"] (병합 dict의 section)
+            1. cfg_like_base (개별 cfg_like) - 최우선
+            2. cfg_like["xlcrawl"] (병합 dict의 section)
             3. None (Pydantic 기본값)
         
         Note:
@@ -138,17 +140,23 @@ class XlCrawl:
             merged_config = {**merged_config, **override_dict}
         
         # ========================================
-        # SectionExtractor.extract_batch() (Excel + SyncCrawl section 추출)
+        # SectionExtractor.extract_batch() (모든 Policy section 추출)
         # ========================================
         extracted = SectionExtractor.extract_batch(
             merged_config=merged_config,
             individual_cfgs={
+                CashopBasePolicy: cfg_like_base,
                 ExcelLoadPolicy: cfg_like_excel,
                 SyncCrawlPolicy: cfg_like_sync_crawl,
             }
         )
         
         # Policy.name으로 추출
+        base_policy_data = extracted[
+            SectionExtractor.get_policy_name(CashopBasePolicy)
+        ]
+        self.policy: CashopBasePolicy = CashopBasePolicy(**base_policy_data) if isinstance(base_policy_data, dict) else base_policy_data  # type: ignore
+        
         self._cfg_excel = extracted[
             SectionExtractor.get_policy_name(ExcelLoadPolicy)
         ]
@@ -162,18 +170,6 @@ class XlCrawl:
             self._cfg_like_sync_crawl = cfg_like_sync_crawl
         if cfg_like_webdriver_manager:
             self._cfg_like_webdriver_manager = cfg_like_webdriver_manager
-        
-        # ========================================
-        # CashopBasePolicy 생성 (xlcrawl)
-        # ========================================
-        try:
-            # merged_config에서 xlcrawl 섹션 추출
-            xlcrawl_config = merged_config.get("xlcrawl", {})
-            self.policy = CashopBasePolicy(**xlcrawl_config)
-        except Exception as e:
-            self.log.warning(f"Failed to create CashopBasePolicy from config: {e}")
-            self.log.warning("Using default CashopBasePolicy (may cause errors)")
-            raise  # ← Required field이므로 에러 발생시켜야 함
         
         # ========================================
         # Logger 초기화
@@ -227,17 +223,9 @@ class XlCrawl:
     
     @property
     def cas_extractor(self) -> CasExtractor:
-        """CasExtractor Service lazy-loading
-        
-        ⚠️ include_download=True + download_empty=True: download 컬럼이 비어있을 때만 추출
-        ⚠️ include_translation=False: translation 컬럼 조건 불필요 (crawl 전용)
-        """
+        """CasExtractor Service lazy-loading"""
         if self._cas_extractor is None:
-            self._cas_extractor = CasExtractor(
-                include_download=True,  # ✅ download 조건 활성화
-                download_empty=True,  # ✅ download가 비어있을 때만 추출
-                include_translation=False  # ⚠️ Crawl은 translation 불필요
-            )
+            self._cas_extractor = CasExtractor()
             self.log.debug("CasExtractor created")
         return self._cas_extractor
     
@@ -261,12 +249,17 @@ class XlCrawl:
             2. open_workbook(files[0].file_path)
             3. get_worksheet(files[0].sheets[0], column_aliases)
             4. CasExtractor로 CAS No + URL 추출 (download 컬럼이 비어있을 때만)
-            5. URL 리스트 생성 후 SyncCrawl 파이프라인 실행
+            5. 각 CAS No별로 SyncCrawl 파이프라인 실행 (1개씩 처리)
             6. ExcelUpdater로 download 컬럼에 날짜 기록
         
         Filter Condition:
             ⚠️ download 컬럼이 비어있는 항목만 크롤링 (download.isna())
             ⚠️ 크롤링 완료 후 download 컬럼에 날짜 기록
+        
+        Crawl Strategy:
+            ⚠️ URL을 1개씩 처리 (batch 아님)
+            ⚠️ 각 CAS No별 디렉토리 생성: {output_dir}/{cas_no}/original/
+            ⚠️ xloto와 동일한 폴더 구조 (CAS No가 상위 폴더명)
         
         Result Structure:
             cas_results = [
@@ -276,7 +269,8 @@ class XlCrawl:
                     "download_row": int,  # Excel row (1-based + header)
                     "download_col": str,  # download 컬럼명
                     "success": bool,
-                    "crawl_result": dict
+                    "crawl_result": dict,
+                    "error": Optional[str]
                 },
                 ...
             ]
@@ -284,6 +278,7 @@ class XlCrawl:
         Args:
             **overrides: 런타임 오버라이드
                 sync_crawl__items[0]__dir_path="output/cas123"
+                (각 CAS별로 자동 설정되므로 일반적으로 불필요)
         
         Returns:
             결과 딕셔너리:
@@ -297,9 +292,8 @@ class XlCrawl:
         
         Example:
             >>> xlcrawl = XlCrawl(cfg_like=config.to_dict())
-            >>> result = xlcrawl.run(
-            ...     sync_crawl__items[0]__dir_path="output/test"
-            ... )
+            >>> result = xlcrawl.run()
+            >>> # CAS별 폴더 생성: output/123-45-6/original/
         """
         self.log.info("="*80)
         self.log.info("XLCRAWL Pipeline Started")
@@ -347,7 +341,7 @@ class XlCrawl:
             self.log.info(f"   📊 Sheet: {sheet_name}")
             self.log.info(f"   🔖 Column Aliases: {list(column_aliases.keys()) if column_aliases else 'None'}")
             
-            # Context manager를 사용하여 Excel 파일 열기
+            # Context manager를 사용하여 Excel 파일 열기 (전체 파이프라인 포함)
             with self._excel_load:
                 # Workbook 열기
                 workbook = self._excel_load.open_workbook(file_path=str(excel_file_path))
@@ -363,166 +357,173 @@ class XlCrawl:
                 df = worksheet.to_dataframe(used_range=True, header=True, index=False)
                 self.log.info(f"   ✅ Worksheet loaded: {len(df)} rows, {len(df.columns)} columns")
             
-            # =============================================
-            # 2️⃣ CAS No + URL 추출 (download 컬럼이 비어있을 때만)
-            # =============================================
-            self.log.info("\n2️⃣ CAS & URL Extraction: Finding CAS numbers and URLs from DataFrame")
-            self.log.info("   ⚠️ Filter: download 컬럼이 비어있는 항목만 추출")
-            
-            # XwWs의 column_resolver 확인
-            if worksheet.column_resolver is None:
-                raise ValueError("XwWs.column_resolver is None (preset not configured)")
-            
-            # CAS No + URL 추출 (CasExtractor 사용)
-            cas_results = self.cas_extractor.extract(
-                df=df,
-                column_resolver=worksheet.column_resolver,
-                cas_key="cas",
-                download_key="download",
-                translation_key="translation"
-            )
-            
-            # CasExtractor는 translation_row/col을 반환하므로 download_row/col로 변경
-            for cas_item in cas_results:
-                cas_item["download_row"] = cas_item.pop("translation_row")
-                cas_item["download_col"] = cas_item.pop("translation_col")
-            
-            # URL 컬럼 추출 (column_resolver 사용)
-            url_col = worksheet.column_resolver.resolve(df, "url")
-            if not url_col:
-                self.log.warning("   ⚠️ URL column not found. URLs will not be extracted.")
-            else:
-                # 각 CAS 결과에 URL 추가
-                for cas_item in cas_results:
-                    row_idx = cas_item["download_row"] - 2  # Excel row to DataFrame index
-                    if row_idx < len(df):
-                        url_value = df.iloc[row_idx].get(url_col)
-                        cas_item["url"] = str(url_value).strip() if pd.notna(url_value) else None
-                    else:
-                        cas_item["url"] = None
-            
-            result["total_cas"] = len(cas_results)
-            self.log.info(f"   ✅ Extracted {result['total_cas']} CAS numbers (with URLs)")
-            
-            if result["total_cas"] == 0:
-                self.log.warning("   ⚠️ No CAS numbers found. Pipeline stopped.")
-                result["success"] = True
-                return result
-            
-            # =============================================
-            # 3️⃣ SyncCrawl 파이프라인 실행 (URL 리스트 방식)
-            # =============================================
-            self.log.info("\n3️⃣ SyncCrawl Pipeline: Crawling data with URL list")
-            
-            # URL 리스트 생성 (Excel에서 추출한 URL 사용)
-            url_list = []
-            cas_to_url_map = {}  # CAS No -> URL 매핑
-            
-            for cas_item in cas_results:
-                cas_no = cas_item["cas_no"]
-                url = cas_item.get("url")
+                # =============================================
+                # 2️⃣ CAS No + URL 추출 (download 컬럼이 비어있을 때만)
+                # =============================================
+                self.log.info("\n2️⃣ CAS & URL Extraction: Finding CAS numbers and URLs from DataFrame")
+                self.log.info("   ⚠️ Filter: download 컬럼이 비어있는 항목만 추출")
                 
-                if url:
-                    url_list.append(url)
-                    cas_to_url_map[url] = cas_no
-                    self.log.debug(f"   Added URL for CAS {cas_no}: {url}")
-                else:
-                    self.log.warning(f"   ⚠️ No URL found for CAS {cas_no}, skipping")
-            
-            if not url_list:
-                self.log.warning("   ⚠️ No valid URLs found. Pipeline stopped.")
-                result["success"] = True
-                return result
-            
-            self.log.info(f"   📋 Total URLs to crawl: {len(url_list)}")
-            
-            # SyncCrawl 실행 (URL 리스트 전체 전달)
-            try:
-                # Runtime override: 출력 디렉토리 설정
-                crawl_overrides = {
-                    "sync_crawl__items[0]__dir_path": str(self.policy.paths.output_dir)
-                }
+                # XwWs의 column_resolver 확인
+                if worksheet.column_resolver is None:
+                    raise ValueError("XwWs.column_resolver is None (preset not configured)")
                 
-                # SyncCrawl 실행 (URL 리스트)
-                crawl_result = self.sync_crawl.run(
-                    urls=url_list,  # ✅ URL 리스트 전달
-                    **crawl_overrides,
-                    **overrides  # 외부 override 병합
+                # CAS No + URL 추출 (CasExtractor 사용)
+                # download가 비어있을 때만 추출 (download_must_be_empty=True)
+                cas_results = self.cas_extractor.extract(
+                    df=df,
+                    column_resolver=worksheet.column_resolver,
+                    cas_key="cas",
+                    download_key="download",
+                    download_must_be_empty=True
                 )
                 
-                # 결과를 CAS별로 매핑
+                # URL 컬럼 추출 (column_resolver 사용)
+                url_col = worksheet.column_resolver.resolve(df, "url")
+                if not url_col:
+                    self.log.warning("   ⚠️ URL column not found. URLs will not be extracted.")
+                else:
+                    # 각 CAS 결과에 URL 추가
+                    for cas_item in cas_results:
+                        row_idx = cas_item["cas_row"] - 2  # Excel row to DataFrame index
+                        if row_idx < len(df):
+                            url_value = df.iloc[row_idx].get(url_col)
+                            cas_item["url"] = str(url_value).strip() if pd.notna(url_value) else None
+                        else:
+                            cas_item["url"] = None
+                
+                result["total_cas"] = len(cas_results)
+                self.log.info(f"   ✅ Extracted {result['total_cas']} CAS numbers (with URLs)")
+                
+                if result["total_cas"] == 0:
+                    self.log.warning("   ⚠️ No CAS numbers found. Pipeline stopped.")
+                    result["success"] = True
+                    return result
+                
+                # =============================================
+                # 3️⃣ SyncCrawl 파이프라인 실행 (URL 1개씩 처리)
+                # =============================================
+                self.log.info("\n3️⃣ SyncCrawl Pipeline: Crawling each URL individually")
+                
                 processed_count = 0
                 
-                # crawl_result가 dict인 경우 (단일 결과)
-                if isinstance(crawl_result, dict):
-                    success = crawl_result.get("success", False)
-                    for cas_item in cas_results:
-                        cas_item["crawl_result"] = crawl_result
-                        cas_item["success"] = success
-                        if success:
-                            processed_count += 1
-                
-                # crawl_result가 list인 경우 (URL별 결과)
-                elif isinstance(crawl_result, list):
-                    for idx, item_result in enumerate(crawl_result):
-                        if idx < len(url_list):
-                            url = url_list[idx]
-                            cas_no = cas_to_url_map.get(url)
+                # ✅ 컨텍스트 매니저: 브라우저 재사용
+                with self.sync_crawl:
+                    # 각 CAS No + URL을 1개씩 처리
+                    for idx, cas_item in enumerate(cas_results, start=1):
+                        cas_no = cas_item["cas_no"]
+                        url = cas_item.get("url")
+                        
+                        self.log.info(f"\n   [{idx}/{len(cas_results)}] Processing CAS: {cas_no}")
+                        
+                        if not url:
+                            self.log.warning(f"   ⚠️ No URL found for CAS {cas_no}, skipping")
+                            cas_item["success"] = False
+                            cas_item["error"] = "URL not found"
+                            continue
+                        
+                        self.log.info(f"   📋 URL: {url[:80]}..." if len(url) > 80 else f"   📋 URL: {url}")
+                        
+                        try:
+                            # CAS No별 디렉토리 생성 (xloto와 동일한 구조)
+                            cas_download_dir = Path(self.policy.paths.public_img_dir) / cas_no / self.policy.paths.origin_dirname
                             
-                            # CAS 결과에 크롤링 결과 추가
-                            for cas_item in cas_results:
-                                if cas_item["cas_no"] == cas_no:
-                                    cas_item["crawl_result"] = item_result
-                                    cas_item["success"] = item_result.get("success", False)
-                                    if cas_item["success"]:
-                                        processed_count += 1
-                                        self.log.info(f"   ✅ CAS {cas_no} crawled successfully")
-                                    else:
-                                        self.log.warning(f"   ⚠️ CAS {cas_no} crawl failed")
-                                    break
+                            # ⚠️ 이미 파일이 존재하면 Skip (크롤링 안 함)
+                            if cas_download_dir.exists() and any(cas_download_dir.iterdir()):
+                                self.log.info(f"   ⏭️  Files already exist in {cas_download_dir}, skipping crawl")
+                                cas_item["success"] = True
+                                cas_item["processed_count"] = 0  # 이미 완료됨
+                                cas_item["skipped"] = True
+                                processed_count += 1
+                                continue
+                            
+                            # Runtime override: 각 CAS별 디렉토리 설정
+                            crawl_overrides = {
+                                "sync_crawl__items[0]__dir_path": cas_download_dir
+                            }
+                            
+                            self.log.info(f"   📁 Output Dir: {cas_download_dir}")
+                            
+                            # SyncCrawl 실행 (단일 URL)
+                            crawl_result = self.sync_crawl.run(
+                                urls=[url],
+                                **crawl_overrides,
+                                **overrides
+                            )
+                            
+                            cas_item["crawl_result"] = crawl_result
+                            
+                            # SyncCrawl.run() 항상 list 반환
+                            if isinstance(crawl_result, list) and len(crawl_result) > 0:
+                                first_result = crawl_result[0]
+                                cas_item["success"] = first_result.get("success", False)
+                                
+                                if cas_item["success"]:
+                                    saved_files = first_result.get("saved_files", [])
+                                    cas_item["processed_count"] = len(saved_files)
+                                else:
+                                    cas_item["processed_count"] = 0
+                            else:
+                                cas_item["success"] = False
+                                cas_item["processed_count"] = 0
+                            
+                            if cas_item["success"]:
+                                processed_count += 1
+                                if cas_item["processed_count"] > 0:
+                                    self.log.info(f"   ✅ CAS {cas_no}: Crawled {cas_item['processed_count']} files")
+                                else:
+                                    self.log.info(f"   ✅ CAS {cas_no}: Crawl completed (no new files)")
+                            else:
+                                self.log.warning(f"   ❌ CAS {cas_no}: Crawl failed")
+                        
+                        except Exception as e:
+                            self.log.error(f"   ❌ CAS {cas_no}: Exception - {e}")
+                            cas_item["success"] = False
+                            cas_item["processed_count"] = 0
+                            cas_item["error"] = str(e)
                 
                 result["processed_cas"] = processed_count
                 result["cas_results"] = cas_results
                 
-                self.log.info(f"\n   ✅ SyncCrawl completed: {processed_count}/{len(url_list)} successful")
+                self.log.info(f"\n   ✅ SyncCrawl completed: {processed_count}/{len(cas_results)} successful")
                 
-            except Exception as e:
-                self.log.error(f"   ❌ SyncCrawl failed: {e}")
-                # 모든 CAS를 실패로 마킹
-                for cas_item in cas_results:
-                    cas_item["success"] = False
-                    cas_item["error"] = str(e)
-                result["cas_results"] = cas_results
+                # =============================================
+                # 4️⃣ Excel 업데이트 (download 컬럼만 사용)
+                # =============================================
+                self.log.info("\n4️⃣ Excel Update: Writing download date to Excel")
+                
+                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Download 컬럼명 가져오기
+                download_col_name = worksheet.column_resolver.resolve(df, "download")
+                
+                if not download_col_name:
+                    self.log.warning("   ⚠️ Download column not found, skipping Excel update")
+                else:
+                    # 모든 cas_item에 download_col 정보 설정
+                    for cas_item in cas_results:
+                        row = cas_item.get("cas_row")
+                        if not row:
+                            continue
+                        
+                        # processed_count > 0 또는 skipped=True인 경우만 업데이트
+                        if (cas_item.get("success") and cas_item.get("processed_count", 0) > 0) or cas_item.get("skipped"):
+                            cas_item["translation_row"] = row
+                            cas_item["translation_col"] = download_col_name
+                    
+                    # ExcelUpdater 사용
+                    updated_count = self.excel_updater.update(
+                        worksheet=worksheet,
+                        cas_results=cas_results,
+                        date_value=current_date
+                    )
+                    
+                    self.log.info(f"   ✅ Updated {updated_count} rows in download column")
+                
+                workbook.book.save()
+                self.log.info("   ✅ Workbook saved")
+                
+                result["success"] = True
             
-            # =============================================
-            # 4️⃣ Excel 업데이트 (download 컬럼에 날짜 채움)
-            # =============================================
-            self.log.info("\n4️⃣ Excel Update: Writing download date back to Excel")
-            
-            current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            # ExcelUpdater는 translation_row/col을 사용하므로 매핑
-            for cas_item in cas_results:
-                if cas_item.get("success"):
-                    # download_row/col → translation_row/col (ExcelUpdater API)
-                    cas_item["translation_row"] = cas_item["download_row"]
-                    cas_item["translation_col"] = cas_item["download_col"]
-            
-            # ExcelUpdater 사용
-            updated_count = self.excel_updater.update(
-                worksheet=worksheet,
-                cas_results=cas_results,
-                date_value=current_date
-            )
-            
-            self.log.info(f"   ✅ Updated {updated_count} rows (download column filled)")
-            
-            # =============================================
-            # 5️⃣ Excel 저장 및 종료
-            # =============================================
-            # Context manager로 자동 close (with 블록 종료 시)
-            
-            result["success"] = True
             self.log.info("\n" + "="*80)
             self.log.info("✅ XLCRAWL Pipeline Completed Successfully")
             self.log.info("="*80)

@@ -5,7 +5,13 @@ from typing import Dict, Any, Optional, Tuple, List, Callable
 
 from .domains import DOMAIN_MAPPING
 from .methods import METHOD_PATTERNS
-from .sites import get_aliexpress_detail_preset, get_aliexpress_search_preset
+from .sites import (
+    get_aliexpress_detail_preset, 
+    get_aliexpress_search_preset,
+    get_taobao_detail_preset,
+    get_tmall_detail_preset,
+    get_1688_detail_preset
+)
 from .webdrivers import WEBDRIVER_OVERRIDES, PROVIDER_SPECIFIC_FIELDS
 
 PresetFunction = Callable[[], Dict[str, Any]]
@@ -13,6 +19,9 @@ PresetFunction = Callable[[], Dict[str, Any]]
 _PRESET_FUNCTIONS: Dict[Tuple[str, str], PresetFunction] = {
     ("aliexpress", "detail"): get_aliexpress_detail_preset,
     ("aliexpress", "search"): get_aliexpress_search_preset,
+    ("taobao", "detail"): get_taobao_detail_preset,
+    ("tmall", "detail"): get_tmall_detail_preset,
+    ("1688", "detail"): get_1688_detail_preset,
 }
 
 def get_preset(site: str, method: str) -> Optional[Dict[str, Any]]:
@@ -57,4 +66,5 @@ __all__ = [
     "analyze_url", "get_webdriver_override",
     "DOMAIN_MAPPING", "METHOD_PATTERNS", "WEBDRIVER_OVERRIDES", "PROVIDER_SPECIFIC_FIELDS",
     "get_aliexpress_detail_preset", "get_aliexpress_search_preset",
+    "get_taobao_detail_preset", "get_tmall_detail_preset", "get_1688_detail_preset",
 ]

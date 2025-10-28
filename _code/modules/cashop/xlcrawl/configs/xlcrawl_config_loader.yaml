@@ -7,7 +7,7 @@
 
 source:
 
-  - src: ["{{cashop_base_config}}", "cashop_product"]
+  - src: ["{{cashop_base_config}}", "cashop_base"]
     yaml_parser:
       safe_mode: true
       encoding: "utf-8"
@@ -24,7 +24,7 @@ source:
       overwrite: true
 
   # 2. Crawl Policy (Fallback)
-  - src: ["{{cashop_configs_dir}}/cashop_excel.yaml", "excel"]
+  - src: ["{{cashop_configs_dir}}/cashop_excel.yaml", "excel_load"]
     yaml_parser:
       safe_mode: true
       encoding: "utf-8"

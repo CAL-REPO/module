@@ -98,11 +98,13 @@ class ExcelUpdater:
             date_value = date_value.strftime("%Y-%m-%d")
         
         # ========================================
-        # Filter successful CAS (success=True인 경우만)
+        # Filter successful CAS with processed images or skipped
         # ========================================
+        # ✅ success=True AND (processed_count > 0 OR skipped=True)
+        # ✅ skipped=True: 파일이 이미 존재하여 크롤링 건너뛴 경우
         successful_cas = [
             r for r in cas_results
-            if r.get("success")  # success=True면 업데이트 (processed_count 무관)
+            if r.get("success") and (r.get("processed_count", 0) > 0 or r.get("skipped", False))
         ]
         
         if not successful_cas:
@@ -135,9 +137,21 @@ class ExcelUpdater:
                     # slice or MultiIndex - fallback to 1
                     col_idx = 1
                 
-                # Write cell
-                worksheet.cell_ops.write(row, col_idx, date_value)
-                updated_count += 1
+                # ========================================
+                # Skip 시: 빈 칸만 날짜 기입, 이미 날짜 있으면 유지
+                # 일반 처리: 무조건 날짜 업데이트
+                # ========================================
+                if cas_item.get("skipped", False):
+                    # Skip된 경우: 셀이 비어있을 때만 날짜 기입
+                    current_value = worksheet.cell_ops.read((row, col_idx))
+                    if current_value is None or str(current_value).strip() == "":
+                        worksheet.cell_ops.write(row, col_idx, date_value)
+                        updated_count += 1
+                    # 이미 날짜가 있으면 업데이트 안함
+                else:
+                    # 일반 처리된 경우: 무조건 날짜 업데이트
+                    worksheet.cell_ops.write(row, col_idx, date_value)
+                    updated_count += 1
             
             except (KeyError, ValueError) as e:
                 # Column not found - skip

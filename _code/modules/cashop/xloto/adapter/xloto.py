@@ -25,6 +25,7 @@ Example:
 """
 
 from __future__ import annotations
+from csv import excel
 from pathlib import Path
 from typing import Any, Dict, Optional, Union, List
 from datetime import datetime
@@ -95,6 +96,7 @@ class XlOTO:
         self,
         cfg_like: Union[dict, None] = None,
         *,
+        cfg_like_base: Union[BaseModel, Path, str, dict, None] = None,
         cfg_like_excel: Union[BaseModel, Path, str, dict, None] = None,
         cfg_like_image_load: Union[BaseModel, Path, str, dict, None] = None,
         cfg_like_image_text_recognize: Union[BaseModel, Path, str, dict, None] = None,
@@ -108,11 +110,12 @@ class XlOTO:
         Architecture:
             1. ConfigLoader가 모든 section 병합
             2. Runtime overrides 병합
-            3. SectionExtractor.extract_batch()로 Excel section 추출
+            3. SectionExtractor.extract_batch()로 모든 section 추출
             4. OTO에 전체 cfg_like + 개별 cfg_like 전달
         
         Args:
             cfg_like: 병합된 dict (ConfigLoader.to_dict() 결과)
+            cfg_like_base: CashopBasePolicy 개별 설정 (우선순위 1)
             cfg_like_excel: ExcelLoadPolicy 개별 설정 (우선순위 1)
             cfg_like_image_load: ImageLoadPolicy 개별 설정
             cfg_like_image_text_recognize: ImageTextRecognizePolicy 개별 설정
@@ -122,8 +125,8 @@ class XlOTO:
             **overrides: 런타임 오버라이드
         
         Cascading Priority:
-            1. cfg_like_excel (개별 cfg_like) - 최우선
-            2. cfg_like["excel"] (병합 dict의 section)
+            1. cfg_like_base (개별 cfg_like) - 최우선
+            2. cfg_like["xloto"] (병합 dict의 section)
             3. None (Pydantic 기본값)
         
         Note:
@@ -142,17 +145,23 @@ class XlOTO:
             merged_config = {**merged_config, **override_dict}
         
         # ========================================
-        # SectionExtractor.extract_batch() (Excel + ImageOverlay section 추출)
+        # SectionExtractor.extract_batch() (모든 Policy section 추출)
         # ========================================
         extracted = SectionExtractor.extract_batch(
             merged_config=merged_config,
             individual_cfgs={
+                CashopBasePolicy: cfg_like_base,
                 ExcelLoadPolicy: cfg_like_excel,
                 ImageOverlayPolicy: cfg_like_image_overlay,
             }
         )
         
         # Policy.name으로 추출
+        base_policy_data = extracted[
+            SectionExtractor.get_policy_name(CashopBasePolicy)
+        ]
+        self.policy = CashopBasePolicy(**base_policy_data) if isinstance(base_policy_data, dict) else base_policy_data  # type: ignore
+        
         self._cfg_excel = extracted[
             SectionExtractor.get_policy_name(ExcelLoadPolicy)
         ]
@@ -172,18 +181,6 @@ class XlOTO:
             self._cfg_like_image_overlay = cfg_like_image_overlay
         
         # ========================================
-        # CashopBasePolicy 생성 (xloto)
-        # ========================================
-        try:
-            # merged_config에서 xloto 섹션 추출
-            xloto_config = merged_config.get("xloto", {})
-            self.policy = CashopBasePolicy(**xloto_config)
-        except Exception as e:
-            self.log.warning(f"Failed to create CashopBasePolicy from config: {e}")
-            self.log.warning("Using default CashopBasePolicy (may cause errors)")
-            raise  # ← Required field이므로 에러 발생시켜야 함
-        
-        # ========================================
         # Logger 초기화
         # ========================================
         if log_manager:
@@ -199,6 +196,7 @@ class XlOTO:
         # ========================================
         # Lazy Loading (첫 사용 시 초기화)
         # ========================================
+        self.policy: CashopBasePolicy  # Type hint 추가
         self._excel_load: Optional[ExcelLoad] = None
         self._OTO: Optional[OTO] = None
         self._image_manager: Optional[ImageFileManager] = None
@@ -215,7 +213,6 @@ class XlOTO:
     def excel_load(self) -> ExcelLoad:
         """ExcelLoad Adapter lazy-loading"""
         if self._excel_load is None:
-            # ⚠️ 파일 경로는 run()에서 받음 (여기서는 생성 안 함)
             pass
         return self._excel_load  # type: ignore
     
@@ -248,17 +245,9 @@ class XlOTO:
     
     @property
     def cas_extractor(self) -> CasExtractor:
-        """CasExtractor Service lazy-loading
-        
-        ⚠️ include_download=True + download_empty=False: download 컬럼이 있을 때만 추출
-        ⚠️ include_translation=True: translation 컬럼이 비어있을 때만 추출
-        """
+        """CasExtractor Service lazy-loading"""
         if self._cas_extractor is None:
-            self._cas_extractor = CasExtractor(
-                include_download=True,  # ✅ download 조건 활성화
-                download_empty=False,  # ✅ download가 있을 때만 추출 (xloto)
-                include_translation=True  # ✅ translation이 비어있을 때만
-            )
+            self._cas_extractor = CasExtractor()
             self.log.debug("CasExtractor created")
         return self._cas_extractor
     
@@ -323,7 +312,7 @@ class XlOTO:
             # Step 1: Load Excel (ExcelLoad Adapter)
             # ================================================================
             self.log.info("[1/4] Loading Excel file...")
-            
+
             # ExcelLoad 생성 (App 단위)
             excel = ExcelLoad(
                 cfg_like=self._cfg_excel,  # type: ignore
@@ -375,7 +364,16 @@ class XlOTO:
                 if ws.column_resolver is None:
                     raise ValueError("XwWs.column_resolver is None (preset not configured)")
                 
-                cas_list = self.cas_extractor.extract(df, ws.column_resolver)
+                # download가 채워져있고, translation이 비어있을 때만 추출
+                cas_list = self.cas_extractor.extract(
+                    df,
+                    ws.column_resolver,
+                    cas_key="cas",
+                    download_key="download",
+                    download_must_be_empty=False,
+                    translation_key="translation",
+                    translation_must_be_empty=True
+                )
                 
                 self.log.success(f"  Extracted {len(cas_list)} CAS No")
                 self.log.debug(f"  CAS List: {cas_list}")
@@ -401,13 +399,14 @@ class XlOTO:
                     # Find missing images
                     missing_images = self.image_manager.get_missing_images(cas_no)
                     if not missing_images:
-                        self.log.info("    No images to process (already translated)")
-                        # 이미 번역된 경우도 cas_results에 추가 (success=True, processed_count=0)
+                        self.log.info(f"    ⏭️  CAS {cas_no}: Already translated (skipped)")
+                        # 이미 번역된 경우도 cas_results에 추가
                         cas_results.append({
                             "cas_no": cas_no,
                             "success": True,
                             "processed_count": 0,
-                            "translation_row": cas_item.get("translation_row"),
+                            "skipped": True,  # ✅ Excel 업데이트를 위한 플래그
+                            "translation_row": cas_item.get("cas_row"),  # ✅ CasExtractor 리팩토링 반영
                             "translation_col": cas_item.get("translation_col"),
                             "status": "already_translated"
                         })
@@ -447,21 +446,23 @@ class XlOTO:
                     # Success 또는 일부 성공한 경우 cas_results에 추가
                     if success_count > 0:
                         processed_count += 1
+                        self.log.info(f"    ✅ CAS {cas_no}: Translated {success_count} images")
                         cas_results.append({
                             "cas_no": cas_no,
                             "success": True,
                             "processed_count": success_count,
-                            "translation_row": cas_item.get("translation_row"),
+                            "translation_row": cas_item.get("cas_row"),  # ✅ CasExtractor 리팩토링 반영
                             "translation_col": cas_item.get("translation_col"),
                             "status": "processed"
                         })
                     else:
                         # 모든 이미지 처리 실패
+                        self.log.warning(f"    ❌ CAS {cas_no}: Translation failed")
                         cas_results.append({
                             "cas_no": cas_no,
                             "success": False,
                             "processed_count": 0,
-                            "translation_row": cas_item.get("translation_row"),
+                            "translation_row": cas_item.get("cas_row"),  # ✅ CasExtractor 리팩토링 반영
                             "translation_col": cas_item.get("translation_col"),
                             "status": "failed"
                         })
