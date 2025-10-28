@@ -99,6 +99,13 @@ class FirefoxWebDriver:
         service = Service(executable_path=driver_path)
         self._driver = webdriver.Firefox(service=service, options=options)
         
+        # ✅ Stealth Mode 강제 적용: JavaScript로 navigator.webdriver 제거
+        try:
+            self._driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            self.logger.debug("✅ navigator.webdriver forcefully removed via JavaScript")
+        except Exception as e:
+            self.logger.warning(f"Failed to remove navigator.webdriver: {e}")
+        
         # Window size 설정
         if self.config.window_size:
             w, h = self.config.window_size
@@ -165,6 +172,13 @@ class FirefoxWebDriver:
         if self.config.headless:
             options.add_argument("--headless")
             self.logger.info("Headless mode enabled")
+        
+        # ✅ Stealth Mode: navigator.webdriver 제거 (Bot 탐지 회피)
+        options.set_preference("dom.webdriver.enabled", False)
+        options.set_preference("useAutomationExtension", False)
+        # ✅ 추가: Automation 확장 비활성화
+        options.set_preference("devtools.jsonview.enabled", False)
+        self.logger.info("✅ Stealth mode enabled: navigator.webdriver disabled")
         
         # ✅ User-Agent 3단계 Fallback: 명시적 설정 → 자동 감지 → 캐시 로드 → 예외
         ua = self.config.user_agent

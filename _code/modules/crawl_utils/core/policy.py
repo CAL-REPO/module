@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Literal, Any, TYPE_CHECKING, Tuple, Set
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic.dataclasses import dataclass
 
 from modules.logs_utils import LogPolicy
 from modules.path_utils import OSPath, downloads
@@ -57,7 +58,7 @@ class ExecutionMode(str, Enum):
     SYNC = "sync"
 
 class NavigationPolicy(PolicyBase):
-    base_url: HttpUrl
+    base_url: Optional[HttpUrl] = None
     url_template: Optional[str] = None
     params: Dict[str, str | int | float] = Field(default_factory=dict)
     page_param: str = Field("page", min_length=1)
@@ -67,12 +68,14 @@ class NavigationPolicy(PolicyBase):
 class ScrollStrategy(str, Enum):
     NONE = "none"
     PAGINATE = "paginate"
+    STEP = "step"
     INFINITE = "infinite"
 
 class ScrollPolicy(PolicyBase):
     strategy: ScrollStrategy = Field(ScrollStrategy.NONE, description="Scroll strategy")
     scroll_count: Optional[int] = Field(None, ge=0, description="Fixed scroll count (site-specific)")
     max_scrolls: int = Field(0, ge=0, description="Maximum scroll attempts")
+    scroll_step_px: int = Field(600, ge=1, description="Scroll distance per step (pixels)")
     scroll_pause_sec: float = Field(0.5, ge=0.0)
 
 class WaitHook(str, Enum):
@@ -158,110 +161,351 @@ class ExtractorPolicy(PolicyBase):
     api_method: str = Field("GET", pattern="^[A-Z]+$")
     payload: Optional[Dict] = None
 
-
 # =============================================================================
-# PostProcessor Policy (v5.1 - 계층화)
+# Item Policy (v7.0 - 정책 분리 및 구조 개선)
 # =============================================================================
+ItemKind = Literal["image", "text", "file"]
 
-# =============================================================================
-# Save/Load Models (v5.3)
-# ========================================================================
-ItemKind = Literal["image", "text", "file"] 
-
-class ItemPostProcessPolicy(PolicyBase):
-    """정규화 + 저장 통합 규칙 (v6.0 - KeyPath 기반)
+class CrawlItemSourcePolicy(PolicyBase):
+    """크롤 아이템 추출 정책 (Source Policy)
     
-    kind: 아이템 종류
-        - "image": 이미지 (URL 다운로드 또는 bytes 저장)
-        - "text": 텍스트 (str 저장)
-        - "file": 파일 (URL 다운로드 또는 bytes 저장)
+    책임:
+    - 추출 규칙 정의 (어떤 데이터를 추출할 것인가?)
+    - KeyPath 기반 source 정의
+    - kind 타입 지정
     
-    source: 값을 추출할 KeyPath
-        - "product__images": product.images에서 추출
-        - "sku__options[*]__name": sku.options 배열의 각 name 추출
-        - "__" 구분자 사용 (프로젝트 표준)
+    설계 원칙:
+    - 추출 규칙에만 집중 (저장 규칙과 분리)
+    - Required 필드만 포함 (kind, source)
+    - 명확한 책임 (SRP 준수)
     
     Examples:
-        >>> policy = ItemPostProcessPolicy(
+        >>> # 이미지 추출
+        >>> policy = CrawlItemSourcePolicy(
         ...     kind="image",
-        ...     source="product__images",
-        ...     directory=Path("output/images")
+        ...     source="product__images"
+        ... )
+        
+        >>> # 배열 순회
+        >>> policy = CrawlItemSourcePolicy(
+        ...     kind="text",
+        ...     source="sku__options[*]__name"
         ... )
     """
     
-    kind: ItemKind = Field(..., description="Item kind (image/text/file)")
-    source: str = Field(..., description="KeyPath to extract value (product__images, title)")
-    directory: Optional[Path] = Field(
-        None, 
-        description="Target directory (None = path_utils.downloads())"
+    kind: ItemKind = Field(
+        ...,
+        description="아이템 종류 (image/text/file)"
     )
-    name: FSONamePolicy = Field(
-        default_factory=lambda: FSONamePolicy(
-            as_type="file",
-            suffix="_processed",
-            tail_mode="counter",
-            ensure_unique=True,
-        ),  # type: ignore
-        description="FSO name policy for item naming"
-    )
-    ops: FSOOpsPolicy = Field(
-        default_factory=lambda: FSOOpsPolicy(
-            as_type="file",
-            exist=ExistencePolicy(create_if_missing=True, overwrite=True),  # type: ignore
-            ext=FileExtensionPolicy(default_ext=".json"),  # type: ignore
-        ),  # type: ignore
-        description="FSO operations policy for item"
+    source: str | bytes = Field(
+        ...,
+        description="KeyPath to extract value (product__images, sku__options[*]__name)"
     )
 
+class CrawlItemSavePolicy(PolicyBase):
+    """크롤 아이템 저장 정책 (Save Policy)
+    
+    책임:
+    - 저장 규칙 정의 (어디에, 어떻게 저장할 것인가?)
+    - FSO 정책 캡슐화 (FSONamePolicy, FSOOpsPolicy)
+    - 저장 위치 지정 (dir_path)
+    
+    설계 원칙:
+    - 저장 규칙에만 집중 (추출 규칙과 분리)
+    - FSO 정책을 내부에 캡슐화 (외부에서 직접 참조 안함)
+    - 기본값 제공 (default_factory)
+    
+    후처리 우선순위:
+        ItemNormalizer 자동 추론 (filename, extension)
+        ← YAML data override
+        ← Preset override
+        ← Runtime override (최우선)
+    
+    Examples:
+        >>> # 기본 저장 정책
+        >>> policy = CrawlItemSavePolicy(
+        ...     dir_path=Path("output/images"),
+        ...     fso_name=FSONamePolicy(
+        ...         prefix="CAPEA",
+        ...         name="product",
+        ...         extension="jpg"
+        ...     ),
+        ...     fso_ops=FSOOpsPolicy(overwrite=False)
+        ... )
+        
+        >>> # 자동 추론 활용 (name, extension 비워두기)
+        >>> policy = CrawlItemSavePolicy(
+        ...     dir_path=None,  # downloads()
+        ...     fso_name=FSONamePolicy(
+        ...         prefix="CAPEA",
+        ...         name="",        # ← ItemNormalizer가 URL에서 추론
+        ...         extension=""    # ← ItemNormalizer가 URL에서 추론
+        ...     )
+        ... )
+    """
+    
+    dir_path: Optional[Path] = Field(
+        None,
+        description="저장 디렉토리 (None = path_utils.downloads())"
+    )
+    fso_name: FSONamePolicy = Field(
+        default_factory=FSONamePolicy,  # type: ignore
+        description="파일명 정책 (FSO 모듈)"
+    )
+    fso_ops: FSOOpsPolicy = Field(
+        default_factory=FSOOpsPolicy,  # type: ignore
+        description="파일 작업 정책 (FSO 모듈)"
+    )
 
-
-@dataclass(slots=True)
-class ItemList:
-    """정규화된 아이템 (Extract → Save 중간 데이터 모델)
-
-    ItemPostProcessor가 Extract 결과(Dict)를 ItemList로 변환하고,
-    PostProcessor가 ItemList를 파일로 저장합니다.
-
+class CrawlItemPolicy(CrawlItemSourcePolicy, CrawlItemSavePolicy):
+    """크롤 아이템 통합 정책 (Item Policy)
+    
+    책임:
+    - 추출 규칙 + 저장 규칙 통합
+    - SyncCrawlPolicy.save에 포함
+    - 정책 계층 구조 정의
+    
+    구조:
+        CrawlItemPolicy
+        ├── source_policy: CrawlItemSourcePolicy (추출 규칙)
+        └── save_policy: CrawlItemSavePolicy (저장 규칙)
+    
+    설계 원칙:
+    - 명확한 분리 (source vs save)
+    - 독립적 변경 가능 (추출 규칙 ↔ 저장 규칙)
+    - 재사용성 (source_policy, save_policy 독립적으로 재사용)
+    
     데이터 흐름:
-        Extract (Dict) 
-            ↓ ItemPostProcessor.process()
-        ItemList (타입 + 값 + 메타데이터)
-            ↓ PostProcessor.save_items()
-        ItemSaveResult (저장 결과)
+        1. CrawlItemPolicy (정책 정의) → SyncCrawlPolicy.save
+        2. ItemPostProcessor (KeyPath 추출) → source_policy.source
+        3. ItemNormalizer (자동 추론) → save_policy 보완
+        4. Override 적용 (후처리 > YAML > Preset > Runtime)
+        5. CrawlItems 생성 (런타임 데이터)
+        6. ItemSaver (파일 저장)
+    
+    Examples:
+        >>> # 이미지 크롤링 정책
+        >>> policy = CrawlItemPolicy(
+        ...     source_policy=CrawlItemSourcePolicy(
+        ...         kind="image",
+        ...         source="product__images"
+        ...     ),
+        ...     save_policy=CrawlItemSavePolicy(
+        ...         dir_path=Path("output/images"),
+        ...         name=FSONamePolicy(
+        ...             prefix="CAPEA",
+        ...             name="product",
+        ...             tail_mode="counter"
+        ...         )
+        ...     )
+        ... )
+        
+        >>> # YAML 정의
+        >>> # save:
+        >>> #   - source_policy:
+        >>> #       kind: "image"
+        >>> #       source: "product__images"
+        >>> #     save_policy:
+        >>> #       dir_path: null
+        >>> #       fso_name:
+        >>> #         prefix: "CAPEA"
+        >>> #         name: ""  # ItemNormalizer가 자동 추론
+    """
+    
+
+@dataclass
+class CrawlItem:
+    """크롤 아이템 런타임 데이터 (v7.0 - Policy와 분리)
+    
+    책임:
+    - 런타임 데이터 저장 (Policy와 분리)
+    - 원본 source 보존 (세션 기반 다운로드 지원)
+    - 후처리 결과 저장
+    
+    설계 원칙:
+    - Policy(BaseModel) vs Data(dataclass) 명확히 분리
+    - source를 원본 그대로 보존 (URL 또는 bytes)
+    - 타입 안전성 (TypedDict → dataclass)
+    
+    후처리 흐름:
+        1. Extractor: KeyPath 추출 → raw source
+        2. ItemNormalizer: 자동 추론 (filename, extension)
+        3. Override 적용: YAML < Preset < Runtime
+        4. CrawlItems 생성: 최종 런타임 데이터
+        5. ItemSaver: 파일 저장
     
     Attributes:
         kind: 아이템 종류 (image/text/file)
-        value: 실제 값 (URL, text, bytes)
-        directory: 저장 디렉토리
-        name: FSONamePolicy (파일명 정책)
-        ops: FSOOpsPolicy (파일 작업 정책)
         
-        record_index: Extract 결과의 몇 번째 record인지
-            - 1-based index
-            - 예: extracted_data[0] → record_index=1
-            - Jinja2에서 사용: {{item.record}}
+        source: 원본 소스 (추출된 그대로)
+            - URL (str): 세션 기반 다운로드 필요
+            - bytes: 이미 다운로드된 데이터
+            - text (str): 텍스트 데이터
+            - ⚠️ 원본 보존 필수! (세션 쿠키, 헤더 등 활용)
         
-        item_index: 해당 record 내에서 몇 번째 item인지
-            - 1-based index
-            - explode=True로 리스트 분리 시 자동 증가
-            - 예: images[0] → item_index=1, images[1] → item_index=2
-            - Jinja2에서 사용: {{item.index}}
+        dir_path: 저장 디렉토리
+            - None: path_utils.downloads()
+            - Path: 사용자 지정 경로
+        
+        name: 파일명 정책 (FSONamePolicy)
+            - ItemNormalizer가 자동 추론한 값 포함
+            - Override 우선순위: Runtime > Preset > YAML > 후처리
+        
+        ops: 파일 작업 정책 (FSOOpsPolicy)
+            - overwrite, unique, mkdir 등
     
+    Examples:
+        >>> # 이미지 URL (세션 기반 다운로드 필요)
+        >>> item = CrawlItems(
+        ...     kind="image",
+        ...     source="https://example.com/product/image.jpg",
+        ...     dir_path=Path("output/images"),
+        ...     fso_name=FSONamePolicy(
+        ...         prefix="CAPEA",
+        ...         name="product",  # ← ItemNormalizer가 URL에서 추론
+        ...         extension="jpg"  # ← ItemNormalizer가 URL에서 추론
+        ...     ),
+        ...     fso_ops=FSOOpsPolicy(overwrite=False),
+        ...     record_index=1,
+        ...     item_index=1
+        ... )
+        
+        >>> # 텍스트 데이터
+        >>> item = CrawlItems(
+        ...     kind="text",
+        ...     source="상품명: 테스트",
+        ...     dir_path=Path("output/text"),
+        ...     fso_name=FSONamePolicy(
+        ...         prefix="CAPEA",
+        ...         name="title",
+        ...         extension="txt"
+        ...     ),
+        ...     fso_ops=FSOOpsPolicy(),
+        ...     record_index=1,
+        ...     item_index=1
+        ... )
+        
+        >>> # bytes 데이터 (이미 다운로드됨)
+        >>> item = CrawlItems(
+        ...     kind="image",
+        ...     source=b"\x89PNG...",  # bytes
+        ...     dir_path=Path("output/images"),
+        ...     fso_name=FSONamePolicy(
+        ...         prefix="CAPEA",
+        ...         name="screenshot",
+        ...         extension="png"
+        ...     ),
+        ...     fso_ops=FSOOpsPolicy(),
+        ...     record_index=1,
+        ...     item_index=1
+        ... )
     """
-    kind: ItemKind
-    value: Any
-    directory: Optional[Path]
-    name: Any  # FSONamePolicy
-    ops: Any  # FSOOpsPolicy
+    source_policy: CrawlItemSourcePolicy = Field(
+        default_factory=CrawlItemSourcePolicy, # type: ignore
+        description="추출 정책 (kind, source)"
+    )
+    save_policy: CrawlItemSavePolicy = Field(
+        default_factory=CrawlItemSavePolicy,  # type: ignore
+        description="저장 정책 (dir_path, fso_name, fso_ops)"
+    )
+    # runtime indices (set dynamically by ItemsNormalizer)
     record_index: int = 0
     item_index: int = 0
+
+    # Compatibility properties (flattened accessors used by legacy saver/tests)
+    @property
+    def kind(self) -> ItemKind:
+        return self.source_policy.kind
+
+    @kind.setter
+    def kind(self, v: ItemKind) -> None:
+        try:
+            self.source_policy.kind = v
+        except Exception:
+            pass
+
+    @property
+    def source(self) -> str | bytes:
+        return self.source_policy.source
+
+    @source.setter
+    def source(self, v: str | bytes) -> None:
+        try:
+            self.source_policy.source = v
+        except Exception:
+            pass
+
+    @property
+    def dir_path(self) -> Optional[Path]:
+        return self.save_policy.dir_path
+
+    @dir_path.setter
+    def dir_path(self, v: Optional[Path]) -> None:
+        try:
+            self.save_policy.dir_path = v
+        except Exception:
+            pass
+
+    @property
+    def fso_name(self):
+        return self.save_policy.fso_name
+
+    @fso_name.setter
+    def fso_name(self, v) -> None:
+        try:
+            self.save_policy.fso_name = v
+        except Exception:
+            pass
+
+    @property
+    def fso_ops(self):
+        return self.save_policy.fso_ops
+
+    @fso_ops.setter
+    def fso_ops(self, v) -> None:
+        try:
+            self.save_policy.fso_ops = v
+        except Exception:
+            pass
+
+    @property
+    def name(self) -> str:
+        try:
+            return getattr(self.save_policy.fso_name, "name", "")
+        except Exception:
+            return ""
+
+    @name.setter
+    def name(self, v: str) -> None:
+        try:
+            setattr(self.save_policy.fso_name, "name", v)
+        except Exception:
+            pass
+
+    @property
+    def extension(self) -> str:
+        try:
+            return getattr(self.save_policy.fso_name, "extension", "")
+        except Exception:
+            return ""
+
+    @extension.setter
+    def extension(self, v: str) -> None:
+        try:
+            setattr(self.save_policy.fso_name, "extension", v)
+        except Exception:
+            pass
+
 
 @dataclass(slots=True)
 class ItemSaveResult:
     """파일 저장 결과 (PostProcessor 출력)
 
-    PostProcessor.save_items()가 각 ItemList를 파일로 저장한 후,
+    PostProcessor.save_items()가 각 CrawlItems를 파일로 저장한 후,
     저장 결과를 ItemSaveResult로 반환합니다.
+    
+    ⚠️ v7.0 변경사항:
+    - item: ItemList → CrawlItems (타입 변경)
     
     Attributes:
         path: 저장된 파일 경로
@@ -269,7 +513,7 @@ class ItemSaveResult:
             - status="skipped": Path() (빈 경로)
             - status="failed": Path() (빈 경로)
         
-        item: 원본 ItemSaveMeta
+        item: 원본 CrawlItems
             - 저장 대상이었던 아이템 (참조)
             - 실패 시 디버깅용
         
@@ -287,14 +531,14 @@ class ItemSaveResult:
         >>> # 성공
         >>> artifact = ItemSaveResult(
         ...     path=Path("m:/output/images/product_001.jpg"),
-        ...     item=item_save_meta,
+        ...     item=crawl_items,
         ...     status="saved"
         ... )
         
         >>> # 건너뜀
         >>> artifact = ItemSaveResult(
         ...     path=Path(),
-        ...     item=item_save_meta,
+        ...     item=crawl_items,
         ...     status="skipped",
         ...     detail="No metadata"
         ... )
@@ -302,24 +546,20 @@ class ItemSaveResult:
         >>> # 실패
         >>> artifact = ItemSaveResult(
         ...     path=Path(),
-        ...     item=item_save_meta,
+        ...     item=crawl_items,
         ...     status="failed",
         ...     detail="HTTPError: 404 Not Found"
         ... )
     """
     path: Path
-    item: ItemList
+    item: CrawlItem  # v7.0: ItemList → CrawlItem
     status: Literal["saved", "skipped", "failed"] = "saved"
     detail: Optional[str] = None
 
 
 @dataclass(slots=True)
 class ItemSaveSummary:
-    """파일 저장 결과 요약 (PostProcessor 최종 출력)
-    
-    PostProcessor.save_many()가 여러 NormalizedItem을 저장한 후,
-    kind별로 그룹화된 ItemSaveResult 리스트를 ItemSaveSummary로 반환합니다.
-    
+    """파일 저장 결과 요약
     Attributes:
         artifacts: kind별 ItemSaveResult 리스트
             - 구조: {"image": [...], "text": [...], "file": [...]}
@@ -388,9 +628,6 @@ class ItemSaveSummary:
             List[ItemSaveResult]: 해당 kind의 artifact (없으면 빈 리스트)
         """
         return self.artifacts.get(kind, [])
-
-
-
 
 # =============================================================================
 # Unified Policy for SyncCrawl Adapter (OTO Pattern)
@@ -464,7 +701,7 @@ class SyncCrawlPolicy(PolicyBase):
     )
     # Navigation (Optional - search 메서드용)
     navigation: Optional[NavigationPolicy] = Field(
-        default=None,
+        default=None,  # pyright: ignore[reportArgumentType]
         description="페이지 네비게이션 설정 (search 메서드 필수)"
     )
     
@@ -484,12 +721,18 @@ class SyncCrawlPolicy(PolicyBase):
         description="데이터 추출 설정"
     )
 
-    # Normalization Rules (v6.0 - KeyPath 기반)
-    save: List[ItemPostProcessPolicy] = Field(
+    # Normalization Rules (v7.0 - CrawlItemPolicy 기반)
+    items: Optional[List[CrawlItemPolicy]] = Field(
         default_factory=list,
-        description="ItemPostProcessPolicy 리스트 (Extract + Save 통합 규칙)"
+        description="CrawlItemPolicy 리스트 (v7.0)"
     )
-
+    
+    # KeyPath Settings (v8.0)
+    keypath_separator: str = Field(
+        default="__",
+        description="KeyPath separator for flattening nested dicts (default: '__')"
+    )
+    
     # Logging (Optional)
     log: Optional[LogPolicy] = Field(
         None,

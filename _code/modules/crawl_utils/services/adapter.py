@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any, Callable
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -60,14 +59,14 @@ class AsyncSeleniumAdapter(BrowserController):
         await _to_thread(self._drv.get, url)
 
     async def scroll_bottom(
-        self, step: int = 600, delay: float = 0.1, max_scrolls: int = 10
+        self, step: int = 600, delay: float = 0.1, max_scrolls: int = 1
     ) -> None:
-        async def _scroll_once():
-            await self.execute_js(f"window.scrollBy(0, {step});")
+        """Scroll directly to the bottom of the page once."""
+        await self.execute_js("window.scrollTo(0, document.body.scrollHeight);")
 
-        for _ in range(max_scrolls):
-            await _scroll_once()
-            await asyncio.sleep(delay)
+    async def scroll_step(self, step: int = 600) -> None:
+        """Scroll down by a fixed step (async)."""
+        await self.execute_js(f"window.scrollBy(0, {step});")
 
     async def wait_css(self, selector: str, timeout: float = 10.0) -> bool:
         try:
@@ -96,9 +95,9 @@ class AsyncSeleniumAdapter(BrowserController):
             return self._drv.page_source
         return await _to_thread(_read)
 
-    async def execute_js(self, script: str) -> Any:
+    async def execute_js(self, script: str, *args) -> Any:
         def _run():
-            return self._drv.execute_script(script)
+            return self._drv.execute_script(script, *args)
         try:
             return await _to_thread(_run)
         except WebDriverException:
@@ -156,12 +155,14 @@ class SyncSeleniumAdapter:
         self._drv.get(url)
 
     def scroll_bottom(
-        self, step: int = 600, delay: float = 0.1, max_scrolls: int = 10
+        self, step: int = 600, delay: float = 0.1, max_scrolls: int = 1
     ) -> None:
         """스크롤 (동기)"""
-        for _ in range(max_scrolls):
-            self._drv.execute_script(f"window.scrollBy(0, {step});")
-            time.sleep(delay)
+        self._drv.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+    def scroll_step(self, step: int = 600) -> None:
+        """한 번 단계적으로 스크롤 (동기)"""
+        self._drv.execute_script(f"window.scrollBy(0, {step});")
 
     def wait_css(self, selector: str, timeout: float = 10.0, *, visible: bool = False) -> bool:
         """CSS 선택자 대기 (동기)"""
@@ -189,10 +190,11 @@ class SyncSeleniumAdapter:
         """DOM 가져오기 (동기)"""
         return self._drv.page_source
 
-    def execute_js(self, script: str) -> Any:
+    def execute_js(self, script: str, *args) -> Any:
         """JavaScript 실행 (동기)"""
         try:
-            return self._drv.execute_script(script)
+            # Support additional args for execute_script
+            return self._drv.execute_script(script, *args)
         except WebDriverException:
             return None
 

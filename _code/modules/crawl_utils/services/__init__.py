@@ -1,197 +1,45 @@
-# -*- coding: utf-8 -*-
-# crawl_utils/services/__init__.py
-# Crawl Utils Services - 크롤링 서비스 컴포넌트
+"""Service entrypoint for crawl_utils (compact, v1).
 
-"""
-Crawl Utils Services
-====================
-
-크롤링 파이프라인의 핵심 서비스 컴포넌트들을 제공합니다.
-각 서비스는 Async/Sync 버전을 모두 지원합니다.
-
-파일 구조:
-----------
-- pre_processor.py: PreProcessor (URL 분석 및 정책 결정)
-- pipeline.py: SyncPipeline (Navigator + Scroll + Extractor + Normalizer)
-- adapter.py: AsyncSeleniumAdapter, SyncSeleniumAdapter
-- navigator.py: SeleniumNavigator (Async), SyncNavigator (Sync)
-- extractor.py: DOMExtractor, JSExtractor, APIExtractor, ExtractorFactory (Async Only)
-- fetcher.py: HTTPFetcher (Async), SyncHTTPFetcher (Sync), DummyFetcher
-- saver.py: FileSaver (Async), SyncFileSaver (Sync)
-- normalizer.py: Normalizer (Sync, Rule + Auto 통합)
-- auto_normalizer.py: AutoNormalizer (Sync, 독립적 자동 타입 추론)
-
-네이밍 규칙:
------------
-✅ Async 버전: AsyncXxx 또는 Xxx (접두사 없음, Async가 기본)
-✅ Sync 버전: SyncXxx (명시적 Sync 접두사)
-✅ Alias: Xxx = AsyncXxx (하위 호환성)
-
-예시:
-- AsyncSeleniumAdapter / SyncSeleniumAdapter
-- SeleniumNavigator (Async) / SyncNavigator (Sync)
-- HTTPFetcher (Async) / SyncHTTPFetcher (Sync)
-- FileSaver (Async) / SyncFileSaver (Sync)
-
-사용 가이드:
------------
-**Async 사용 (비동기 파이프라인)**:
-```python
-from crawl_utils.services import AsyncSeleniumAdapter, SeleniumNavigator, HTTPFetcher, FileSaver
-
-async with AsyncSeleniumAdapter(driver) as browser:
-    navigator = SeleniumNavigator(browser, policy)
-    fetcher = HTTPFetcher()
-    saver = FileSaver(policy.storage)
-    # ... async operations
-```
-
-**Sync 사용 (동기 스크립트)**:
-```python
-from crawl_utils.services import SyncSeleniumAdapter, SyncNavigator, SyncHTTPFetcher, SyncFileSaver
-
-with SyncSeleniumAdapter(driver) as browser:
-    navigator = SyncNavigator(browser, policy)
-    fetcher = SyncHTTPFetcher()
-    saver = SyncFileSaver(policy.storage)
-    # ... sync operations
-```
-
-Note: 고수준 오케스트레이션(CrawlPipeline/SyncCrawlRunner)은 현재 패키지에서 제공하지 않습니다.
-      이들은 별도의 entry_points나 상위 레벨에서 구현됩니다.
+Expose only currently-implemented sync/async service classes. This
+module avoids importing optional/removed components at package import
+time to keep imports fast and predictable.
 """
 
 from __future__ import annotations
 
-# ============================================================================
-# Pipeline: 크롤링 파이프라인 통합
-# ============================================================================
-from .pipeline import (
-    SyncPipeline,  # Navigator + Scroll + Extractor + Normalizer
-    AsyncPipeline,  # TODO: 향후 구현
-)
+# Core adapters
+from .adapter import AsyncSeleniumAdapter, SyncSeleniumAdapter
 
-# ============================================================================
-# Adapter: Selenium WebDriver 어댑터
-# ============================================================================
-from .adapter import (
-    AsyncSeleniumAdapter,  # Async 버전 (asyncio.to_thread 사용)
-    SyncSeleniumAdapter,   # Sync 버전 (직접 Selenium API 호출)
-)
+# Navigator
+from .navigator import SyncNavigator
 
-# ============================================================================
-# Navigator: 페이지 네비게이션 (로드, 스크롤, 대기)
-# ============================================================================
-from .navigator import (
-    # AsyncNavigator,      # Async 네비게이터
-    SyncNavigator,       # Sync 네비게이터
-)
+# Extractors
+from .extractor import SyncDOMExtractor, SyncJSExtractor, SyncExtractorFactory
 
-# ============================================================================
-# Extractor: 데이터 추출 (Async + Sync)
-# ============================================================================
-from .extractor import (
-    # Async
-    # AsyncExtractorFactory,  # Extractor 생성 팩토리 (Async)
-    # AsyncDOMExtractor,      # DOM 기반 추출 (BeautifulSoup)
-    # AsyncJSExtractor,       # JavaScript 실행 기반 추출
-    # AsyncAPIExtractor,      # API 호출 기반 추출
-    # Sync
-    SyncDOMExtractor,       # Sync DOM 추출 (BeautifulSoup)
-    SyncJSExtractor,        # Sync JavaScript 실행 기반 추출
-    SyncExtractorFactory,   # Sync Extractor 생성 팩토리
-)
+# Fetchers
+from .fetcher import AsyncHTTPFetcher, AsyncDummyFetcher, SyncHTTPFetcher
 
-# ============================================================================
-# Fetcher: HTTP 리소스 가져오기
-# ============================================================================
-from .fetcher import (
-    AsyncHTTPFetcher,    # Async HTTP fetcher (aiohttp 기반)
-    AsyncDummyFetcher,   # Async 테스트용 더미 Fetcher
-    SyncHTTPFetcher,     # Sync HTTP fetcher (requests 기반)
-)
+# Normalizers / items
+from .item_normalizer import ItemNormalizer
+from .items_normalizer import ItemsNormalizer
+from .preset_policy_normalizer import PresetPolicyNormalizer
 
-# ============================================================================
-# Normalizer: 데이터 정규화 (Sync Only - 순수 데이터 변환)
-# ============================================================================
-# from .auto_normalizer import (
-#     AutoNormalizer,  # 자동 타입 추론 정규화 (TypeInferencer 사용)
-# )
+# Saver
+from .item_saver import SyncItemSaver, AsyncItemSaver
 
-
-# ============================================================================
-# Crawl Methods: 메서드별 크롤링 서비스
-# ============================================================================
-from .crawl_methods import (
-    CrawlProductDetail,     # 상품 상세 페이지 크롤링
-    CrawlProductSearch,     # 상품 검색 결과 크롤링
-    CrawlMethodFactory,     # 크롤링 메서드 팩토리
-)
-
-# ============================================================================
-# ItemSaver: 파일 저장 (v7.0 - Renamed from PostProcessor)
-# ============================================================================
-from .item_saver import (
-    AsyncItemSaver,
-    SyncItemSaver,
-)
-
-
-__all__ = [    
-    # ========================================
-    # Pipeline
-    # ========================================
-    "SyncPipeline",
-    "AsyncPipeline",
-    
-    # ========================================
-    # ItemSaver (v7.0 - Renamed from PostProcessor)
-    # ========================================
-    "AsyncItemSaver",
-    "SyncItemSaver",
-    
-    # ========================================
-    # Adapter
-    # ========================================
+__all__ = [
     "AsyncSeleniumAdapter",
     "SyncSeleniumAdapter",
-    
-    # ========================================
-    # Navigator
-    # ========================================
-    # "AsyncNavigator",
     "SyncNavigator",
-    
-    # ========================================
-    # Extractor (Async Only)
-    # ========================================
-    # "AsyncExtractorFactory",
-    # "AsyncDOMExtractor",
-    # "AsyncJSExtractor",
-    # "AsyncAPIExtractor",
-    
-    # ========================================
-    # Fetcher
-    # ========================================
-    "AsyncHTTPFetcher",
-    "AsyncDummyFetcher",
-    "SyncHTTPFetcher",
-    
-    
-    # ========================================
-    # Sync Extractor
-    # ========================================
     "SyncDOMExtractor",
     "SyncJSExtractor",
     "SyncExtractorFactory",
-    
-    # ========================================
-    # Crawl Methods
-    # ========================================
-    "CrawlProductDetail",
-    "CrawlProductSearch",
-    "CrawlMethodFactory",
+    "AsyncHTTPFetcher",
+    "AsyncDummyFetcher",
+    "SyncHTTPFetcher",
+    "ItemNormalizer",
+    "ItemsNormalizer",
+    "PresetPolicyNormalizer",
+    "SyncItemSaver",
+    "AsyncItemSaver",
 ]
-
-
-

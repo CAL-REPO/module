@@ -1,0 +1,154 @@
+# ============================================================
+# CashopBasePolicy - Cashop 파이프라인 공통 정책
+# ============================================================
+# xloto/xlcrawl 파이프라인 공통 정책 (로깅 + 경로)
+# 서브 모듈 정책은 SectionExtractor가 동적 추출
+# ⚠️ Excel 파일 경로는 ExcelLoadPolicy.files에서 관리
+
+# ============================================================
+# xloto Section (SectionExtractor에서 사용)
+# ============================================================
+xloto:
+  # ============================================================
+  # Paths Policy - 이미지 경로 정책
+  # ============================================================
+  paths:
+    # 공용 이미지 디렉토리 (환경변수 참조)
+    public_img_dir: "{{modules_dir}}/0.CASHOP/xlcrawl/test/images"
+    # 원본 이미지 폴더명
+    origin_dirname: "input"
+    # 번역 이미지 폴더명
+    translated_dirname: "output"
+
+  # ============================================================
+  # Log Policy - XLOTO 파이프라인 로깅 정책
+  # ============================================================
+  log:
+    # 로깅 활성화
+    enabled: false
+    
+    # Logger 이름
+    name: "log_cashop_xlcrawl_pipeline"
+    
+    # 로그 레벨 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level: "INFO"
+    
+    # Sinks 설정
+    sinks:
+      # Console Sink
+      - sink_type: "console"
+        level: "INFO"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan> - <level>{message}</level>"
+        colorize: true
+        enqueue: false
+        catch: true
+      
+      # File Sink (Debug)
+      - sink_type: "file"
+        file_path: "{{cashop_test_dir}}/logs/xloto_pipeline_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "30 days"
+        compression: null
+        enqueue: true
+        serialize: false
+        backtrace: true
+        diagnose: true
+        colorize: true
+        catch: true
+      
+      # File Sink (Error Only)
+      - sink_type: "file"
+        file_path: "{{modules_dir}}/xl/xloto/test/logs/xloto_error_{time:YYYY-MM-DD}.log"
+        level: "ERROR"
+        format: "<red>{time:YYYY-MM-DD HH:mm:ss.SSS}</red> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>\n{exception}"
+        rotation: "10 MB"
+        retention: "90 days"
+        compression: "zip"
+        enqueue: true
+        serialize: false
+        backtrace: true
+        diagnose: true
+        colorize: true
+        catch: true
+    
+    # Context (추가 로그 컨텍스트)
+    context:
+      pipeline: "xloto"
+      version: "1.0.0"
+
+# ============================================================
+# xlcrawl Section (SectionExtractor에서 사용)
+# ============================================================
+xlcrawl:
+  # ============================================================
+  # Paths Policy - 크롤링 결과 경로 정책
+  # ============================================================
+  paths:
+    # 크롤링 결과 저장 디렉토리
+    output_dir: "{{modules_dir}}/cashop/xlcrawl/test/output"
+
+  # ============================================================
+  # Log Policy - XLCRAWL 파이프라인 로깅 정책
+  # ============================================================
+  log:
+    # 로깅 활성화
+    enabled: false
+    
+    # Logger 이름
+    name: "log_cashop_xlcrawl_pipeline"
+    
+    # 로그 레벨 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level: "INFO"
+    
+    # Sinks 설정
+    sinks:
+      # Console Sink
+      - sink_type: "console"
+        level: "INFO"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan> - <level>{message}</level>"
+        colorize: true
+        enqueue: false
+        catch: true
+      
+      # File Sink (Debug)
+      - sink_type: "file"
+        file_path: "{{modules_dir}}/cashop/xlcrawl/test/logs/xlcrawl_pipeline_{time:YYYY-MM-DD}.log"
+        level: "DEBUG"
+        format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        rotation: "10 MB"
+        retention: "30 days"
+        compression: null
+        enqueue: true
+        serialize: false
+        backtrace: true
+        diagnose: true
+        colorize: true
+        catch: true
+    
+    # Context (추가 로그 컨텍스트)
+    context:
+      pipeline: "xlcrawl"
+      version: "1.0.0"
+
+# ============================================================
+# 서브 모듈 정책 (SectionExtractor가 동적 추출)
+# ============================================================
+# ⚠️ 서브 모듈 정책은 여기에 정의하지 않음
+# ⚠️ Excel 파일 경로는 ExcelLoadPolicy.files에서 정의
+# 
+# ConfigLoader가 다음 섹션들을 병합:
+# - excel: cashop_excel.yaml (ExcelLoadPolicy.files 사용)
+# - image_load: xloto_image_load.yaml
+# - image_text_recognize: xloto_image_text_recognize.yaml
+# - translate: xloto_translate.yaml
+# - image_overlay: xloto_image_overlay.yaml
+# - sync_crawl: xlcrawl_sync_crawl.yaml
+# - webdriver_manager: xlcrawl_webdriver_manager.yaml
+# 
+# Adapter가 SectionExtractor로 각 섹션 추출:
+# - Excel: SectionExtractor.extract(merged_config, ExcelLoadPolicy)
+# - OTO/SyncCrawl 모듈들: 각 Adapter 내부에서 자동 추출
+# ============================================================
+

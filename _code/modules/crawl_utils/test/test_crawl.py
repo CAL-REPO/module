@@ -24,8 +24,24 @@ def main():
     config = ConfigLoader(config_loader_cfg_path=str(cfg_loader_path), env_os=["CASHOP_PATHS"])
     merged_config = config.to_dict()
     
+    # ========================================
+    # 2️⃣ Runtime Override 테스트 (Array Index 형식)
+    # ========================================
+    print("\n" + "="*80)
+    print("2️⃣ Runtime Override 테스트: sync_crawl__items[0]__dir_path (Array Index)")
+    print("="*80)
+    
+    test_directory = "M:/CALife/CAShop - 구매대행/_code/output/test/TEST_RUNTIME_OVERRIDE"
+    
+    print(f"✅ Attempting override to: '{test_directory}'")
+    print("="*80 + "\n")
+    
+    # ✅ run() 메서드의 **overrides 파라미터 사용 (Array Index 형식)
     syncCrawl = SyncCrawl(cfg_like=merged_config)
-    syncCrawl.run(urls=urls)
+    syncCrawl.run(
+        urls=urls,
+        **{"sync_crawl__items[0]__dir_path": test_directory}  # ✅ Array Index 형식
+    )
 
 if __name__ == "__main__":
     exit_code = main()

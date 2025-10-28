@@ -13,23 +13,23 @@ from pydantic import BaseModel, Field
 class FSONamePolicy(BaseModel):
     as_type: str = Field("file", description="Target type: file or dir")
     prefix: Optional[str] = None
-    name: str = Field("", description="Base name without extension")
+    name: Optional[str] = Field("default_name", description="Base name without extension")
     suffix: Optional[str] = None
     tail: Optional[str] = None
     extension: Optional[str] = None
 
-    delimiter: str = Field("_", description="Delimiter when joining parts")
+    delimiter: Optional[str] = Field("_", description="Delimiter when joining parts")
     tail_mode: Optional[str] = Field(
         None, description="Auto tail mode: date|datetime|counter|counter_datetime|datetime_counter"
     )
-    date_format: str = Field("%Y-%m-%d", description="strftime pattern for date tails")
-    counter_width: int = Field(3, ge=1)
-    auto_expand: bool = Field(True, description="Allow counter wider than counter_width")
+    date_format: Optional[str] = Field("%Y-%m-%d", description="strftime pattern for date tails")
+    counter_width: Optional[int] = Field(3, ge=1)
+    auto_expand: Optional[bool] = Field(True, description="Allow counter wider than counter_width")
     tail_suffix: Optional[str] = None
 
-    sanitize: bool = Field(True, description="Remove illegal filesystem characters")
-    case: str = Field("keep", description="Name casing: lower|upper|keep")
-    ensure_unique: bool = Field(True, description="Avoid overwriting existing files")
+    sanitize: Optional[bool] = Field(True, description="Remove illegal filesystem characters")
+    case: Optional[str] = Field("keep", description="Name casing: lower|upper|keep")
+    ensure_unique: Optional[bool] = Field(True, description="Avoid overwriting existing files")
 
 
 class ExistencePolicy(BaseModel):

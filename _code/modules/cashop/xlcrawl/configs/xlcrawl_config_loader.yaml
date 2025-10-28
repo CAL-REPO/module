@@ -1,0 +1,93 @@
+# ============================================================
+# ConfigLoader for SyncCrawl Adapter (OTO Pattern)
+# ============================================================
+# 목적: SyncCrawl Adapter 통합 테스트용 ConfigLoader 설정
+# 대상: SyncCrawlPolicy (webdriver_manager + crawl + log 통합)
+# 네이밍 규칙: config_loader_sync_crawl.yaml
+
+source:
+
+  - src: ["{{cashop_base_config}}", "cashop_product"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 2. Crawl Policy (Fallback)
+  - src: ["{{cashop_configs_dir}}/cashop_excel.yaml", "excel"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+  # 1. WebDriver Manager Policy
+  - src: ["{{cashop_xlcrawl_configs_dir}}/xlcrawl_webdriver_manager.yaml", "webdriver_manager"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true              # ✅ 환경변수 resolving 필수!
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+  
+  # 2. Crawl Policy (Fallback)
+  - src: ["{{cashop_xlcrawl_configs_dir}}/xlcrawl_sync_crawl.yaml", "sync_crawl"]
+    yaml_parser:
+      safe_mode: true
+      encoding: "utf-8"
+      enable_env: true
+      enable_include: true
+      enable_placeholder: true
+      enable_reference: true
+    yaml_normalizer:
+      normalize_keys: true
+      drop_blanks: true
+      resolve_vars: true
+    yaml_merge:
+      deep: true
+      overwrite: true
+
+  # 2. Crawl Policy (Fallback)
+keypath:
+  separator: "__"
+
+# --------------------------------------------------------------------------
+# Log - ConfigLoader 자체 로그 설정
+# --------------------------------------------------------------------------
+log:
+  enabled: true
+  name: "log_xlcrawl_cfg_loader"
+  level: DEBUG
+  sinks:
+    - sink_type: console
+      level: DEBUG
+      format: "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <level>{message}</level>"
+      colorize: true
+      enqueue: true
+  context: {}

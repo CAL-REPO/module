@@ -205,10 +205,14 @@ class WebDriverManager:
         """WebDriver 시작
         
         내부적으로 선택된 WebDriver의 start() 메서드를 호출합니다.
+        시작 후 실제 User-Agent를 추출하여 캐시에 저장합니다.
         """
         self.log.info(f"Starting WebDriver ({self.config.provider}, region={self.config.region})")
         self._webdriver.start()
         self.log.info("WebDriver started successfully")
+        
+        # ✅ 실제 User-Agent 추출 및 캐시 저장 (항상 실행)
+        self._cache_user_agent()
     
     def quit(self):
         """WebDriver 종료
@@ -218,6 +222,96 @@ class WebDriverManager:
         self.log.info(f"Quitting WebDriver ({self.config.provider})")
         self._webdriver.quit()
         self.log.info("WebDriver quit successfully")
+    
+    # ==========================================================================
+    # Private Methods
+    # ==========================================================================
+    
+    def _cache_user_agent(self):
+        """실제 User-Agent 추출 및 캐시 저장 (항상 실행)
+        
+        WebDriver 시작 후 실제 브라우저의 User-Agent를 추출하여
+        browser_version.json 캐시 파일에 저장합니다.
+        
+        캐시 구조:
+        {
+            "firefox": {
+                "user_agent": "Mozilla/5.0 ...",
+                "version": "150.0",
+                "updated_at": "2025-10-28T12:34:56.789Z",
+                "source": "runtime_extraction"
+            }
+        }
+        
+        실패 시 경고 로그만 출력하고 계속 진행합니다.
+        """
+        try:
+            if not self._webdriver or not self._webdriver.driver:
+                self.log.warning("WebDriver not available for UA extraction")
+                return
+            
+            # 실제 User-Agent 추출
+            actual_ua = self.driver.execute_script("return navigator.userAgent;")
+            
+            if not actual_ua:
+                self.log.warning("Failed to extract User-Agent: empty result")
+                return
+            
+            from pathlib import Path
+            import json
+            from datetime import datetime, timezone
+            import re
+            
+            # 캐시 파일 경로
+            cache_path = Path(__file__).parent.parent / "configs" / "browser_version.json"
+            
+            # Provider별 버전 추출
+            provider = self.config.provider.lower()
+            version = "unknown"
+            
+            if provider == "firefox":
+                # Firefox 버전 추출 (예: "Firefox/150.0")
+                version_match = re.search(r'Firefox/(\d+\.\d+)', actual_ua)
+                version = version_match.group(1) if version_match else "unknown"
+            elif provider == "chrome":
+                # Chrome 버전 추출 (예: "Chrome/120.0.6099.109")
+                version_match = re.search(r'Chrome/(\d+\.\d+)', actual_ua)
+                version = version_match.group(1) if version_match else "unknown"
+            elif provider == "edge":
+                # Edge 버전 추출 (예: "Edg/120.0.6099.109")
+                version_match = re.search(r'Edg/(\d+\.\d+)', actual_ua)
+                version = version_match.group(1) if version_match else "unknown"
+            
+            # 캐시 데이터 생성
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_data = {
+                provider: {
+                    "user_agent": actual_ua,
+                    "version": version,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "source": "runtime_extraction"
+                }
+            }
+            
+            # 기존 캐시 읽기 (다른 provider 데이터 보존)
+            if cache_path.exists():
+                try:
+                    existing_data = json.loads(cache_path.read_text(encoding="utf-8"))
+                    existing_data.update(cache_data)
+                    cache_data = existing_data
+                except Exception as read_exc:
+                    self.log.warning(f"Failed to read existing cache: {read_exc}")
+            
+            # 캐시 파일 저장
+            cache_path.write_text(
+                json.dumps(cache_data, indent=2, ensure_ascii=False),
+                encoding="utf-8"
+            )
+            
+            self.log.info(f"✅ User-Agent cached: {provider}/{version}")
+        
+        except Exception as e:
+            self.log.warning(f"Failed to cache User-Agent: {e}")
     
     # ==========================================================================
     # Properties

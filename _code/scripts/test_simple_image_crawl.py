@@ -168,7 +168,9 @@ try:
         navigator.scroll(
             strategy=policy.scroll.strategy.value,
             max_scrolls=policy.scroll.max_scrolls,
-            pause_sec=policy.scroll.scroll_pause_sec
+            pause_sec=policy.scroll.scroll_pause_sec,
+            scroll_count=policy.scroll.scroll_count,
+            step_px=policy.scroll.scroll_step_px,
         )
         print(f"✅ Scroll completed")
     

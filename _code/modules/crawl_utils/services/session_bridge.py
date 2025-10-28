@@ -39,23 +39,38 @@ class SessionBridge:
 
     def sync_cookies_from_webdriver(self, domain: str) -> None:
         # WebDriver의 런타임 쿠키를 HTTP 세션 CookieJar로 주입(도메인 매칭)
+        synced = 0
+        td = (domain or "").lstrip('.')
         for c in self.webdriver.get_cookies():
             dom = c.get("domain", "")
             if not dom:
                 continue
-            match = (domain.endswith(dom) or dom.endswith(domain))
-            if not match:
+            cd = dom.lstrip('.')
+            # Match when cookie domain and target domain share suffix/prefix
+            if not (cd == td or cd.endswith(td) or td.endswith(cd)):
                 continue
-            self.http.cookies.set_cookie(Cookie(
-                version=0, name=c["name"], value=c["value"],
-                port=None, port_specified=False,
-                domain=dom, domain_specified=True, domain_initial_dot=dom.startswith("."),
-                path=c.get("path", "/"), path_specified=True,
-                secure=c.get("secure", False),
-                expires=c.get("expiry", None),
-                discard=False, comment=None, comment_url=None,
-                rest={"HttpOnly": c.get("httpOnly", None)}, rfc2109=False
-            ))
+            try:
+                self.http.cookies.set_cookie(Cookie(
+                    version=0, name=c["name"], value=c["value"],
+                    port=None, port_specified=False,
+                    domain=dom, domain_specified=True, domain_initial_dot=dom.startswith("."),
+                    path=c.get("path", "/"), path_specified=True,
+                    secure=c.get("secure", False),
+                    expires=c.get("expiry", None),
+                    discard=False, comment=None, comment_url=None,
+                    rest={"HttpOnly": c.get("httpOnly", None)}, rfc2109=False
+                ))
+                synced += 1
+            except Exception:
+                continue
+
+        # Debug: log how many cookies were synced for visibility
+        try:
+            from logs_utils import LogManager
+            # If LogManager exists, use root logger; otherwise ignore
+            # (caller may handle logging)
+        except Exception:
+            pass
 
     def resync(self, domain: str) -> None:
         # 인증 오류 등 발생 시: 해당 도메인 쿠키 비우고 WebDriver에서 재수집

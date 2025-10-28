@@ -12,83 +12,9 @@ import requests
 from ..core.interfaces import ResourceFetcher
 
 
-class AsyncDummyFetcher(ResourceFetcher):
-    """Async dummy fetcher for testing."""
-    
-    async def fetch_json(
-        self,
-        url: str,
-        *,
-        method: str = "GET",
-        params: Optional[Dict] = None,
-        payload: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
-        return {"url": url, "method": method, "params": params, "payload": payload}
-
-    async def fetch_bytes(self, url: str, *, method: str = "GET") -> bytes:
-        return f"dummy:{method}:{url}".encode("utf-8")
-
-
-class AsyncHTTPFetcher(ResourceFetcher):
-    """Asynchronous aiohttp-based HTTP fetcher."""
-
-    def __init__(self, *, timeout: Optional[int] = None, session: Optional[aiohttp.ClientSession] = None, default_headers: Optional[Dict[str, str]] = None):
-        self._timeout = timeout or 30
-        self._external_session = session
-        self._session: Optional[aiohttp.ClientSession] = session
-        self._default_headers = dict(default_headers or {})
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=self._timeout)
-            self._session = aiohttp.ClientSession(timeout=timeout)
-            if self._default_headers:
-                self._session.headers.update(self._default_headers)
-        elif self._default_headers:
-            self._session.headers.update({k: v for k, v in self._default_headers.items() if k not in self._session.headers})
-        return self._session
-
-    async def fetch_json(
-        self,
-        url: str,
-        *,
-        method: str = "GET",
-        params: Optional[Dict] = None,
-        payload: Optional[Dict] = None,
-    ) -> Dict[str, Any]:
-        session = await self._get_session()
-        async with session.request(method, url, params=params, json=payload) as resp:
-            resp.raise_for_status()
-            try:
-                return await resp.json()
-            except Exception:
-                text = await resp.text()
-                return {"status": resp.status, "text": text}
-
-    async def fetch_bytes(self, url: str, *, method: str = "GET") -> bytes:
-        session = await self._get_session()
-        async with session.request(method, url) as resp:
-            resp.raise_for_status()
-            return await resp.read()
-
-    async def close(self) -> None:
-        if self._session and self._session is not self._external_session and not self._session.closed:
-            await self._session.close()
-        self._session = self._external_session
-
-    async def __aenter__(self) -> "AsyncHTTPFetcher":
-        await self._get_session()
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb) -> None:
-        await self.close()
-
-
 # ============================================================================
 # Sync Fetcher: requests 기반 동기 버전
 # ============================================================================
-
-
 class SyncHTTPFetcher:
     """Synchronous HTTP fetcher using requests library."""
 
@@ -172,7 +98,6 @@ class SyncHTTPFetcher:
     def fetch_bytes(self, url: str, *, method: str = "GET") -> bytes:
         """Fetch bytes synchronously."""
         session = self._get_session()
-        resp = session.request(method, url, timeout=self._timeout)
         close_after = not self._reuse_session and self._external_session is None
         resp = session.request(
             method,
@@ -208,7 +133,73 @@ class SyncHTTPFetcher:
         """Context manager cleanup."""
         self.close()
 
+class AsyncDummyFetcher(ResourceFetcher):
+    """Async dummy fetcher for testing."""
+    
+    async def fetch_json(
+        self,
+        url: str,
+        *,
+        method: str = "GET",
+        params: Optional[Dict] = None,
+        payload: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
+        return {"url": url, "method": method, "params": params, "payload": payload}
 
-# ============================================================================
-# Backward compatibility aliases
+    async def fetch_bytes(self, url: str, *, method: str = "GET") -> bytes:
+        return f"dummy:{method}:{url}".encode("utf-8")
 
+
+class AsyncHTTPFetcher(ResourceFetcher):
+    """Asynchronous aiohttp-based HTTP fetcher."""
+
+    def __init__(self, *, timeout: Optional[int] = None, session: Optional[aiohttp.ClientSession] = None, default_headers: Optional[Dict[str, str]] = None):
+        self._timeout = timeout or 30
+        self._external_session = session
+        self._session: Optional[aiohttp.ClientSession] = session
+        self._default_headers = dict(default_headers or {})
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            timeout = aiohttp.ClientTimeout(total=self._timeout)
+            self._session = aiohttp.ClientSession(timeout=timeout)
+            if self._default_headers:
+                self._session.headers.update(self._default_headers)
+        elif self._default_headers:
+            self._session.headers.update({k: v for k, v in self._default_headers.items() if k not in self._session.headers})
+        return self._session
+
+    async def fetch_json(
+        self,
+        url: str,
+        *,
+        method: str = "GET",
+        params: Optional[Dict] = None,
+        payload: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
+        session = await self._get_session()
+        async with session.request(method, url, params=params, json=payload) as resp:
+            resp.raise_for_status()
+            try:
+                return await resp.json()
+            except Exception:
+                text = await resp.text()
+                return {"status": resp.status, "text": text}
+
+    async def fetch_bytes(self, url: str, *, method: str = "GET") -> bytes:
+        session = await self._get_session()
+        async with session.request(method, url) as resp:
+            resp.raise_for_status()
+            return await resp.read()
+
+    async def close(self) -> None:
+        if self._session and self._session is not self._external_session and not self._session.closed:
+            await self._session.close()
+        self._session = self._external_session
+
+    async def __aenter__(self) -> "AsyncHTTPFetcher":
+        await self._get_session()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.close()

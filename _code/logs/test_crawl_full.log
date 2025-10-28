@@ -1,0 +1,60 @@
+﻿python : 2025-10-28 23:51:13.553 | INFO     | cfg_utils.adapter.config:_init_logger:287 - Config initialized with logger: log_sync_crawl_cfg_loader
+At line:1 char:38
++ ... 대행\_code" ; python modules/crawl_utils/test/test_crawl.py 2>&1 | Out- ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2025-10-28 23:5...rawl_cfg_loader:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[32m2025-10-28 23:51:13.553[0m | [1mINFO    [0m | [1mConfig initialized with logger: log_sync_crawl_cfg_loader[0m
+2025-10-28 23:51:13.557 | DEBUG    | cfg_utils.adapter.config:__init__:79 - Environment variables processed
+2025-10-28 23:51:13.557 | INFO     | cfg_utils.adapter.config:load:130 - [Config] Loading 2 sources with individual policies
+2025-10-28 23:51:13.557 | DEBUG    | cfg_utils.adapter.config:load:137 - Processing SourcePolicy [0]: ('M:/CALife/CAShop - 구매대행/_code/modules/crawl_utils/configs/webdriver_manager.yaml', 'webdriver_manager')
+2025-10-28 23:51:13.561 | DEBUG    | cfg_utils.adapter.config:load:137 - Processing SourcePolicy [1]: ('M:/CALife/CAShop - 구매대행/_code/modules/crawl_utils/configs/sync_crawl.yaml', 'sync_crawl')
+2025-10-28 23:51:13.574 | DEBUG    | cfg_utils.adapter.config:load:169 - Final normalization (resolve_vars)
+2025-10-28 23:51:13.575 | SUCCESS  | cfg_utils.adapter.config:load:177 - [Config] Load completed
+2025-10-28 23:51:13.576 | INFO     | modules.crawl_utils.adapter.sync_crawl:run:354 - Analyzed URL: https://ko.aliexpress.com/item/1005008483128442.html?spm=a2g0o.detail.pcDetailBottomMoreOtherSeller.6.533f4uTA4uTAMR&gps-id=pcDetailBottomMoreOtherSeller&scm=1007.40050.3
+54490.0&scm_id=1007.40050.354490.0&scm-url=1007.40050.354490.0&pvid=786eeffd-8924-47c9-9235-d88951d17399&_t=gps-id%3ApcDetailBottomMoreOtherSeller%2Cscm-url%3A1007.40050.354490.0%2Cpvid%3A786eeffd-8924-47c9-9235-d88951d17399%2Ctpp_buckets%3A668%232846%238107%231934&pdp_
+ext_f=%7B%22order%22%3A%221414%22%2C%22eval%22%3A%221%22%2C%22sceneId%22%3A%2230050%22%7D&pdp_npi=6%40dis%21USD%2167.48%2137.11%21%21%2167.48%2137.11%21%402141115b17577566942155702e4901%2112000045343899055%21rec%21HK%214335231483%21ACX%211%210%21n_tag%3A-29919%3Bd%3A578
+eec35%3Bm03_new_user%3A-29894&utparam-url=scene%3ApcDetailBottomMoreOtherSeller%7Cquery_from%3A%7Cx_object_id%3A1005008483128442%7C_p_origin_prod%3A&gatewayAdapt=glo2kor → aliexpress/detail (region=global)
+2025-10-28 23:51:13.576 | INFO     | modules.crawl_utils.adapter.sync_crawl:run:359 - ✅ Loaded preset: aliexpress/detail
+2025-10-28 23:51:13.577 | INFO     | modules.crawl_utils.adapter.sync_crawl:run:418 - 🔍 DEBUG: items[0].dir_path = M:/CALife/CAShop - 구매대행/_code/output/test/TEST_RUNTIME_OVERRIDE
+2025-10-28 23:51:13.577 | INFO     | modules.crawl_utils.adapter.sync_crawl:run:466 - ✅ Applied preset override for global/firefox
+2025-10-28 23:51:13.578 | DEBUG    | modules.crawl_utils.adapter.webdriver_manager:__init__:93 - WebDriverManager initialized
+2025-10-28 23:51:13.578 | DEBUG    | modules.crawl_utils.adapter.webdriver_manager:_create_webdriver:133 - Creating WebDriver for provider: firefox
+2025-10-28 23:51:13.578 | INFO     | modules.crawl_utils.adapter.webdriver_manager:_create_webdriver:136 - Initializing Firefox WebDriver (region: global)
+2025-10-28 23:51:13.578 | INFO     | modules.crawl_utils.adapter.webdriver_manager:start:210 - Starting WebDriver (firefox, region=global)
+2025-10-28 23:51:13.578 | INFO     | crawl_utils.provider.firefox:start:90 - Starting Firefox WebDriver...
+2025-10-28 23:51:13.578 | INFO     | crawl_utils.provider.firefox:_configure_options:163 - Firefox binary: C:\Program Files\Mozilla Firefox\firefox.exe
+2025-10-28 23:51:13.578 | INFO     | crawl_utils.provider.firefox:_configure_options:169 - Firefox profile: M:\WEB_PROFILE\CRAWL_GLOBAL
+2025-10-28 23:51:13.578 | INFO     | crawl_utils.provider.firefox:_configure_options:181 - ✅ Stealth mode enabled: navigator.webdriver disabled
+2025-10-28 23:51:15.745 | INFO     | crawl_utils.provider.firefox:_configure_options:202 - ✅ Auto-detected UA: Firefox/144.0
+2025-10-28 23:51:15.747 | DEBUG    | crawl_utils.provider.firefox:_configure_options:216 - Cached UA to: M:\CALife\CAShop - 구매대행\_code\modules\crawl_utils\configs\browser_version.json
+2025-10-28 23:51:15.747 | INFO     | crawl_utils.provider.firefox:_configure_options:279 - User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0
+2025-10-28 23:51:15.747 | INFO     | crawl_utils.provider.firefox:_configure_options:284 - Accept-Languages: en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7
+2025-10-28 23:51:15.747 | INFO     | crawl_utils.provider.firefox:_get_driver_path:303 - Using specified driver path: M:\WebDriver\geckodriver_win32.exe
+2025-10-28 23:51:20.325 | DEBUG    | crawl_utils.provider.firefox:start:105 - ✅ navigator.webdriver forcefully removed via JavaScript
+2025-10-28 23:51:20.330 | INFO     | crawl_utils.provider.firefox:start:113 - Window size set to 1920x1080
+2025-10-28 23:51:20.330 | INFO     | crawl_utils.provider.firefox:start:115 - Firefox WebDriver started successfully.
+2025-10-28 23:51:20.330 | INFO     | modules.crawl_utils.adapter.webdriver_manager:start:212 - WebDriver started successfully
+2025-10-28 23:51:20.350 | INFO     | modules.crawl_utils.adapter.webdriver_manager:_cache_user_agent:311 - ✅ User-Agent cached: firefox/144.0
+2025-10-28 23:51:20.350 | INFO     | modules.crawl_utils.adapter.sync_crawl:run:498 - 🆕 Created new WebDriver in pool: firefox_global_CRAWL_GLOBAL_en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7
+2025-10-28 23:51:20.350 | INFO     | modules.crawl_utils.adapter.sync_crawl:_execute:621 - Using WebDriver from pool for URL: https://ko.aliexpress.com/item/1005008483128442.html?spm=a2g0o.detail.pcDetailBottomMoreOtherSeller.6.533f4uTA4uTAMR&gps-id=pcDetailBottomMoreOt
+herSeller&scm=1007.40050.354490.0&scm_id=1007.40050.354490.0&scm-url=1007.40050.354490.0&pvid=786eeffd-8924-47c9-9235-d88951d17399&_t=gps-id%3ApcDetailBottomMoreOtherSeller%2Cscm-url%3A1007.40050.354490.0%2Cpvid%3A786eeffd-8924-47c9-9235-d88951d17399%2Ctpp_buckets%3A668
+%232846%238107%231934&pdp_ext_f=%7B%22order%22%3A%221414%22%2C%22eval%22%3A%221%22%2C%22sceneId%22%3A%2230050%22%7D&pdp_npi=6%40dis%21USD%2167.48%2137.11%21%21%2167.48%2137.11%21%402141115b17577566942155702e4901%2112000045343899055%21rec%21HK%214335231483%21ACX%211%210%
+21n_tag%3A-29919%3Bd%3A578eec35%3Bm03_new_user%3A-29894&utparam-url=scene%3ApcDetailBottomMoreOtherSeller%7Cquery_from%3A%7Cx_object_id%3A1005008483128442%7C_p_origin_prod%3A&gatewayAdapt=glo2kor
+2025-10-28 23:51:57.714 | INFO     | modules.crawl_utils.adapter.sync_crawl:_execute:754 - ✅ ItemsNormalizer output: 29 items
+2025-10-28 23:52:01.962 | INFO     | modules.crawl_utils.adapter.sync_crawl:_cleanup_webdriver_pool:913 - 🔄 Closing WebDriver from pool: firefox_global_CRAWL_GLOBAL_en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7
+2025-10-28 23:52:01.963 | INFO     | modules.crawl_utils.adapter.webdriver_manager:quit:222 - Quitting WebDriver (firefox)
+2025-10-28 23:52:01.963 | INFO     | crawl_utils.provider.firefox:quit:125 - Quitting Firefox WebDriver...
+2025-10-28 23:52:04.769 | INFO     | crawl_utils.provider.firefox:quit:127 - Firefox WebDriver quit successfully.
+2025-10-28 23:52:04.770 | INFO     | modules.crawl_utils.adapter.webdriver_manager:quit:224 - WebDriver quit successfully
+2025-10-28 23:52:04.770 | INFO     | modules.crawl_utils.adapter.sync_crawl:_cleanup_webdriver_pool:919 - ✅ WebDriver pool cleaned up
+M:\CALife\CAShop - 구매대행\_code
+
+================================================================================
+2️⃣ Runtime Override 테스트: sync_crawl__items__0__dir_path (KeyPath)
+================================================================================
+✅ Attempting override to: 'M:/CALife/CAShop - 구매대행/_code/output/test/TEST_RUNTIME_OVERRIDE'
+================================================================================
+
+Creating SyncJSExtractor

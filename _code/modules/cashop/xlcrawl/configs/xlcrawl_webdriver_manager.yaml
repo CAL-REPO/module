@@ -1,0 +1,70 @@
+# -*- coding: utf-8 -*-
+# 글로벌 지역 WebDriver 설정
+# 지원 브라우저: Firefox (Chrome 향후 추가 가능)
+# 적용 사이트: aliexpress, alibaba
+
+webdriver_manager:
+  # -------------------------------------------------------------------------
+  # 공통 설정 (모든 브라우저)
+  # -------------------------------------------------------------------------
+  provider: ""  # firefox, chrome, edge
+  region: ""
+  
+  headless: false
+  window_size: [1920, 1080]
+  
+  # -------------------------------------------------------------------------
+  # Accept-Language (지역별 고정값, region에 따라 Preset으로 자동 결정)
+  # -------------------------------------------------------------------------
+  # accept_languages: ""
+  
+  # -------------------------------------------------------------------------
+  # User-Agent (browser_versions.json에서 런타임 주입)
+  # ⚠️  자주 변경되므로 JSON 파일에서 관리!
+  # -------------------------------------------------------------------------
+  # user_agent: ""  # 런타임에 get_user_agent() 사용
+  
+  # -------------------------------------------------------------------------
+  # 자동화 탐지 회피
+  # -------------------------------------------------------------------------
+  disable_automation: true
+  
+  # -------------------------------------------------------------------------
+  # Firefox 전용 설정
+  # -------------------------------------------------------------------------
+  firefox:
+    binary_path: "C:/Program Files/Mozilla Firefox/firefox.exe"
+    profile_path: "M:/Firefox_Profile/THKIM"
+    driver_path: "M:/WebDriver/geckodriver_win32.exe"
+    use_webdriver_manager: true
+    
+    # Firefox preferences
+    dom_enabled: false
+    resist_fingerprint_enabled: false
+    
+    # 추가 옵션
+    enable_cookies: true
+    enable_cache: true
+    load_images: true
+    enable_javascript: true
+  
+  # -------------------------------------------------------------------------
+  # Log - 로깅 설정 (Dual Logging 지원)
+  # -------------------------------------------------------------------------
+  # enabled: false → Parent logger만 사용 (통합 로그)
+  # enabled: true + EntryPoint에서 log_manager 주입 → Dual Logging 활성화
+  log_config:
+    enabled: false
+    name: 'crawl_webdriver_module'
+    level: 'DEBUG'
+    sinks:
+      - sink_type: 'file'
+        file_path: '{{cashop_test_dir}}/logs/crawl_webdriver_{time:YYYY-MM-DD}.log'
+        level: 'DEBUG'
+        format: '<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>'
+        rotation: '5 MB'
+        retention: '3 days'
+        enqueue: true
+      - sink_type: 'console'
+        level: 'INFO'
+        colorize: true

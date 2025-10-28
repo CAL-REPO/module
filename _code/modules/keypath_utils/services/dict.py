@@ -108,6 +108,102 @@ class KeyPathDict:
         self.data = self._merger.merge(self.data, dict(patch), policy=policy)
         return self
 
+    def merge_array(
+        self,
+        patch: Mapping[str, Any],
+        key: str = "items",
+        strategy: str = "update",
+        inplace: bool = True
+    ) -> KeyPathDict:
+        """배열 요소 병합 (Array Element Merge)
+        
+        일반 merge()는 배열 전체를 교체하지만, 이 메서드는 배열의 각 요소를
+        개별적으로 병합합니다. Runtime Override에서 배열 일부 필드만 수정할 때 유용합니다.
+        
+        Args:
+            patch: 병합할 dict (배열 포함)
+            key: 병합할 배열 필드명 (default: "items")
+            strategy: 병합 전략
+                - "update": 기존 요소 업데이트 + 새 요소 추가 (default)
+                  * 인덱스가 존재하면 dict.update()로 병합
+                  * 인덱스가 없으면 append
+                - "append": 모든 요소 추가 (extend)
+                - "replace": 전체 교체 (일반 merge와 동일)
+            inplace: 원본 수정 여부
+        
+        Returns:
+            Self for chaining
+        
+        Examples:
+            >>> # Update strategy (default) - 부분 필드 수정
+            >>> model = KeyPathDict({"items": [{"kind": "image", "dir": "/old"}]})
+            >>> model.merge_array({"items": [{"dir": "/new"}]})
+            >>> model.data
+            {'items': [{'kind': 'image', 'dir': '/new'}]}
+            
+            >>> # Append strategy - 요소 추가
+            >>> model = KeyPathDict({"items": [{"id": 1}]})
+            >>> model.merge_array({"items": [{"id": 2}]}, strategy="append")
+            >>> model.data
+            {'items': [{'id': 1}, {'id': 2}]}
+            
+            >>> # Replace strategy - 전체 교체
+            >>> model = KeyPathDict({"items": [{"id": 1}]})
+            >>> model.merge_array({"items": [{"id": 2}]}, strategy="replace")
+            >>> model.data
+            {'items': [{'id': 2}]}
+            
+            >>> # Multiple fields in nested dict
+            >>> model = KeyPathDict({
+            ...     "items": [{"kind": "image", "dir": "/old", "fso_name": {"prefix": "OLD"}}]
+            ... })
+            >>> model.merge_array({"items": [{"dir": "/new"}]})
+            >>> model.data
+            {'items': [{'kind': 'image', 'dir': '/new', 'fso_name': {'prefix': 'OLD'}}]}
+        
+        Use Case (Runtime Override):
+            >>> # sync_crawl.py에서 items[0]__dir_path override
+            >>> nested_override = {"items": [{"dir_path": "/custom/path"}]}
+            >>> merged_kp.merge_array(nested_override, key="items", strategy="update")
+            >>> # items[0]의 dir_path만 수정, 나머지 필드(kind, source 등)는 유지
+        """
+        if key not in patch:
+            return self
+        
+        patch_array = patch[key]
+        if not isinstance(patch_array, list):
+            return self
+        
+        # Ensure key exists in self.data
+        if key not in self.data:
+            self.data[key] = []
+        
+        if strategy == "update":
+            # Update existing + append new
+            for idx, patch_item in enumerate(patch_array):
+                if idx < len(self.data[key]):
+                    # Update existing element
+                    if isinstance(self.data[key][idx], dict) and isinstance(patch_item, dict):
+                        self.data[key][idx].update(patch_item)
+                    else:
+                        self.data[key][idx] = patch_item
+                else:
+                    # Append new element
+                    self.data[key].append(patch_item)
+        
+        elif strategy == "append":
+            # Append all elements
+            self.data[key].extend(patch_array)
+        
+        elif strategy == "replace":
+            # Replace entire array
+            self.data[key] = patch_array.copy() if inplace else patch_array
+        
+        else:
+            raise ValueError(f"Unknown merge_array strategy: {strategy}. Use 'update', 'append', or 'replace'.")
+        
+        return self
+
     def apply_overrides(
         self,
         overrides: Dict[str, Any],
@@ -381,27 +477,47 @@ class KeyPathDict:
         normalizer: Optional[Any] = None,
         accept_dot: bool = True,
     ) -> Dict[str, Any]:
-        """Convert KeyPath-style flat dict to nested dict.
+        """Convert KeyPath-style flat dict to nested dict (with array index support).
         
         Transforms flat dict with KeyPath keys (e.g., "a__b__c") 
         into nested dict structure (e.g., {"a": {"b": {"c": value}}}).
         
+        ✅ Array Index Support (v2.0):
+        - items[0]__dir_path → {"items": [{"dir_path": ...}]}
+        - items[0]__fso_name__prefix → {"items": [{"fso_name": {"prefix": ...}}]}
+        - items__0__dir_path → {"items": {"0": {"dir_path": ...}}} (legacy, dict)
+        
         This is a convenience method that internally uses apply_overrides().
         
         Args:
-            keypath_dict: Flat dict with KeyPath-style keys ("a__b__c").
-                Example: {"a__b": 1, "x__y__z": 2}
+            keypath_dict: Flat dict with KeyPath-style keys ("a__b__c" or "items[0]__field").
+                Example: {"a__b": 1, "items[0]__dir_path": "/test"}
             normalizer: Optional KeyPathNormalizer for custom separators.
             accept_dot: Allow "." fallback when normalizer is provided.
         
         Returns:
             Nested dict with hierarchical structure.
-            Example: {"a": {"b": 1}, "x": {"y": {"z": 2}}}
+            Example: {"a": {"b": 1}, "items": [{"dir_path": "/test"}]}
         
         Examples:
             >>> # Basic usage
             >>> KeyPathDict.to_nested_dict({"a__b": 1, "x__y__z": 2})
             {'a': {'b': 1}, 'x': {'y': {'z': 2}}}
+            
+            >>> # Array index support (NEW!)
+            >>> KeyPathDict.to_nested_dict({"items[0]__dir_path": "/test"})
+            {'items': [{'dir_path': '/test'}]}
+            
+            >>> # Multiple array elements
+            >>> KeyPathDict.to_nested_dict({
+            ...     "items[0]__dir_path": "/test1",
+            ...     "items[1]__dir_path": "/test2"
+            ... })
+            {'items': [{'dir_path': '/test1'}, {'dir_path': '/test2'}]}
+            
+            >>> # Nested array fields
+            >>> KeyPathDict.to_nested_dict({"items[0]__fso_name__prefix": "CUSTOM"})
+            {'items': [{'fso_name': {'prefix': 'CUSTOM'}}]}
             
             >>> # In ConfigLikeLoader
             >>> override_dict = KeyPathDict.to_nested_dict(overrides)
@@ -415,10 +531,176 @@ class KeyPathDict:
             - apply_overrides(): Instance method for in-place application
             - KeyPathAccessor: Low-level KeyPath access
         """
-        instance = KeyPathDict()
-        instance.apply_overrides(
-            dict(keypath_dict),
-            normalizer=normalizer,
-            accept_dot=accept_dot,
-        )
-        return instance.data.copy()
+        import re
+        
+        # ✅ Phase 1: Array index preprocessing
+        # items[0]__dir_path → nested dict with list
+        result = {}
+        separator = "__"
+        
+        for key, value in keypath_dict.items():
+            key_str = str(key)
+            
+            # Detect [N] pattern in any segment
+            # items[0]__dir_path → ["items", 0, "dir_path"]
+            parts = []
+            for segment in key_str.split(separator):
+                array_match = re.match(r'^(\w+)\[(\d+)\]$', segment)
+                if array_match:
+                    field_name = array_match.group(1)
+                    idx = int(array_match.group(2))
+                    parts.append((field_name, idx))  # Tuple = array access
+                else:
+                    parts.append(segment)  # String = dict key
+            
+            # Build nested structure
+            current = result
+            for i, part in enumerate(parts[:-1]):
+                if isinstance(part, tuple):
+                    # Array access: (field_name, idx)
+                    field_name, idx = part
+                    
+                    # Ensure field exists as list
+                    if field_name not in current:
+                        current[field_name] = []
+                    
+                    # Ensure list has enough elements
+                    while len(current[field_name]) <= idx:
+                        current[field_name].append({})
+                    
+                    current = current[field_name][idx]
+                else:
+                    # Dict key
+                    if part not in current:
+                        # Check if next part is array access
+                        next_part = parts[i + 1]
+                        if isinstance(next_part, tuple):
+                            current[part] = []
+                        else:
+                            current[part] = {}
+                    current = current[part]
+            
+            # Set final value
+            final_key = parts[-1]
+            if isinstance(final_key, tuple):
+                # Should not happen (array access can't be final)
+                field_name, idx = final_key
+                if field_name not in current:
+                    current[field_name] = []
+                while len(current[field_name]) <= idx:
+                    current[field_name].append(None)
+                current[field_name][idx] = value
+            else:
+                current[final_key] = value
+        
+        return result
+    
+    @staticmethod
+    def from_nested_dict(
+        nested_dict: Mapping[str, Any],
+        separator: str = "__",
+        *,
+        array_bracket: bool = False,
+        parent: str = ""
+    ) -> Dict[str, Any]:
+        """Convert nested dict to flat KeyPath dict.
+        
+        Transforms nested dict structure into flat dict with KeyPath keys.
+        This is the reverse operation of to_nested_dict().
+        
+        Transformation rules:
+        1. Nested dict: Recursively flatten
+           {"product": {"title": "..."}} → {"product__title": "..."}
+        
+        2. List[dict]: Split into field arrays (Extractor pattern)
+           {"options": [{"url": "a", "name": "Red"}, {"url": "b", "name": "Blue"}]}
+           → {"options__url": ["a", "b"], "options__name": ["Red", "Blue"]}
+        
+        3. List[primitive]: Keep as-is
+           {"images": ["url1", "url2"]} → {"images": ["url1", "url2"]}
+        
+        4. Primitive: Keep as-is
+           {"title": "..."} → {"title": "..."}
+        
+        Args:
+            nested_dict: Nested dict to flatten
+            separator: KeyPath separator (default "__")
+            array_bracket: Use [*] notation for arrays (default False)
+            parent: Parent KeyPath (internal, for recursion)
+        
+        Returns:
+            Flat KeyPath dict
+        
+        Examples:
+            >>> # Basic nested dict
+            >>> KeyPathDict.from_nested_dict({"a": {"b": 1}})
+            {'a__b': 1}
+            
+            >>> # List[dict] → field arrays (Extractor pattern)
+            >>> KeyPathDict.from_nested_dict({
+            ...     "options": [{"url": "a.jpg", "name": "Red"}, {"url": "b.jpg", "name": "Blue"}]
+            ... })
+            {'options__url': ['a.jpg', 'b.jpg'], 'options__name': ['Red', 'Blue']}
+            
+            >>> # Mixed structure (like Aliexpress JS result)
+            >>> KeyPathDict.from_nested_dict({
+            ...     "product": {"title": "iPhone", "price": "$999"},
+            ...     "images": ["img1.jpg", "img2.jpg"],
+            ...     "optionsItems": [{"url": "opt1.jpg", "name": "Red"}]
+            ... })
+            {
+                'product__title': 'iPhone',
+                'product__price': '$999',
+                'images': ['img1.jpg', 'img2.jpg'],
+                'optionsItems__url': ['opt1.jpg'],
+                'optionsItems__name': ['Red']
+            }
+            
+            >>> # List[primitive] kept as-is
+            >>> KeyPathDict.from_nested_dict({"tags": ["new", "hot"]})
+            {'tags': ['new', 'hot']}
+        
+        See Also:
+            - to_nested_dict(): Reverse operation (Flat → Nested)
+            - Extractor._flatten_to_keypath(): Similar logic in crawl_utils
+        """
+        result = {}
+        
+        def flatten(data: Any, path: str = "") -> None:
+            """Recursive flatten helper."""
+            if isinstance(data, dict):
+                # Nested dict: recurse into each key
+                for key, value in data.items():
+                    new_path = f"{path}{separator}{key}" if path else key
+                    flatten(value, new_path)
+            
+            elif isinstance(data, list) and data:
+                # Check if list of dicts (need to split into field arrays)
+                if isinstance(data[0], dict):
+                    # List[dict] → field arrays
+                    # Extract all unique fields across all items
+                    all_fields = set()
+                    for item in data:
+                        if isinstance(item, dict):
+                            all_fields.update(item.keys())
+                    
+                    # Create array for each field
+                    for field in sorted(all_fields):  # sorted for deterministic order
+                        field_path = f"{path}{separator}{field}"
+                        field_values = []
+                        for item in data:
+                            if isinstance(item, dict):
+                                field_values.append(item.get(field))
+                            else:
+                                field_values.append(None)
+                        result[field_path] = field_values
+                else:
+                    # List[primitive]: keep as-is
+                    result[path] = data
+            
+            else:
+                # Primitive value or empty list: keep as-is
+                result[path] = data
+        
+        flatten(nested_dict)
+        return result
